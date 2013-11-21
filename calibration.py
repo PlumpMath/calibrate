@@ -49,23 +49,45 @@ class World(DirectObject):
         self.frameTask.move_random_int = (2, 3)
         self.frameTask.move_int = random.uniform(*self.frameTask.move_random_int)  # time from off to move
         #self.frameTask.next_fade = 2  # wait 2 seconds to first fade
-        # first square appears one second after start
-        self.frameTask.next_on = 1
+        # first square appears one second after start, this is the first interval
+        self.frameTask.interval = 1
         # total time to go from on to move, if random
         self.frameTask.total_int = self.frameTask.on_int + self.frameTask.fade_int + self.frameTask.move_int
         # next move, if random
         self.frameTask.next_move = self.frameTask.next_on + self.frameTask.total_int
-        # self.task.move gets changed to true after a move, false when square goes off
-        # if not moving is not random, always true
-        self.task.move = True
+        # determines if we are moving randomly or manually
+        self.frameTask.random = True
+        # waiting for a manual move, True after square turns off in random is on
+        self.frameTask.move = False
+        self.frameTask.switch = {
+            0: self.square_on,
+            1: self.square_fade,
+            2: self.square_off,
+            3: self.square_move}
 
     def frame_loop(self, task):
         #print task.time
         dt = task.time - task.last
         task.last = task.time
-        # have we moved?
-        if task.move:
-            if task.time > task.next_on + task.on_int + task.fade_int:
+        # are we waiting for a manual move?
+        if not task.move:
+            if task.time > task.interval:
+                task.switch[task.now]
+                # if we are turning off the square, next is moving,
+                # which may be done manually
+                if task.now == 2 and task.random:
+                    task.move = True
+                    task.now = 0
+                elif task.now == 3:
+                    task.now = 0
+                else:
+                    task.now += 1
+
+
+
+
+
+
                 print 'off'
                 if self.random:
                     task.move = False
@@ -84,46 +106,22 @@ class World(DirectObject):
                 print 'move'
 
 
+    # also change task.interval in these methods:
+    def square_on(self, position):
+        self.square.reparentTo(window.camera)
 
-
-
-
-
-        #if self.random:
-        #    if task.time > task.next_move:
-        #        print 'move'
-        #if task.time > task.next_fade:
-        #    #print 'fade'
-        #    #print task.time
-        #    # next fade will be now plus the duration of this fade
-        #    # plus the dark period
-        #    task.next_fade = task.time + task.fade_int + task.dark_int
-        #    #print 'next dark', task.next_dark
-        #    #print 'next fade', task.next_fade
-        #    self.fade()
-        #elif task.time > task.next_dark:
-        #    # next dark will be after next fade
-        #    task.next_dark = task.next_fade + task.fade_int
-        #    #print 'darken'
-        #    #print task.time
-        #    self.dark()
-        #heading = self.square.getPos() + (0.05, 0, 0)
-        #self.square.setPos(heading)
-        #print self.square.getPos()
-        #print 'loop'
-        return Task.cont # task will continue indefinitely
-
-    def move(self, position):
+    def square_move(self, position):
         self.square.setPos(position)
 
-    def fade(self):
+    def square_fade(self):
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
         self.square.setColor(175 / 255, 175 / 255, 130 / 255, 1.0)
 
-    def dark(self):
+    def square_off(self):
         self.square.clearColor()
+        self.square.removeNode()
 
 W = World()
 run()
