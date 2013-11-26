@@ -38,9 +38,9 @@ class Positions:
         if not do_random:
             control_set = self.large_set
             for i in control_set:
-                print 'get random point'
+                #print 'get random point'
                 pos = Point2(i)
-                print 'pos in positions', pos
+                #print 'pos in positions', pos
                 yield (pos.getX(), depth, pos.getY())
         else:
             control_set = self.large_set * CONFIG['POINT_REPEAT']

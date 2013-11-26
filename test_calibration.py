@@ -5,9 +5,7 @@ from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import datetime
-global taskMgr
-#from positions import positions
-#import time
+
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
@@ -39,7 +37,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_square_turns_on(self):
         """
-        The square should turn on after one second
+        The square should turn on when next is 1
         """
         #time_out = time.time() + 2.1
         #start_time =
@@ -52,14 +50,6 @@ class TestCalibration(unittest.TestCase):
                 #print 'square should be on'
                 square_off = False
 
-            #for tasks in taskMgr.getTasks():
-            #    print tasks
-            #    if tasks.find('frame_loop'):
-            #        print 'yes'
-            #if task
-            #print time.time()
-            #print 'time out', time_out
-        #print 'close'
         self.assertTrue(self.w.square.getParent())
 
     def test_square_fades(self):
@@ -139,6 +129,118 @@ class TestCalibration(unittest.TestCase):
                 #print 'square should be on for second time'
                 square_off = False
         self.assertTrue(self.w.square.getParent())
+
+    def test_timing_off_to_on(self):
+        square_off = True
+        a = datetime.datetime.now()
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be on'
+                square_off = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        # checking move interval, not actually moving, but this is the time
+        # from off to move/on, which we do without the moving part...
+        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
+
+    def test_timing_on_to_fade(self):
+        # First get to on
+        square_off = True
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be on'
+                square_off = False
+        # now wait for fade:
+        square_on = True
+        a = datetime.datetime.now()
+        while square_on:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 2:
+                #print 'square should be on'
+                square_on = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
+
+    def test_timing_fade_on_to_off(self):
+        # First get to fade on
+        square_dim = True
+        while square_dim:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 2:
+                #print 'square should be on'
+                square_dim = False
+        # now wait for fade off:
+        square_fade = True
+        a = datetime.datetime.now()
+        while square_fade:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 3:
+                #print 'square should be on'
+                square_fade = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really off, sanity check
+        self.assertFalse(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['FADE_INTERVAL'][0], 1)
+
+    def test_timing_off_to_move(self):
+        # First get to off
+        square_fade = True
+        while square_fade:
+            #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 3:
+                #print 'square should be off'
+                square_fade = False
+        # now wait for move/on:
+        square_off = True
+        a = datetime.datetime.now()
+        while square_off:
+            #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be off'
+                square_off = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
     def test_manual_move(self):
         # Wait for signal for move, send keypress,
@@ -239,7 +341,7 @@ class TestCalibration(unittest.TestCase):
         # make sure really on, sanity check
         self.assertTrue(self.w.square.getParent())
         # make sure timing within 2 places
-        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 2)
+        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
     def tearDown(self):
         #print 'teardown'

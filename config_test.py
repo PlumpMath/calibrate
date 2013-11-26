@@ -15,6 +15,6 @@ Y_LIMITS = 20
 # All intervals represent min and max for a uniform random distribution
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.
-ON_INTERVAL = (1, 1)  # Time on
-FADE_INTERVAL = (0.5, 0.5) # Time faded
+ON_INTERVAL = (1.00, 1.00)  # Time on
+FADE_INTERVAL = (0.50, 0.50) # Time faded
 MOVE_INTERVAL = (0.75, 0.75) # Time from fading off until on in new place

@@ -58,6 +58,8 @@ class World(DirectObject):
         # this is the first interval - time from move to on
         # The task object is a good place to put variables that should stay
         # persistent for the task function from frame to frame
+        # first interval will be the move interval (off to move/on - won't
+        # actually move)
         self.frameTask.interval = random.uniform(*self.all_intervals[2])
 
         # Main work horse: index with self.next to choose appropriate method
@@ -94,7 +96,7 @@ class World(DirectObject):
     #the given value
     def setKey(self, key, val):
         self.keys[key] = val
-        print 'set key', self.keys[key]
+        #print 'set key', self.keys[key]
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -112,18 +114,18 @@ class World(DirectObject):
                 #print task.time
                 #print 'task', task.switch[task.now]
                 #print 'in frame loop', self.next
-                print 'old interval', task.interval
+                #print 'old interval', task.interval
                 task.switch[self.next]()
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
-                print self.all_intervals
-                print self.next
+                #print self.all_intervals
+                #print self.next
                 # if we are turning off the square, next is moving.
                 # check to see if we are moving manually
                 # we will set self.next correctly for the next task
                 # when we do the manual move
                 if self.next == 2 and self.manual:
-                    print 'manual move'
+                    #print 'manual move'
                     task.move = True
                     return task.cont
                 # if we are at self.next = 3, then the last task was moving,
@@ -134,16 +136,16 @@ class World(DirectObject):
                 # that we are using the correct corresponding interval
                 if self.next == 3:
                     self.next = 0
-                print self.all_intervals[self.next]
+                #print self.all_intervals[self.next]
                 task.interval = random.uniform(*self.all_intervals[self.next])
                 #task.interval = self.fixed[self.next]
-                print 'next interval', task.interval
+                #print 'next interval', task.interval
                 task.interval = task.time + task.interval
-                print 'next switch time', task.interval
+                #print 'next switch time', task.interval
                 #print 'time now', task.time
                 #print 'next', self.next
                 self.next += 1
-                print 'update task number', self.next
+                #print 'update task number', self.next
         else:
             #print "check for key"
             #print self.keys["switch"]
@@ -166,20 +168,20 @@ class World(DirectObject):
 
                     # don't come back here until ready to move again
                     task.move = False
-                    print 'back to regularly scheduled program'
+                    #print 'back to regularly scheduled program'
 
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely
 
     def square_on(self):
         print 'square on, 0'
-        print self.square.getPos()
+        #print self.square.getPos()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         self.square.reparentTo(camera)
         # next interval is fade on to off
         #self.interval = random.uniform(*FADE_INTERVAL)
         #print self.frameTask.new_interval
-        print 'square is now on'
+        #print 'square is now on'
 
     def square_fade(self):
         print 'square fade, 1'
@@ -204,11 +206,11 @@ class World(DirectObject):
 
     def square_move(self, position=None):
         print 'square move, 3'
-        print 'position', position
+        #print 'position', position
         if not position:
-            print 'trying to get a auto position'
+            #print 'trying to get a auto position'
             self.square.setPos(Point3(self.pos.next()))
-            print self.square.getPos()
+            #print self.square.getPos()
         else:
             self.square.setPos(Point3(position))
         # go directly to on
