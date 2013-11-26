@@ -14,6 +14,11 @@ class World(DirectObject):
         config = {}
         execfile(config_file, config)
         window = ShowBase()
+        window2 = base.openWindow()
+        camera2 = base.camList[1]
+        
+        smiley = window.loader.loadModel('smiley')
+        smiley.reparentTo()
         #self.pos = Positions()
         window.setBackgroundColor(115/255, 115/255, 115/255)
         # if you want to see the frame rate
