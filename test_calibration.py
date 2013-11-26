@@ -2,7 +2,10 @@ import unittest
 from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
 from panda3d.core import VBase4
+from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
+import datetime
+global taskMgr
 #from positions import positions
 #import time
 
@@ -22,6 +25,9 @@ class TestCalibration(unittest.TestCase):
         loadPrcFileData("", "window-type offscreen")
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         self.w = World()
+        self.config = {}
+        execfile('config_test.py', self.config)
+        self.depth = 0
 
     def test_no_square(self):
         """
@@ -80,7 +86,6 @@ class TestCalibration(unittest.TestCase):
         self.assertFalse(self.w.square.getParent())
 
     def test_square_moves_automatically(self):
-        self.w.manual = False
         old_position = self.w.square.getPos()
         count = 0
         square_not_moved = True
@@ -108,7 +113,6 @@ class TestCalibration(unittest.TestCase):
         self.assertNotEqual(self.w.square.getPos(), old_position)
 
     def test_square_turns_on_after_move(self):
-        self.w.manual = False
         count = 0
         square_off = True
         last = 0
@@ -117,6 +121,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             #print count
             # need to check for frameTask.now to change to 1 the second time
+            # (first time is just the beginning of the task, before moving)
             # if taskTask.now changes to 1, then we have just turned on
             # sometimes, especially with off-screen, the timing isn't accurate,
             # and we have to calls to the same function right in a row. Make sure
@@ -136,31 +141,41 @@ class TestCalibration(unittest.TestCase):
         self.assertTrue(self.w.square.getParent())
 
     def test_manual_move(self):
-        # wait for square to turn off, then send signal to move
-        self.w.manual = True
+        # Wait for signal for move, send keypress,
+        # check position changed
+        self.w.set_manual(self.config, True)
         old_position = self.w.square.getPos()
-        square_dim = True
-        while square_dim:
+        signal = False
+        while not signal:
             taskMgr.step()
-            if self.w.next == 3:
-                square_dim = False
+            if self.w.frameTask.move is True:
+                signal = True
+                #print 'made it out of loop!'
         # and move
-        self.w.square_move()
+        self.w.keys["switch"] = 7
+        #print 'step'
+        taskMgr.step()
+        #print self.w.keys["switch"]
+        #print 'old position', old_position
         self.assertNotEqual(self.w.square.getPos(), old_position)
 
-    def test_after_manual_move(self):
+    def test_on_after_manual_move(self):
         # make sure square goes on after manual move
         # wait for square to turn off, then send signal to move
-        self.w.manual = True
+        self.w.set_manual(self.config, True)
         before = self.w.square.getParent()
-        square_dim = True
-        while square_dim:
+        signal = False
+        while not signal:
             taskMgr.step()
-            if self.w.next == 3:
-                square_dim = False
+            if self.w.frameTask.move is True:
+                signal = True
         #print 'done with loop'
         # and move
-        self.w.square_move()
+        # and move
+        self.w.keys["switch"] = 3
+        #print 'step'
+        taskMgr.step()
+        #self.w.square_move()
         #print 'move'
         #print self.w.square.getParent()
         self.assertTrue(self.w.square.getParent())
@@ -168,48 +183,66 @@ class TestCalibration(unittest.TestCase):
         # double check square was off to begin with
         self.assertNotEqual(self.w.square.getParent(), before)
 
-    def test_manual_move_keypress(self):
-        # wait for square to turn off, then send signal to move
-        self.w.manual = True
-        old_position = self.w.square.getPos()
-        square_dim = True
-        while square_dim:
-            taskMgr.step()
-            if self.w.next == 3:
-                square_dim = False
-        # and move
-        self.w.keys["switch"] = 3
-        #print 'step'
-        taskMgr.step()
-        #print self.w.keys["switch"]
-        self.assertNotEqual(self.w.square.getPos(), old_position)
-
-    def test_manual_move_after_first_keypress(self):
+    def test_manual_move_after_second_keypress(self):
         # need to make sure still works after first cycle...
-        self.w.manual = True
-        square_dim = True
-        while square_dim:
+        self.w.set_manual(self.config, True)
+        signal = False
+        while not signal:
             taskMgr.step()
-            if self.w.next == 3:
-                square_dim = False
+            if self.w.frameTask.move is True:
+                signal = True
         # and move
         self.w.keys["switch"] = 3
         #print 'step'
         taskMgr.step()
         #print self.w.keys["switch"]
         old_position = self.w.square.getPos()
-        square_dim = True
-        while square_dim:
+        signal = False
+        while not signal:
             taskMgr.step()
-            if self.w.next == 3:
-                square_dim = False
+            if self.w.frameTask.move is True:
+                signal = True
         # and move
         self.w.keys["switch"] = 4
         taskMgr.step()
         self.assertNotEqual(self.w.square.getPos(), old_position)
 
+    def test_waits_correct_time_after_manual_move(self):
+        # We turn on at the same time we move, so check the
+        # interval between turning on and fading, which will
+        # be when self.w.next switches to 2.
+        self.w.set_manual(self.config, True)
+        old_position = self.w.square.getPos()
+        #print old_position
+        signal = False
+        while not signal:
+            taskMgr.step()
+            if self.w.frameTask.move is True:
+                signal = True
+        # and move
+        self.w.keys["switch"] = 3
+        taskMgr.step()
+        #print 'check time'
+        a = datetime.datetime.now()
+        # we have moved, need to stop when square fades
+        square_on = True
+        while square_on:
+            taskMgr.step()
+            if self.w.next == 2:
+                square_on = False
+
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 2)
+
     def tearDown(self):
-        print 'teardown'
+        #print 'teardown'
         taskMgr.remove(self.w.frameTask)
         self.w.close()
         del self.w
