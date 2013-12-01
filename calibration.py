@@ -45,9 +45,9 @@ class World(DirectObject):
         window.disableMouse()
         self.accept("escape", sys.exit)  # escape
 
-
-        self.fixed = [0.75, 0.5, 1]
-        # determines if we are moving manually or randomly
+        # determines if we are moving manually or randomly,
+        # eventually this should be an argument for running as script,
+        # so we can switch modes.
         self.set_manual(config)
 
         #Now we create the task. taskMgr is the task manager that actually calls
@@ -143,7 +143,6 @@ class World(DirectObject):
                     self.next = 0
                 #print self.all_intervals[self.next]
                 task.interval = random.uniform(*self.all_intervals[self.next])
-                #task.interval = self.fixed[self.next]
                 #print 'next interval', task.interval
                 task.interval = task.time + task.interval
                 #print 'next switch time', task.interval
@@ -238,10 +237,11 @@ class World(DirectObject):
         self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
 
 if __name__ == "__main__":
-    #print 'auto-running'
+    #print 'run as module'
     config_file = 'config.py'
     W = World()
     run()
 else:
-    #print 'testing!'
+    # file was imported
+    # only happens during testing...
     config_file = 'config_test.py'
