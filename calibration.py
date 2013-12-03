@@ -1,7 +1,8 @@
 from __future__ import division
-from direct.showbase.ShowBase import ShowBase
+import direct.showbase.ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
+from panda3d.core import BitMask32, WindowProperties
 #from direct.task.Task import Task
 from positions import Positions
 import sys
@@ -13,14 +14,48 @@ class World(DirectObject):
         # get configurations from config file
         config = {}
         execfile(config_file, config)
-        window = ShowBase()
-        window2 = base.openWindow()
-        camera2 = base.camList[1]
-        
+        window = direct.showbase.ShowBase.ShowBase()
+
+        props = WindowProperties()
+        props.setForeground(True)
+        #props.setCursorHidden(True)
+        window.win.requestProperties(props)
+
+
+        print props
+        panda = window.loader.loadModel('panda')
+        panda.reparentTo(window.render)
+        # Need to get this better. keypress only works with one window.
+        # plus looks ugly.
+        # when getting eye data, probably should put in a list of tuples, separate class,
+        # also write to file
+
+        window2 = window.openWindow()
+        window2.setClearColor((115/255, 115/255, 115/255, 1))
+        #props.setCursorHidden(True)
+        props.setForeground(False)
+        props.setOrigin(600,200) #any pixel on the screen you want
+        window2.requestProperties(props)
+        print window2.getRequestedProperties()
+
+
+
+        camera = window.camList[0]
+        camera2 = window.camList[1]
+
         smiley = window.loader.loadModel('smiley')
-        smiley.reparentTo()
+        smiley.reparentTo(camera)
+        smiley.setPos(-3, 55, 3)
+        camera.node().setCameraMask(BitMask32.bit(0))
+        camera2.node().setCameraMask(BitMask32.bit(1))
+        smiley.hide(BitMask32.bit(0))
+        smiley.show(BitMask32.bit(1))
         #self.pos = Positions()
         window.setBackgroundColor(115/255, 115/255, 115/255)
+        window.disableMouse()
+
+        self.accept("escape", sys.exit)  # escape
+
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
         pos = Point2(0, 0)
@@ -42,8 +77,6 @@ class World(DirectObject):
         # starting color, should be set by model, but let's make sure
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         self.square = obj
-        window.disableMouse()
-        self.accept("escape", sys.exit)  # escape
 
         # determines if we are moving manually or randomly,
         # eventually this should be an argument for running as script,
