@@ -7,10 +7,14 @@ from panda3d.core import BitMask32, WindowProperties
 from positions import Positions
 import sys
 import random
+sys.path.insert(0, '../pydaq')
+import pydaq
 
 # Constants
 class World(DirectObject):
     def __init__(self):
+        # For testing on a machine without the DAQ board
+        recordEye = True
         # get configurations from config file
         config = {}
         execfile(config_file, config)
@@ -130,11 +134,29 @@ class World(DirectObject):
         self.accept("8", self.setKey, ["switch", 8])
         self.accept("9", self.setKey, ["switch", 9])
 
+        # Eye Data
+        if recordEye == True:
+            self.gain = 0
+            self.offset = 0
+            self.task = pydaq.EOGTask()
+            self.task.SetCallback(self.get_eye_data)
+            self.task.StartTask()
+            self.eye_data = []
+        else:
+            self.task = False
+
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
     def setKey(self, key, val):
         self.keys[key] = val
         #print 'set key', self.keys[key]
+
+    def get_eye_data(self, eye_data):
+        # pydaq calls this function every time it calls back to get eye data
+        self.eye_data.append(eye_data)
+        #VLQ.getInstance().writeLine("EyeData",
+        #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
+        #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
 
     def frame_loop(self, task):
         #print 'in loop'
