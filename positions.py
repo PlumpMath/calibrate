@@ -11,20 +11,21 @@ import numpy as np
 # remove positions as we use them
 # basically same thing for non-random, non-key, but pull out in order
 
-# get constants from config file
-#CONFIG = {}
-#execfile('config.py', CONFIG)
-
 
 class Positions:
-    def __init__(self, CONFIG):
+    def __init__(self, CONFIG=None):
+        if not CONFIG:
+            CONFIG = {}
+            execfile('config.py', CONFIG)
+
         self.small_set = [(-10, -10), (0, -10), (10, -10), (-10, 0), (0, 0), (10, 0), (-10, 10), (0, 10), (10, 10), ]
+
         x_range = np.linspace(-int(CONFIG['X_LIMITS']), int(CONFIG['X_LIMITS']), CONFIG['X_POINTS'])
         #print x_range
         y_range = np.linspace(-int(CONFIG['Y_LIMITS']), int(CONFIG['Y_LIMITS']), CONFIG['Y_POINTS'])
         self.large_set = [(i, j) for i in x_range for j in y_range]
         #self.large_set = [(i, j) for i in range(-10, 11, 5) for j in range(-10, 11, 5)]
-
+        self.repeat = CONFIG['POINT_REPEAT']
 
     def get_key_position(self, depth, key=None):
         #print 'get key position', key
@@ -43,7 +44,7 @@ class Positions:
                 #print 'pos in positions', pos
                 yield (pos.getX(), depth, pos.getY())
         else:
-            control_set = self.large_set * CONFIG['POINT_REPEAT']
+            control_set = self.large_set * self.repeat
             while len(control_set) > 0:
                 pos = Point2(control_set.pop(random.randrange(len(control_set))))
                 yield (pos.getX(), depth, pos.getY())

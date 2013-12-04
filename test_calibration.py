@@ -247,6 +247,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_manual_move(self):
         # Wait for signal for move, send keypress,
+        # wait for actual move,
         # check position changed
         self.w.set_manual(self.config, True)
         old_position = self.w.square.getPos()
@@ -258,8 +259,12 @@ class TestCalibration(unittest.TestCase):
                 #print 'made it out of loop!'
         # and move
         self.w.keys["switch"] = 7
-        #print 'step'
-        taskMgr.step()
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
         #print self.w.keys["switch"]
         #print 'old position', old_position
         self.assertNotEqual(self.w.square.getPos(), old_position)
@@ -278,9 +283,13 @@ class TestCalibration(unittest.TestCase):
         # and move
         # and move
         self.w.keys["switch"] = 3
-        #print 'step'
-        taskMgr.step()
-        #self.w.square_move()
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
+
         #print 'move'
         #print self.w.square.getParent()
         self.assertTrue(self.w.square.getParent())
@@ -309,8 +318,49 @@ class TestCalibration(unittest.TestCase):
                 signal = True
         # and move
         self.w.keys["switch"] = 4
-        taskMgr.step()
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
         self.assertNotEqual(self.w.square.getPos(), old_position)
+
+    def test_waits_correct_time_to_manual_move(self):
+        # We turn on at the same time we move, so check the
+        # interval between turning off and turning on, which will
+        # be when self.w.next switches to 1.
+        self.w.set_manual(self.config, True)
+        old_position = self.w.square.getPos()
+        #print old_position
+        signal = False
+        # go ahead and make the key switch, should not affect the first
+        # move, since it is always fixed at center
+        self.w.keys["switch"] = 3
+        while not signal:
+            taskMgr.step()
+            if self.w.frameTask.move is True:
+                signal = True
+        # when w.frameTask.move is True, the square has just turned off
+        # time until it is on, and moved
+        #print 'check time'
+        a = datetime.datetime.now()
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
+
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
     def test_waits_correct_time_after_manual_move(self):
         # We turn on at the same time we move, so check the
@@ -326,10 +376,19 @@ class TestCalibration(unittest.TestCase):
                 signal = True
         # and move
         self.w.keys["switch"] = 3
-        taskMgr.step()
         #print 'check time'
+
+        # we have set move,
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
+        #
+        # okay, should be on now
         a = datetime.datetime.now()
-        # we have moved, need to stop when square fades
+        # need to stop when square fades
         square_on = True
         while square_on:
             taskMgr.step()

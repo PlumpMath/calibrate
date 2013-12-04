@@ -2,21 +2,33 @@ from __future__ import division
 #import direct.showbase.ShowBase
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
-from panda3d.core import Point2, Point3
+from panda3d.core import Point2, Point3, getModelPath
 from panda3d.core import BitMask32, WindowProperties, FrameBufferProperties
 #from direct.task.Task import Task
 from positions import Positions
 import sys
 import random
-sys.path.insert(0, '../pydaq')
-import pydaq
+import os
+try:
+    sys.path.insert(1, '../pydaq')
+    import pydaq
+    print 'loaded'
+except ImportError:
+    import fake_eye_data
+    print 'notloaded'
+print 'hello'
 
-# Constants
+
 class World(DirectObject):
     def __init__(self):
         #print 'init'
-        # For testing on a machine without the DAQ board
         self.daq = True
+        try:
+            pydaq
+        except NameError:
+            self.daq = False
+        # For testing on a machine without the DAQ board
+        #self.daq = False
         if test:
             #print 'yup, test'
             self.daq = False
@@ -30,6 +42,8 @@ class World(DirectObject):
         execfile(config_file, config)
         #window = direct.showbase.ShowBase.ShowBase()
         window = ShowBase()
+        panda = window.loader.loadModel('panda')
+        panda.reparentTo(window.render)
         # if window is offscreen, does not have WindowProperties,
         # should be better way to deal with this, but haven't found it yet.
         if not test:
@@ -38,8 +52,7 @@ class World(DirectObject):
             #props.setCursorHidden(True)
             window.win.requestProperties(props)
             #print props
-            panda = window.loader.loadModel('panda')
-            panda.reparentTo(window.render)
+
             # Need to get this better. keypress only works with one window.
             # plus looks ugly.
             # when getting eye data, probably should put in a list of tuples, separate class,
@@ -78,9 +91,11 @@ class World(DirectObject):
         window.setBackgroundColor(115/255, 115/255, 115/255)
         window.disableMouse()
 
+        #getModelPath().appendDirectory('/Users/maria/panda/buffalo/calibration/models')
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
         pos = Point2(0, 0)
+        print os.getcwd()
         obj = window.loader.loadModel("models/plane")
         # don't turn on yet
         # obj.reparentTo(camera)
@@ -133,15 +148,16 @@ class World(DirectObject):
         # to move, if move is manual
         self.frameTask.move = False
 
-        # Eye Data
+        # Eye Data'
+        self.eye_data = []
         if self.daq:
             self.gain = 0
             self.offset = 0
             self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
-            self.eye_data = []
-
+        else:
+            self.fake_data = fake_eye_data.yield_eye_data()
         # first task is square_on
         self.next = 0
 
@@ -211,6 +227,10 @@ class World(DirectObject):
                 if self.next == 2 and self.manual:
                     #print 'manual move'
                     task.move = True
+                    # need interval from off to move
+                    task.interval = random.uniform(*self.all_intervals[self.next])
+                    task.interval = task.time + task.interval
+                    # do not complete this loop
                     return task.cont
                 # if we are at self.next = 3, then the last task was moving,
                 # and we need to reset our counter to zero. Since we do square_on
@@ -252,6 +272,9 @@ class World(DirectObject):
                     # don't come back here until ready to move again
                     task.move = False
                     #print 'back to regularly scheduled program'
+
+        if not self.daq and not test:
+            self.get_eye_data(self.fake_data.next())
 
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely

@@ -15,7 +15,7 @@ class TestPositions(unittest.TestCase):
         pos = Positions().get_position(self.depth)
         #for i in range(self.config['X_LIMITS'] * self.config['X_LIMITS']):
         for i in pos:
-            print i
+            #print i
             count += 1
             #print self.pos.get_position(self.depth)
             #self.pos.get_position(self.depth)
@@ -31,7 +31,7 @@ class TestPositions(unittest.TestCase):
         count = 0
         #for i in range(self.config['X_LIMITS'] * self.config['X_LIMITS']):
         for i in pos:
-            print i
+            #print i
             count += 1
             #print self.pos.get_position(self.depth)
             #self.pos.get_position(self.depth)
