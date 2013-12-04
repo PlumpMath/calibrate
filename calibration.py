@@ -1,8 +1,9 @@
 from __future__ import division
-import direct.showbase.ShowBase
+#import direct.showbase.ShowBase
+from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
-from panda3d.core import BitMask32, WindowProperties
+from panda3d.core import BitMask32, WindowProperties, FrameBufferProperties
 #from direct.task.Task import Task
 from positions import Positions
 import sys
@@ -13,52 +14,69 @@ import pydaq
 # Constants
 class World(DirectObject):
     def __init__(self):
+        #print 'init'
         # For testing on a machine without the DAQ board
-        recordEye = True
+        self.daq = True
+        if test:
+            #print 'yup, test'
+            self.daq = False
+            config_file = 'config_test.py'
+            #FrameBufferProperties.getDefault()
+            #WindowProperties.getDefault()
+        else:
+            config_file = 'config.py'
         # get configurations from config file
         config = {}
         execfile(config_file, config)
-        window = direct.showbase.ShowBase.ShowBase()
+        #window = direct.showbase.ShowBase.ShowBase()
+        window = ShowBase()
+        # if window is offscreen, does not have WindowProperties,
+        # should be better way to deal with this, but haven't found it yet.
+        if not test:
+            props = WindowProperties()
+            props.setForeground(True)
+            #props.setCursorHidden(True)
+            window.win.requestProperties(props)
+            #print props
+            panda = window.loader.loadModel('panda')
+            panda.reparentTo(window.render)
+            # Need to get this better. keypress only works with one window.
+            # plus looks ugly.
+            # when getting eye data, probably should put in a list of tuples, separate class,
+            # also write to file
 
-        props = WindowProperties()
-        props.setForeground(True)
-        #props.setCursorHidden(True)
-        window.win.requestProperties(props)
+            window2 = window.openWindow()
+            window2.setClearColor((115/255, 115/255, 115/255, 1))
+            #props.setCursorHidden(True)
+            props.setForeground(False)
+            props.setOrigin(600,200) #any pixel on the screen you want
+            window2.requestProperties(props)
+            #print window2.getRequestedProperties()
 
+            camera = window.camList[0]
+            camera2 = window.camList[1]
 
-        print props
-        panda = window.loader.loadModel('panda')
-        panda.reparentTo(window.render)
-        # Need to get this better. keypress only works with one window.
-        # plus looks ugly.
-        # when getting eye data, probably should put in a list of tuples, separate class,
-        # also write to file
+            self.smiley = window.loader.loadModel('smiley')
+            self.smiley.reparentTo(camera)
+            self.smiley.setPos(-3, 55, 3)
+            self.smiley.setColor(0, 0, 0, 0)
+            self.smiley.setScale(0.2)
+            camera.node().setCameraMask(BitMask32.bit(0))
+            camera2.node().setCameraMask(BitMask32.bit(1))
+            self.smiley.hide(BitMask32.bit(0))
+            self.smiley.show(BitMask32.bit(1))
 
-        window2 = window.openWindow()
-        window2.setClearColor((115/255, 115/255, 115/255, 1))
-        #props.setCursorHidden(True)
-        props.setForeground(False)
-        props.setOrigin(600,200) #any pixel on the screen you want
-        window2.requestProperties(props)
-        print window2.getRequestedProperties()
+            self.root = window.render.attachNewNode("Root")
 
+        self.eyes = []
+        #for x in [-3.0, 0.0, 3.0]:
+        #    eye = self.smiley.copyTo(self.root)
+        #    eye.setPos(x, 55, 0.0,)
+        #    self.eyes += [ eye ]
 
-
-        camera = window.camList[0]
-        camera2 = window.camList[1]
-
-        smiley = window.loader.loadModel('smiley')
-        smiley.reparentTo(camera)
-        smiley.setPos(-3, 55, 3)
-        camera.node().setCameraMask(BitMask32.bit(0))
-        camera2.node().setCameraMask(BitMask32.bit(1))
-        smiley.hide(BitMask32.bit(0))
-        smiley.show(BitMask32.bit(1))
         #self.pos = Positions()
         window.setBackgroundColor(115/255, 115/255, 115/255)
         window.disableMouse()
-
-        self.accept("escape", sys.exit)  # escape
 
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
@@ -71,10 +89,10 @@ class World(DirectObject):
         obj.setScale(1)
         # Tells panda not to worry about the order this is drawn in (prevents effect
         # know as z-fighting)
-        obj.setBin('unsorted', 0)
+        #obj.setBin('unsorted', 0)
         # Tells panda not to check if something has already drawn in front of it
         # (Everything at same depth)
-        obj.setDepthTest(False)
+        #obj.setDepthTest(False)
         obj.setTransparency(1)
         square = window.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
@@ -115,9 +133,20 @@ class World(DirectObject):
         # to move, if move is manual
         self.frameTask.move = False
 
+        # Eye Data
+        if self.daq:
+            self.gain = 0
+            self.offset = 0
+            self.eye_task = pydaq.EOGTask()
+            self.eye_task.SetCallback(self.get_eye_data)
+            self.eye_task.StartTask()
+            self.eye_data = []
+
         # first task is square_on
         self.next = 0
 
+        # Keyboard stuff:
+        self.accept("escape", self.close)  # escape
         # this really doesn't need to be a dictionary now,
         # but may want to use more keys eventually
         # keys will update the list, and loop will query it
@@ -134,17 +163,6 @@ class World(DirectObject):
         self.accept("8", self.setKey, ["switch", 8])
         self.accept("9", self.setKey, ["switch", 9])
 
-        # Eye Data
-        if recordEye == True:
-            self.gain = 0
-            self.offset = 0
-            self.task = pydaq.EOGTask()
-            self.task.SetCallback(self.get_eye_data)
-            self.task.StartTask()
-            self.eye_data = []
-        else:
-            self.task = False
-
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
     def setKey(self, key, val):
@@ -157,6 +175,12 @@ class World(DirectObject):
         #VLQ.getInstance().writeLine("EyeData",
         #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
         #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
+        #print eye_data
+        #for x in [-3.0, 0.0, 3.0]:
+        eye = self.smiley.copyTo(self.root)
+        #print eye_data[0], eye_data[1]
+        eye.setPos(eye_data[0], 55, eye_data[1], )
+        self.eyes += [eye]
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -289,14 +313,22 @@ class World(DirectObject):
             self.pos = Positions(config)
 
     def close(self):
-        self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
+        print 'close'
+        if self.daq:
+            self.eye_task.StopTask()
+            self.eye_task.ClearTask()
+        if test:
+            self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
+        else:
+            sys.exit()
 
 if __name__ == "__main__":
     #print 'run as module'
-    config_file = 'config.py'
+    test = False
     W = World()
     run()
 else:
+    print 'test'
     # file was imported
     # only happens during testing...
-    config_file = 'config_test.py'
+    test = True

@@ -6,6 +6,8 @@ from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import datetime
 
+# Tests run fine one at a time, but isn't destroying the ShowBase
+# instance between tests, for some crazy reason. It use to! Meh.
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
@@ -22,7 +24,9 @@ class TestCalibration(unittest.TestCase):
     def setUp(self):
         loadPrcFileData("", "window-type offscreen")
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
+        #print 'about to load world'
         self.w = World()
+        #print 'loaded world'
         self.config = {}
         execfile('config_test.py', self.config)
         self.depth = 0
@@ -32,7 +36,6 @@ class TestCalibration(unittest.TestCase):
         Should start with a blank screen, square has no parent, not rendered
         """
         #print self.w.square.getParent()
-        self.w.__init__()
         self.assertFalse(self.w.square.getParent())
 
     def test_square_turns_on(self):
@@ -344,11 +347,11 @@ class TestCalibration(unittest.TestCase):
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
     def tearDown(self):
-        #print 'teardown'
         taskMgr.remove(self.w.frameTask)
         self.w.close()
-        del self.w
-
+        self.w = None
+        #del self.w
+        print 'tore down'
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 
 

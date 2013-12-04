@@ -18,7 +18,7 @@ import numpy as np
 
 class Positions:
     def __init__(self, CONFIG):
-        self.small_set = [(10, 10), (10, 0), (10, -10), (0, 10), (0, 0), (0, -10), (-10, 10), (-10, 0), (-10, -10),]
+        self.small_set = [(-10, -10), (0, -10), (10, -10), (-10, 0), (0, 0), (10, 0), (-10, 10), (0, 10), (10, 10), ]
         x_range = np.linspace(-int(CONFIG['X_LIMITS']), int(CONFIG['X_LIMITS']), CONFIG['X_POINTS'])
         #print x_range
         y_range = np.linspace(-int(CONFIG['Y_LIMITS']), int(CONFIG['Y_LIMITS']), CONFIG['Y_POINTS'])
