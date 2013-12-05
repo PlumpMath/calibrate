@@ -4,11 +4,14 @@ from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3, getModelPath
 from panda3d.core import BitMask32, WindowProperties, FrameBufferProperties
+from pandac.PandaModules import ClockObject
 #from direct.task.Task import Task
 from positions import Positions
 import sys
 import random
 import os
+import datetime
+from pandaepl import ptime
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
@@ -59,10 +62,10 @@ class World(DirectObject):
             # also write to file
 
             window2 = window.openWindow()
-            window2.setClearColor((115/255, 115/255, 115/255, 1))
+            window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
             #props.setCursorHidden(True)
             props.setForeground(False)
-            props.setOrigin(600,200) #any pixel on the screen you want
+            props.setOrigin(600, 200) #any pixel on the screen you want
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
@@ -82,6 +85,15 @@ class World(DirectObject):
             self.root = window.render.attachNewNode("Root")
 
         self.eyes = []
+
+        # open file for recording eye data
+        self.eye_file_name = 'data/eye_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.eye_data_file = open(self.eye_file_name, 'w')
+        # open file for recording event times
+        self.time_file_name = 'data/time_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.time_data_file = open(self.eye_file_name,'w')
+        self.first = True
+
         #for x in [-3.0, 0.0, 3.0]:
         #    eye = self.smiley.copyTo(self.root)
         #    eye.setPos(x, 55, 0.0,)
@@ -186,17 +198,22 @@ class World(DirectObject):
         #print 'set key', self.keys[key]
 
     def get_eye_data(self, eye_data):
-        # pydaq calls this function every time it calls back to get eye data
+        # pydaq calls this function every time it calls back to get eye data,
+        # if testing, called from frame_loop with fake data
         self.eye_data.append(eye_data)
         #VLQ.getInstance().writeLine("EyeData",
         #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
         #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
         #print eye_data
         #for x in [-3.0, 0.0, 3.0]:
-        eye = self.smiley.copyTo(self.root)
-        #print eye_data[0], eye_data[1]
-        eye.setPos(eye_data[0], 55, eye_data[1], )
-        self.eyes += [eye]
+        if self.first:
+            self.time_data_file.write( + '\n')
+        if not test:
+            eye = self.smiley.copyTo(self.root)
+            #print eye_data[0], eye_data[1]
+            eye.setPos(eye_data[0], 55, eye_data[1], )
+            self.eyes += [eye]
+        self.eye_data_file.write(str(eye_data).strip('()') + '\n')
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -273,8 +290,8 @@ class World(DirectObject):
                     task.move = False
                     #print 'back to regularly scheduled program'
 
-        if not self.daq and not test:
-            self.get_eye_data(self.fake_data.next())
+        #if not self.daq and not test:
+        self.get_eye_data(self.fake_data.next())
 
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely
@@ -337,6 +354,8 @@ class World(DirectObject):
 
     def close(self):
         print 'close'
+        self.eye_data_file.close()
+        self.time_data_file.close()
         if self.daq:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()

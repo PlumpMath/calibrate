@@ -405,11 +405,30 @@ class TestCalibration(unittest.TestCase):
         # make sure timing within 2 places
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
+    def test_eye_data_written_to_file(self):
+        # make sure data is written to file.
+        # run the trial for a while, since fake data doesn't start
+        # collecting until trial starts
+        square_off = True
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be on'
+                square_off = False
+        # need to stop task, so file is closed
+        self.w.close()
+        # since we are using fake data, know that first point is (0,0)
+        f = open(self.w.eye_file_name, 'r')
+        #print(f.readline())
+        self.assertEqual(f.readline(), '0, 0\n')
+        f.close()
+
     def tearDown(self):
         taskMgr.remove(self.w.frameTask)
         self.w.close()
-        self.w = None
-        #del self.w
+        del self.w
         print 'tore down'
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 

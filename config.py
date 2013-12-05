@@ -12,6 +12,6 @@ X_LIMITS = 10
 Y_LIMITS = 10
 
 # All intervals represent min and max for a uniform random distribution
-ON_INTERVAL = (2, 3)  # Time on
-FADE_INTERVAL = (0.3, 0.7) # Time faded
-MOVE_INTERVAL = (2, 3) # Time from fading off until on in new place
+ON_INTERVAL = (0.7, 1.25)  # Time on
+FADE_INTERVAL = (0.35, 0.35) # Time faded
+MOVE_INTERVAL = (1, 1) # Time from fading off until on in new place
