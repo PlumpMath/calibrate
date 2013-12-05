@@ -1,3 +1,4 @@
+SUBJECT = 'test'
 # move the square with the keyboard, or let it go automatically
 MANUAL = False
 # how many times to repeat each point when in random mode
@@ -14,4 +15,8 @@ Y_LIMITS = 10
 # All intervals represent min and max for a uniform random distribution
 ON_INTERVAL = (0.7, 1.25)  # Time on
 FADE_INTERVAL = (0.35, 0.35) # Time faded
-MOVE_INTERVAL = (1, 1) # Time from fading off until on in new place
+REWARD_INTERVAL = (0.35, 0.35) # Time from off to reward
+MOVE_INTERVAL = (1, 1) # Time from reward until on in new place
+
+# how many rewards per trial
+NUM_BEEPS = 3

@@ -1,3 +1,4 @@
+SUBJECT = 'test'
 # move the square with the keyboard, or let it go automatically,
 # default is automatic
 MANUAL = False
@@ -17,4 +18,8 @@ Y_LIMITS = 20
 # Assume random.uniform really works for intervals.
 ON_INTERVAL = (1.00, 1.00)  # Time on
 FADE_INTERVAL = (0.50, 0.50) # Time faded
+REWARD_INTERVAL = (0.35, 0.35) # Time from off to reward
 MOVE_INTERVAL = (0.75, 0.75) # Time from fading off until on in new place
+
+# how many rewards per trial
+NUM_BEEPS = 3

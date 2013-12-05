@@ -4,6 +4,8 @@ from panda3d.core import loadPrcFileData
 from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
+from StringIO import StringIO
+import sys
 import datetime
 
 # Tests run fine one at a time, but isn't destroying the ShowBase
@@ -78,6 +80,16 @@ class TestCalibration(unittest.TestCase):
                 square_dim = False
         self.assertFalse(self.w.square.getParent())
 
+    def test_correct_reward_after_square_off(self):
+        held, sys.stdout = sys.stdout, StringIO()
+        no_reward = True
+        while no_reward:
+            taskMgr.step()
+            if self.w.next == 4:
+                no_reward = False
+        output = 'beep\n' * self.config['NUM_BEEPS']
+        self.assertEqual(sys.stdout.getvalue(), output)
+
     def test_square_moves_automatically(self):
         old_position = self.w.square.getPos()
         count = 0
@@ -150,7 +162,8 @@ class TestCalibration(unittest.TestCase):
         #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.getParent())
-        # make sure timing within 2 places
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
         # checking move interval, not actually moving, but this is the time
         # from off to move/on, which we do without the moving part...
         self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
@@ -182,7 +195,8 @@ class TestCalibration(unittest.TestCase):
         #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.getParent())
-        # make sure timing within 2 places
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
     def test_timing_fade_on_to_off(self):
@@ -212,11 +226,12 @@ class TestCalibration(unittest.TestCase):
         #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really off, sanity check
         self.assertFalse(self.w.square.getParent())
-        # make sure timing within 2 places
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['FADE_INTERVAL'][0], 1)
 
-    def test_timing_off_to_move(self):
-        # First get to off
+    def test_timing_off_to_reward(self):
+    # First get to off
         square_fade = True
         while square_fade:
             #while time.time() < time_out:
@@ -225,6 +240,34 @@ class TestCalibration(unittest.TestCase):
             if self.w.next == 3:
                 #print 'square should be off'
                 square_fade = False
+                # now wait for move/on:
+        # now wait for reward
+        no_reward = True
+        a = datetime.datetime.now()
+        while no_reward:
+            #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 4:
+                #print 'square should be off'
+                no_reward = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        self.assertAlmostEqual(c.total_seconds(), self.config['REWARD_INTERVAL'][0], 1)
+
+    def test_timing_reward_to_move(self):
+        # First get to reward
+        no_reward = True
+        while no_reward:
+            #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 4, then we just gave reward
+            if self.w.next == 4:
+                #print 'reward'
+                no_reward = False
         # now wait for move/on:
         square_off = True
         a = datetime.datetime.now()
@@ -242,7 +285,8 @@ class TestCalibration(unittest.TestCase):
         #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.getParent())
-        # make sure timing within 2 places
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
     def test_manual_move(self):

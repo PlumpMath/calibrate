@@ -24,6 +24,11 @@ except ImportError:
 
 class World(DirectObject):
     def __init__(self):
+        # assume auto unless command argument otherwise
+        manual = False
+        if sys.argv[1:]:
+            manual = sys.argv[1]
+        print manual
         #print 'init'
         self.daq = False
         try:
@@ -94,39 +99,31 @@ class World(DirectObject):
         self.eyes = []
 
         # open file for recording eye data
-        self.eye_file_name = 'data/eye_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        data_dir = 'data/' + config['SUBJECT']
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        self.eye_file_name = data_dir + '/eye_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
         self.eye_data_file = open(self.eye_file_name, 'w')
         # open file for recording event times
-        self.time_file_name = 'data/time_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-        self.time_data_file = open(self.eye_file_name,'w')
+        self.time_file_name = data_dir + '/time_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.time_data_file = open(self.time_file_name,'w')
         self.first = True
 
-        #for x in [-3.0, 0.0, 3.0]:
-        #    eye = self.smiley.copyTo(self.root)
-        #    eye.setPos(x, 55, 0.0,)
-        #    self.eyes += [ eye ]
-
-        #self.pos = Positions()
-        window.setBackgroundColor(115/255, 115/255, 115/255)
-        window.disableMouse()
-
-        #getModelPath().appendDirectory('/Users/maria/panda/buffalo/calibration/models')
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
-        pos = Point2(0, 0)
 
+        window.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
+        window.disableMouse()
+        # initial position of Square
+        pos = Point2(0, 0)
+        # setting up square object
         obj = window.loader.loadModel("models/plane")
         # don't turn on yet
         # obj.reparentTo(camera)
         self.depth = 55
         obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
+        # need to scale to be correct visual angle
         obj.setScale(1)
-        # Tells panda not to worry about the order this is drawn in (prevents effect
-        # know as z-fighting)
-        #obj.setBin('unsorted', 0)
-        # Tells panda not to check if something has already drawn in front of it
-        # (Everything at same depth)
-        #obj.setDepthTest(False)
         obj.setTransparency(1)
         square = window.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
@@ -147,8 +144,9 @@ class World(DirectObject):
         self.frameTask = window.taskMgr.add(self.frame_loop, "frame_loop")
         # on_interval - time from on to fade
         # fade_interval - time from fade on to off
-        # move_interval - time from off to move/on
-        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['MOVE_INTERVAL']]
+        # reward_interval - time from off to reward
+        # move_interval - time from reward to move/on
+        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'], config['MOVE_INTERVAL']]
         # this is the first interval - time from move to on
         # The task object is a good place to put variables that should stay
         # persistent for the task function from frame to frame
@@ -161,13 +159,14 @@ class World(DirectObject):
             0: self.square_on,
             1: self.square_fade,
             2: self.square_off,
-            3: self.square_move}
+            3: self.reward,
+            4: self.square_move}
 
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
         self.frameTask.move = False
 
-        # Eye Data'
+        # Eye Data and reward
         self.eye_data = []
         if self.daq:
             self.gain = 0
@@ -175,8 +174,11 @@ class World(DirectObject):
             self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
+            self.reward = pydaq.GiveReward()
         else:
             self.fake_data = fake_eye_data.yield_eye_data()
+            self.reward = None
+        self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
         self.next = 0
 
@@ -248,7 +250,7 @@ class World(DirectObject):
                 # check to see if we are moving manually
                 # we will set self.next correctly for the next task
                 # when we do the manual move
-                if self.next == 2 and self.manual:
+                if self.next == 3 and self.manual:
                     #print 'manual move'
                     task.move = True
                     # need interval from off to move
@@ -256,13 +258,13 @@ class World(DirectObject):
                     task.interval = task.time + task.interval
                     # do not complete this loop
                     return task.cont
-                # if we are at self.next = 3, then the last task was moving,
+                # if we are at self.next = 4, then the last task was reward,
                 # and we need to reset our counter to zero. Since we do square_on
                 # at the end of our move method, the incrementing to one at the
                 # end of our loop will put as at self.next = 1, (square_fade), which
                 # is correct. We need to do this before we change the interval, so
                 # that we are using the correct corresponding interval
-                if self.next == 3:
+                if self.next == 4:
                     self.next = 0
                 #print self.all_intervals[self.next]
                 task.interval = random.uniform(*self.all_intervals[self.next])
@@ -337,6 +339,14 @@ class World(DirectObject):
         for eye in self.eyes:
             eye.removeNode()
         self.eyes = []
+
+    def reward(self):
+        out = sys.stdout
+        for i in range(self.num_beeps):
+            if self.reward:
+                self.reward.pumpOut()
+            else:
+                out.write("beep\n")
 
     def square_move(self, position=None):
         #print 'square move, 3'
