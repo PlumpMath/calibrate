@@ -12,34 +12,42 @@ import random
 import os
 import datetime
 from pandaepl import ptime
+# crazy gymnastics to not load the fake data unless necessary
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
     print 'loaded'
 except ImportError:
     import fake_eye_data
-    print 'notloaded'
+    print 'not loaded'
 print 'hello'
 
 
 class World(DirectObject):
     def __init__(self):
         #print 'init'
-        self.daq = True
+        self.daq = False
         try:
             pydaq
         except NameError:
             self.daq = False
-        # For testing on a machine without the DAQ board
-        #self.daq = False
+        # If we are on the mac (no pydaq), always load fake eye data,
+        # if on windows, only do it while testing
         if test:
-            #print 'yup, test'
             self.daq = False
+            # for testing when on Windows, daq will load, so
+            # need to load fake data separately
             config_file = 'config_test.py'
             #FrameBufferProperties.getDefault()
             #WindowProperties.getDefault()
         else:
             config_file = 'config.py'
+        if not self.daq:
+            try:
+                fake_eye_data
+            except NameError:
+                import fake_eye_data
+
         # get configurations from config file
         config = {}
         execfile(config_file, config)
@@ -207,7 +215,7 @@ class World(DirectObject):
         #print eye_data
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
-            self.time_data_file.write( + '\n')
+            self.time_data_file.write(eye_data + '\n')
         if not test:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
