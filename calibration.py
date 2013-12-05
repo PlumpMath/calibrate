@@ -16,11 +16,10 @@ from pandaepl import ptime
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
-    print 'loaded'
+    #print 'loaded'
 except ImportError:
     import fake_eye_data
-    print 'not loaded'
-print 'hello'
+    #print 'pydaq not loaded'
 
 
 class World(DirectObject):
@@ -82,9 +81,9 @@ class World(DirectObject):
 
             self.smiley = window.loader.loadModel('smiley')
             self.smiley.reparentTo(camera)
-            self.smiley.setPos(-3, 55, 3)
+            #self.smiley.setPos(-3, 55, 3)
             self.smiley.setColor(0, 0, 0, 0)
-            self.smiley.setScale(0.2)
+            self.smiley.setScale(0.1)
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
             self.smiley.hide(BitMask32.bit(0))
@@ -115,7 +114,7 @@ class World(DirectObject):
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
         pos = Point2(0, 0)
-        print os.getcwd()
+
         obj = window.loader.loadModel("models/plane")
         # don't turn on yet
         # obj.reparentTo(camera)
@@ -215,7 +214,7 @@ class World(DirectObject):
         #print eye_data
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
-            self.time_data_file.write(eye_data + '\n')
+            self.time_data_file.write('start calibration' + '\n')
         if not test:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
@@ -305,7 +304,7 @@ class World(DirectObject):
         #continue indefinitely
 
     def square_on(self):
-        print 'square on, 0'
+        #print 'square on, 0'
         #print self.square.getPos()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         self.square.reparentTo(camera)
@@ -315,7 +314,7 @@ class World(DirectObject):
         #print 'square is now on'
 
     def square_fade(self):
-        print 'square fade, 1'
+        #print 'square fade, 1'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
@@ -326,7 +325,7 @@ class World(DirectObject):
         #self.interval = random.uniform(*MOVE_INTERVAL)
 
     def square_off(self):
-        print 'square off, 2'
+        #print 'square off, 2'
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
@@ -334,9 +333,13 @@ class World(DirectObject):
         # next interval is on to fade on
         #self.interval = random.uniform(*ON_INTERVAL)
         #print 'next-on-interval', self.interval
+        # when the square goes off, get rid of eye positions.
+        for eye in self.eyes:
+            eye.removeNode()
+        self.eyes = []
 
     def square_move(self, position=None):
-        print 'square move, 3'
+        #print 'square move, 3'
         #print 'position', position
         if not position:
             #print 'trying to get a auto position'
@@ -361,7 +364,7 @@ class World(DirectObject):
             self.pos = Positions(config)
 
     def close(self):
-        print 'close'
+        #print 'close'
         self.eye_data_file.close()
         self.time_data_file.close()
         if self.daq:
