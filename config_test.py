@@ -1,4 +1,8 @@
+# This file is only used for unittests
 SUBJECT = 'test'
+
+# window resolution, can be a resolution or None for normal panda3d window
+WIN_RES = 'Test'
 # move the square with the keyboard, or let it go automatically,
 # default is automatic
 MANUAL = False
@@ -16,10 +20,10 @@ Y_LIMITS = 20
 # All intervals represent min and max for a uniform random distribution
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.
-ON_INTERVAL = (1.00, 1.00)  # Time on
+ON_INTERVAL = (0.75, 0.75)  # Time on
 FADE_INTERVAL = (0.50, 0.50) # Time faded
 REWARD_INTERVAL = (0.35, 0.35) # Time from off to reward
-MOVE_INTERVAL = (0.75, 0.75) # Time from fading off until on in new place
+MOVE_INTERVAL = (1.0, 1.0) # Time from fading off until on in new place
 
 # how many rewards per trial
 NUM_BEEPS = 3

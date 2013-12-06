@@ -1,6 +1,7 @@
 SUBJECT = 'test'
-# move the square with the keyboard, or let it go automatically
-MANUAL = False
+
+# window resolution, can be a resolution or None for normal panda3d window
+WIN_RES = None
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2
 # How many points in x direction

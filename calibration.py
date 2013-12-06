@@ -2,8 +2,9 @@ from __future__ import division
 #import direct.showbase.ShowBase
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
-from panda3d.core import Point2, Point3, getModelPath
-from panda3d.core import BitMask32, WindowProperties, FrameBufferProperties
+from panda3d.core import Point2, Point3
+from panda3d.core import BitMask32, getModelPath
+from panda3d.core import WindowProperties
 from pandac.PandaModules import ClockObject
 #from direct.task.Task import Task
 from positions import Positions
@@ -17,55 +18,63 @@ try:
     sys.path.insert(1, '../pydaq')
     import pydaq
     #print 'loaded'
-except ImportError:
-    import fake_eye_data
-    #print 'pydaq not loaded'
-
+except:
+    pass
 
 class World(DirectObject):
-    def __init__(self):
-        # assume auto unless command argument otherwise
-        manual = False
-        if sys.argv[1:]:
-            manual = sys.argv[1]
-        print manual
+    def __init__(self, manual = None):
         #print 'init'
-        self.daq = False
+        #print 'manual, damnit', manual
+        # True for fake data, false for pydaq provides data
+        # only need to change this for testing on windows
+        self.test = False
+        # assume auto unless command argument otherwise
+        if manual is None:
+            #print 'None'
+            self.manual = False
+        else:
+            #print 'input'
+            self.manual = manual
+
         try:
             pydaq
+            self.daq = True
         except NameError:
             self.daq = False
-        # If we are on the mac (no pydaq), always load fake eye data,
+            # if there is no daq, we are on mac, and must be in test mode
+            self.test = True
+        # If we are on the mac (no pydaq), always testing,
+        # and always load fade data
         # if on windows, only do it while testing
-        if test:
+        if self.test:
+            import fake_eye_data
             self.daq = False
-            # for testing when on Windows, daq will load, so
-            # need to load fake data separately
+        if unittest:
             config_file = 'config_test.py'
             #FrameBufferProperties.getDefault()
             #WindowProperties.getDefault()
         else:
             config_file = 'config.py'
-        if not self.daq:
-            try:
-                fake_eye_data
-            except NameError:
-                import fake_eye_data
 
         # get configurations from config file
         config = {}
         execfile(config_file, config)
+
         #window = direct.showbase.ShowBase.ShowBase()
-        window = ShowBase()
-        panda = window.loader.loadModel('panda')
-        panda.reparentTo(window.render)
-        # if window is offscreen, does not have WindowProperties,
+        self.win = ShowBase()
+
+        panda = self.win.loader.loadModel('panda')
+        panda.reparentTo(self.win.render)
+
+        # if window is offscreen (for testing), does not have WindowProperties,
         # should be better way to deal with this, but haven't found it yet.
-        if not test:
+        # if an actual resolution in config file, change to that resolution,
+        # otherwise keep going...
+        if config['WIN_RES'] != 'Test':
             props = WindowProperties()
             props.setForeground(True)
             #props.setCursorHidden(True)
-            window.win.requestProperties(props)
+            self.win.win.requestProperties(props)
             #print props
 
             # Need to get this better. keypress only works with one window.
@@ -73,7 +82,7 @@ class World(DirectObject):
             # when getting eye data, probably should put in a list of tuples, separate class,
             # also write to file
 
-            window2 = window.openWindow()
+            window2 = self.win.openWindow()
             window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
             #props.setCursorHidden(True)
             props.setForeground(False)
@@ -81,12 +90,12 @@ class World(DirectObject):
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
-            camera = window.camList[0]
-            camera2 = window.camList[1]
+            camera = self.win.camList[0]
+            camera2 = self.win.camList[1]
 
-            self.smiley = window.loader.loadModel('smiley')
+            self.smiley = self.win.loader.loadModel('smiley')
             self.smiley.reparentTo(camera)
-            #self.smiley.setPos(-3, 55, 3)
+            self.smiley.setPos(-3, 55, 3)
             self.smiley.setColor(0, 0, 0, 0)
             self.smiley.setScale(0.1)
             camera.node().setCameraMask(BitMask32.bit(0))
@@ -94,8 +103,11 @@ class World(DirectObject):
             self.smiley.hide(BitMask32.bit(0))
             self.smiley.show(BitMask32.bit(1))
 
-            self.root = window.render.attachNewNode("Root")
+            self.root = self.win.render.attachNewNode("Root")
+            if config['WIN_RES'] is not None:
+                self.set_resolution(config['WIN_RES'])
 
+        #print 'window loaded'
         self.eyes = []
 
         # open file for recording eye data
@@ -112,12 +124,12 @@ class World(DirectObject):
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
-        window.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
-        window.disableMouse()
+        self.win.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
+        self.win.disableMouse()
         # initial position of Square
         pos = Point2(0, 0)
         # setting up square object
-        obj = window.loader.loadModel("models/plane")
+        obj = self.win.loader.loadModel("models/plane")
         # don't turn on yet
         # obj.reparentTo(camera)
         self.depth = 55
@@ -125,46 +137,22 @@ class World(DirectObject):
         # need to scale to be correct visual angle
         obj.setScale(1)
         obj.setTransparency(1)
-        square = window.loader.loadTexture("textures/calibration_square.png")
+        square = self.win.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
         # starting color, should be set by model, but let's make sure
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         self.square = obj
 
-        # determines if we are moving manually or randomly,
-        # eventually this should be an argument for running as script,
-        # so we can switch modes.
-        self.set_manual(config)
-
-        #Now we create the task. taskMgr is the task manager that actually calls
-        #The function each frame. The add method creates a new task. The first
-        #argument is the function to be called, and the second argument is the name
-        #for the task. It returns a task object, that is passed to the function
-        #each frame
-        self.frameTask = window.taskMgr.add(self.frame_loop, "frame_loop")
-        # on_interval - time from on to fade
-        # fade_interval - time from fade on to off
-        # reward_interval - time from off to reward
-        # move_interval - time from reward to move/on
-        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'], config['MOVE_INTERVAL']]
-        # this is the first interval - time from move to on
-        # The task object is a good place to put variables that should stay
-        # persistent for the task function from frame to frame
-        # first interval will be the move interval (off to move/on - won't
-        # actually move)
-        self.frameTask.interval = random.uniform(*self.all_intervals[2])
-
-        # Main work horse: index with self.next to choose appropriate method
-        self.frameTask.switch = {
-            0: self.square_on,
-            1: self.square_fade,
-            2: self.square_off,
-            3: self.reward,
-            4: self.square_move}
-
-        # task.move always starts as False, will be changed to true when time
-        # to move, if move is manual
-        self.frameTask.move = False
+        # if doing manual calibration, always get reward after square turns off,
+        # if auto, require fixation. If doing manual, need to initiate Positions
+        # differently than if random
+        if self.manual:
+            #print 'yes, still manual'
+            self.reward = True
+            self.pos = Positions(config)
+        else:
+            self.reward = False
+            self.pos = Positions(config).get_position(self.depth)
 
         # Eye Data and reward
         self.eye_data = []
@@ -174,10 +162,10 @@ class World(DirectObject):
             self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
-            self.reward = pydaq.GiveReward()
+            self.reward_task = pydaq.GiveReward()
         else:
             self.fake_data = fake_eye_data.yield_eye_data()
-            self.reward = None
+            self.reward_task = None
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
         self.next = 0
@@ -200,6 +188,39 @@ class World(DirectObject):
         self.accept("8", self.setKey, ["switch", 8])
         self.accept("9", self.setKey, ["switch", 9])
 
+        # Our intervals
+        # on_interval - time from on to fade
+        # fade_interval - time from fade on to off
+        # reward_interval - time from off to reward
+        # move_interval - time from reward to move/on
+        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'], config['MOVE_INTERVAL']]
+        #Now we create the task. taskMgr is the task manager that actually calls
+        #The function each frame. The add method creates a new task. The first
+        #argument is the function to be called, and the second argument is the name
+        #for the task. It returns a task object, that is passed to the function
+        #each frame
+        self.frameTask = self.win.taskMgr.add(self.frame_loop, "frame_loop")
+        #print self.frameTask.time
+        # this is the first interval - time from move to on
+        # The task object is a good place to put variables that should stay
+        # persistent for the task function from frame to frame
+        # first interval will be the move interval (off to move/on - won't
+        # actually move)
+        self.frameTask.interval = random.uniform(*self.all_intervals[3])
+        #print 'first interval', self.frameTask.interval
+
+        # Main work horse: index with self.next to choose appropriate method
+        self.frameTask.switch = {
+            0: self.square_on,
+            1: self.square_fade,
+            2: self.square_off,
+            3: self.give_reward,
+            4: self.square_move}
+
+        # task.move always starts as False, will be changed to true when time
+        # to move, if move is manual
+        self.frameTask.move = False
+
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
     def setKey(self, key, val):
@@ -217,7 +238,7 @@ class World(DirectObject):
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
             self.time_data_file.write('start calibration' + '\n')
-        if not test:
+        if not unittest:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
             eye.setPos(eye_data[0], 55, eye_data[1], )
@@ -242,6 +263,7 @@ class World(DirectObject):
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
                 task.switch[self.next]()
+                print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
                 #print self.all_intervals
@@ -250,6 +272,7 @@ class World(DirectObject):
                 # check to see if we are moving manually
                 # we will set self.next correctly for the next task
                 # when we do the manual move
+                #print 'in loop', self.manual
                 if self.next == 3 and self.manual:
                     #print 'manual move'
                     task.move = True
@@ -292,20 +315,22 @@ class World(DirectObject):
                     # this happens after on interval, 0
                     # make sure next interval is based on the time we actually moved the target (now!)
                     task.interval = task.time + random.uniform(*self.all_intervals[0])
-                    # Next is dim,
+                    # Next is dim, since it turned on when
                     self.next = 1
 
                     # don't come back here until ready to move again
                     task.move = False
                     #print 'back to regularly scheduled program'
 
-        #if not self.daq and not test:
-        self.get_eye_data(self.fake_data.next())
+        # if using fake data, plot
+        if self.test:
+            self.get_eye_data(self.fake_data.next())
 
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely
 
     def square_on(self):
+        #print 'square', self.manual
         #print 'square on, 0'
         #print self.square.getPos()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
@@ -340,13 +365,15 @@ class World(DirectObject):
             eye.removeNode()
         self.eyes = []
 
-    def reward(self):
+    def give_reward(self):
         out = sys.stdout
-        for i in range(self.num_beeps):
-            if self.reward:
-                self.reward.pumpOut()
-            else:
-                out.write("beep\n")
+        print 'reward'
+        if self.reward:
+            for i in range(self.num_beeps):
+                if self.reward_task:
+                    self.reward_task.pumpOut()
+                else:
+                    out.write("beep\n")
 
     def square_move(self, position=None):
         #print 'square move, 3'
@@ -360,18 +387,24 @@ class World(DirectObject):
         # go directly to on
         self.square_on()
 
-    def set_manual(self, config, manual=None):
-        # allow to override manual setting in config file
-        # for non-random, non-manual:
-        if manual is None:
-            self.manual = config['MANUAL']
-        else:
-            self.manual = manual
-        # self.manual is now true or false
-        if not self.manual:
-            self.pos = Positions(config).get_position(self.depth)
-        else:
-            self.pos = Positions(config)
+    #def set_manual(self, config, manual=None):
+    #    # allow to override manual setting in config file
+    #    # for non-random, non-manual:
+    #    if manual is None:
+    #        self.manual = config['MANUAL']
+    #    else:
+    #        self.manual = manual
+    #    # self.manual is now true or false
+    #    if not self.manual:
+    #        self.pos = Positions(config).get_position(self.depth)
+    #    else:
+    #        self.pos = Positions(config)
+
+    def set_resolution(self, res):
+        wp = WindowProperties()
+        wp.setSize(res)
+        wp.setFullscreen(True)
+        self.win.requestProperties(wp)
 
     def close(self):
         #print 'close'
@@ -380,18 +413,19 @@ class World(DirectObject):
         if self.daq:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
-        if test:
+        if unittest:
             self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
         else:
             sys.exit()
 
 if __name__ == "__main__":
     #print 'run as module'
-    test = False
-    W = World()
+    unittest = False
+    #print 'main'
+    W = World(sys.argv[1])
     run()
 else:
-    print 'test'
+    #print 'test'
+    unittest = True
     # file was imported
     # only happens during testing...
-    test = True
