@@ -263,7 +263,7 @@ class World(DirectObject):
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
                 task.switch[self.next]()
-                print 'just did task', self.next
+                #print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
                 #print self.all_intervals
@@ -367,7 +367,7 @@ class World(DirectObject):
 
     def give_reward(self):
         out = sys.stdout
-        print 'reward'
+        #print 'reward'
         if self.reward:
             for i in range(self.num_beeps):
                 if self.reward_task:

@@ -84,20 +84,25 @@ class TestCalibration(unittest.TestCase):
         # should only get reward automatically if on manual
         # easiest way to stop after reward on manual is to
         # go to second time next = 1
+        # this test collects all the print statements, so is a
+        # little awkward for troubleshooting...
         self.w.keys["switch"] = 7
         held, sys.stdout = sys.stdout, StringIO()
         no_reward = True
         loop = 0
+        last_next = 0
         while no_reward:
             taskMgr.step()
-            if self.w.next == 1:
+            #print self.w.next
+            if self.w.next == 1 and self.w.next != last_next:
                 if loop == 0:
-                    print 'loop 1'
+                    #print 'loop 1'
                     loop += 1
-                else:
+                elif loop == 1:
                     no_reward = False
+            last_next = self.w.next
         output = 'beep\n' * self.config['NUM_BEEPS']
-        self.assertEqual(sys.stdout.getvalue(), output)
+        self.assertIn(output, sys.stdout.getvalue())
 
     def test_timing_off_to_on(self):
         square_off = True
