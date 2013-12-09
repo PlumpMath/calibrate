@@ -22,20 +22,18 @@ except:
     pass
 
 class World(DirectObject):
-    def __init__(self, manual = None):
+    def __init__(self, manual=None):
         #print 'init'
-        #print 'manual, damnit', manual
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
-        # assume auto unless command argument otherwise
-        if manual is None:
-            #print 'None'
-            self.manual = False
+        # Python assumes all input are string?
+        #
+        if manual == 'True':
+            self.manual = True
         else:
-            #print 'input'
-            self.manual = manual
-
+            self.manual = False
+        #print 'manual', self.manual
         try:
             pydaq
             self.daq = True
@@ -51,6 +49,8 @@ class World(DirectObject):
             self.daq = False
         if unittest:
             config_file = 'config_test.py'
+            # if doing tests, I think we need fake data
+            self.test = True
             #FrameBufferProperties.getDefault()
             #WindowProperties.getDefault()
         else:
@@ -273,8 +273,9 @@ class World(DirectObject):
                 # we will set self.next correctly for the next task
                 # when we do the manual move
                 #print 'in loop', self.manual
-                if self.next == 3 and self.manual:
-                    #print 'manual move'
+                if self.manual and self.next == 3:
+                    #if self.next == 3 and self.manual:
+                    #print 'manual move', self.manual
                     task.move = True
                     # need interval from off to move
                     task.interval = random.uniform(*self.all_intervals[self.next])
@@ -299,7 +300,7 @@ class World(DirectObject):
                 self.next += 1
                 #print 'update task number', self.next
         else:
-            #print "check for key"
+            print "check for key"
             #print self.keys["switch"]
             # check to see if we should move the target
             #print 'switch', self.keys
@@ -408,11 +409,11 @@ class World(DirectObject):
 
     def close(self):
         #print 'close'
-        self.eye_data_file.close()
-        self.time_data_file.close()
         if self.daq:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
+        self.eye_data_file.close()
+        self.time_data_file.close()
         if unittest:
             self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
         else:
@@ -427,5 +428,6 @@ if __name__ == "__main__":
 else:
     #print 'test'
     unittest = True
+
     # file was imported
     # only happens during testing...
