@@ -24,7 +24,7 @@ except:
 class World(DirectObject):
     def __init__(self, manual = None):
         #print 'init'
-        #print 'manual, damnit', manual
+        print 'manual, damnit', manual
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
@@ -35,7 +35,7 @@ class World(DirectObject):
         else:
             #print 'input'
             self.manual = manual
-
+        print self.manual
         try:
             pydaq
             self.daq = True
