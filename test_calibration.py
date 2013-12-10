@@ -8,8 +8,9 @@ from StringIO import StringIO
 import sys
 import datetime
 
-# Tests run fine one at a time, but isn't destroying the ShowBase
-# instance between tests, for some crazy reason. It use to! Meh.
+# Tests run fine one at a time, but on Windows, isn't destroying
+# the ShowBase instance between tests, for some crazy reason. It
+# use to! Meh.
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
@@ -212,8 +213,13 @@ class TestCalibration(unittest.TestCase):
         self.assertIn('timestamp', f.readline())
         self.assertIn('start calibration', f.readline())
         self.assertIn('Square on', f.readline())
-
         f.close()
+
+    def test_eye_plot_erased_after_reward(self):
+        pass
+
+    def test_eye_plot_starts_before_next_on(self):
+        pass
 
     def tearDown(self):
         taskMgr.remove(self.w.frameTask)

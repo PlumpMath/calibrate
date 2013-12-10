@@ -22,20 +22,23 @@ try:
 except:
     pass
 
+
+# NEED TO MAKE IT NOT START UNTIL SPACEBAR OR SOME SUCH THING.
+
 class World(DirectObject):
     def __init__(self, mode=None):
         #print 'init'
         #print manual
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        self.test = False
+        self.test = True
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
             self.manual = True
         else:
             self.manual = False
-        #print 'manual', self.manual
+            #print 'manual', self.manual
 
         try:
             pydaq
@@ -44,11 +47,12 @@ class World(DirectObject):
             self.daq = False
             # if there is no daq, we are on mac, and must be in test mode
             self.test = True
-        # If we are on the mac (no pydaq), always testing,
+            # If we are on the mac (no pydaq), always testing,
         # and always load fade data
         # if on windows, only do it while testing
         if self.test:
             import fake_eye_data
+
             self.daq = False
         if unittest:
             config_file = 'config_test.py'
@@ -69,6 +73,8 @@ class World(DirectObject):
         panda = self.win.loader.loadModel('panda')
         panda.reparentTo(self.win.render)
 
+        #print base.pipe.getDisplayWidth()
+        #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
         # should be better way to deal with this, but haven't found it yet.
         # if an actual resolution in config file, change to that resolution,
@@ -76,7 +82,7 @@ class World(DirectObject):
         if config['WIN_RES'] != 'Test':
             props = WindowProperties()
             props.setForeground(True)
-            #props.setCursorHidden(True)
+            props.setCursorHidden(True)
             self.win.win.requestProperties(props)
             #print props
 
@@ -88,8 +94,12 @@ class World(DirectObject):
             window2 = self.win.openWindow()
             window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
             #props.setCursorHidden(True)
-            props.setForeground(False)
-            props.setOrigin(600, 200) #any pixel on the screen you want
+            #props.setOrigin(0, 0)
+            if config['WIN_RES'] is not None:
+                props.setOrigin(-1600, 0)
+                props.setSize(1600, 900)
+            else:
+                props.setOrigin(600, 200)  # make it so windows aren't on top of each other
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
@@ -98,7 +108,7 @@ class World(DirectObject):
 
             self.smiley = self.win.loader.loadModel('smiley')
             self.smiley.reparentTo(camera)
-            self.smiley.setPos(-3, 55, 3)
+            #self.smiley.setPos(-3, 55, 3)
             self.smiley.setColor(0, 0, 0, 0)
             self.smiley.setScale(0.1)
             camera.node().setCameraMask(BitMask32.bit(0))
@@ -117,12 +127,12 @@ class World(DirectObject):
         data_dir = 'data/' + config['SUBJECT']
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
-        self.eye_file_name = data_dir + '/eye_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
         self.eye_data_file = open(self.eye_file_name, 'w')
         self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
         # open file for recording event times
-        self.time_file_name = data_dir + '/time_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-        self.time_data_file = open(self.time_file_name,'w')
+        self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.time_data_file = open(self.time_file_name, 'w')
         self.time_data_file.write('timestamp, task' + '\n')
         self.first = True
 
@@ -182,7 +192,7 @@ class World(DirectObject):
         # but may want to use more keys eventually
         # keys will update the list, and loop will query it
         # to get new position
-        self.keys = {"switch" : 0}
+        self.keys = {"switch": 0}
         # keyboard
         self.accept("1", self.setKey, ["switch", 1])
         self.accept("2", self.setKey, ["switch", 2])
@@ -199,7 +209,8 @@ class World(DirectObject):
         # fade_interval - time from fade on to off
         # reward_interval - time from off to reward
         # move_interval - time from reward to move/on
-        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'], config['MOVE_INTERVAL']]
+        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
+                              config['MOVE_INTERVAL']]
         #Now we create the task. taskMgr is the task manager that actually calls
         #The function each frame. The add method creates a new task. The first
         #argument is the function to be called, and the second argument is the name
@@ -257,7 +268,7 @@ class World(DirectObject):
         if not unittest:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
-            eye.setPos(eye_data[0], 55, eye_data[1],)
+            eye.setPos(eye_data[0], 55, eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
 
@@ -301,7 +312,7 @@ class World(DirectObject):
                     task.interval = task.time + task.interval
                     # do not complete this loop
                     return task.cont
-                # if we are at self.next = 4, then the last task was reward,
+                    # if we are at self.next = 4, then the last task was reward,
                 # and we need to reset our counter to zero. Since we do square_on
                 # at the end of our move method, the incrementing to one at the
                 # end of our loop will put as at self.next = 1, (square_fade), which
@@ -309,7 +320,7 @@ class World(DirectObject):
                 # that we are using the correct corresponding interval
                 if self.next == 4:
                     self.next = 0
-                #print self.all_intervals[self.next]
+                    #print self.all_intervals[self.next]
                 task.interval = random.uniform(*self.all_intervals[self.next])
                 #print 'next interval', task.interval
                 task.interval = task.time + task.interval
@@ -408,16 +419,20 @@ class World(DirectObject):
         #else:
         #    self.square.setPos(Point3(position))
         self.square.setPos(Point3(position))
-        print position[0],[2]
+        #print position[0], position[2]
         self.time_data_file.write(str(time()) + ', move, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
         self.square_on()
 
     def set_resolution(self, res):
         wp = WindowProperties()
-        wp.setSize(res)
-        wp.setFullscreen(True)
-        self.win.requestProperties(wp)
+        #print res
+        #wp.setSize(int(res[0]), int(res[1]))
+        #wp.setFullscreen(True)
+        wp.setSize(1024, 768)
+        wp.setOrigin(0, 0)
+        wp.setUndecorated(True)
+        self.win.win.requestProperties(wp)
 
     def close(self):
         #print 'close'
@@ -431,12 +446,18 @@ class World(DirectObject):
         else:
             sys.exit()
 
+
 if __name__ == "__main__":
     #print 'run as module'
     unittest = False
     #print 'main'
-    W = World(sys.argv[1])
+    # default is manual
+    if len(sys.argv) == 1:
+        W = World(1)
+    else:
+        W = World(sys.argv[1])
     run()
+
 else:
     #print 'test'
     unittest = True

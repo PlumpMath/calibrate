@@ -2,6 +2,8 @@ SUBJECT = 'test'
 
 # window resolution, can be a resolution or None for normal panda3d window
 WIN_RES = None
+#WIN_RES = [1024, 768]
+
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2
 # How many points in x direction
