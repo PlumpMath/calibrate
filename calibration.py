@@ -23,7 +23,7 @@ except:
     pass
 
 
-# NEED TO MAKE IT NOT START UNTIL SPACEBAR OR SOME SUCH THING.
+# NEED TO SAVE STUFF NECESSARY FOR CALIBRATION - RESOLUTION, ETC.
 
 class World(DirectObject):
     def __init__(self, mode=None):
@@ -149,6 +149,7 @@ class World(DirectObject):
         # obj.reparentTo(camera)
         self.depth = 55
         obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
+        self.time_data_file.write(str(time()) + ', First Position, ' + str(pos.getX()) + ', ' + str(pos.getY()) + '\n')
         # need to scale to be correct visual angle
         obj.setScale(1)
         obj.setTransparency(1)
@@ -166,7 +167,7 @@ class World(DirectObject):
             self.reward = True
             self.pos = Positions(config)
         else:
-            print 'manual is false'
+            #print 'manual is false'
             self.reward = False
             self.pos = Positions(config).get_position(self.depth)
 
@@ -188,6 +189,8 @@ class World(DirectObject):
 
         # Keyboard stuff:
         self.accept("escape", self.close)  # escape
+        self.accept("space", self.start) # default is the program waits 2
+        # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
         # but may want to use more keys eventually
         # keys will update the list, and loop will query it
@@ -218,12 +221,14 @@ class World(DirectObject):
         #each frame
         self.frameTask = self.win.taskMgr.add(self.frame_loop, "frame_loop")
         #print self.frameTask.time
-        # this is the first interval - time from move to on
+
         # The task object is a good place to put variables that should stay
         # persistent for the task function from frame to frame
         # first interval will be the move interval (off to move/on - won't
         # actually move)
-        self.frameTask.interval = random.uniform(*self.all_intervals[3])
+        # first square will turn on 2 minutes after experiment started,
+        # unless the spacebar is pressed to start it early
+        self.frameTask.interval = 120
         #print 'first interval', self.frameTask.interval
 
         # Main work horse: index with self.next to choose appropriate method
@@ -251,26 +256,6 @@ class World(DirectObject):
     def setKey(self, key, val):
         self.keys[key] = val
         #print 'set key', self.keys[key]
-
-    def get_eye_data(self, eye_data):
-        # pydaq calls this function every time it calls back to get eye data,
-        # if testing, called from frame_loop with fake data
-        self.eye_data.append(eye_data)
-        #VLQ.getInstance().writeLine("EyeData",
-        #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
-        #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
-        #print eye_data
-        #for x in [-3.0, 0.0, 3.0]:
-        if self.first:
-            #print 'first?', eye_data[0], eye_data[1]
-            self.time_data_file.write(str(time()) + ', start calibration' + '\n')
-            self.first = False
-        if not unittest:
-            eye = self.smiley.copyTo(self.root)
-            #print eye_data[0], eye_data[1]
-            eye.setPos(eye_data[0], 55, eye_data[1], )
-            self.eyes += [eye]
-        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -360,10 +345,34 @@ class World(DirectObject):
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely
 
+    def start(self):
+        # starts the experiment early (normal start time is 2 minutes)
+        self.frameTask.interval = 0
+
+    def get_eye_data(self, eye_data):
+        # pydaq calls this function every time it calls back to get eye data,
+        # if testing, called from frame_loop with fake data
+        self.eye_data.append(eye_data)
+        #VLQ.getInstance().writeLine("EyeData",
+        #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
+        #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
+        #print eye_data
+        #for x in [-3.0, 0.0, 3.0]:
+        if self.first:
+            #print 'first?', eye_data[0], eye_data[1]
+            self.time_data_file.write(str(time()) + ', start calibration' + '\n')
+            self.first = False
+        if not unittest:
+            eye = self.smiley.copyTo(self.root)
+            #print eye_data[0], eye_data[1]
+            eye.setPos(eye_data[0], 55, eye_data[1], )
+            self.eyes += [eye]
+        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
+
     def square_on(self):
         #print 'square', self.manual
         #print 'square on, 0'
-        #print self.square.getPos()
+        #Pos(Point3(pos.getX(), self.depth, pos.getY()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         self.square.reparentTo(camera)
         # next interval is fade on to off
@@ -420,7 +429,7 @@ class World(DirectObject):
         #    self.square.setPos(Point3(position))
         self.square.setPos(Point3(position))
         #print position[0], position[2]
-        self.time_data_file.write(str(time()) + ', move, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
+        self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
         self.square_on()
 

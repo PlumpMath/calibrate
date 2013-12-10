@@ -211,6 +211,7 @@ class TestCalibration(unittest.TestCase):
         f = open(self.w.time_file_name, 'r')
         #print(f.readline())
         self.assertIn('timestamp', f.readline())
+        self.assertIn('First Position', f.readline())
         self.assertIn('start calibration', f.readline())
         self.assertIn('Square on', f.readline())
         f.close()
