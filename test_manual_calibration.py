@@ -28,7 +28,8 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
         # all these tests are for manual
-        self.w = World(True)
+        # manual move is mode 1
+        self.w = World(1)
         #print 'loaded world'
         self.config = {}
         execfile('config_test.py', self.config)
@@ -40,6 +41,8 @@ class TestCalibration(unittest.TestCase):
         # go to second time next = 1
         # this test collects all the print statements, so is a
         # little awkward for troubleshooting...
+        # best to comment out held, sys.stdout line, but keep
+        # in mind, this ensures failure
         self.w.keys["switch"] = 7
         held, sys.stdout = sys.stdout, StringIO()
         no_reward = True
@@ -53,6 +56,7 @@ class TestCalibration(unittest.TestCase):
                     #print 'loop 1'
                     loop += 1
                 elif loop == 1:
+                    #print 'reward?'
                     no_reward = False
             last_next = self.w.next
         output = 'beep\n' * self.config['NUM_BEEPS']

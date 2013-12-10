@@ -30,7 +30,8 @@ class TestCalibration(unittest.TestCase):
         loadPrcFileData("", "window-type offscreen")
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
-        self.w = World(False)
+        # 2 is random mode
+        self.w = World(2)
         #print 'loaded world'
         self.config = {}
         execfile('config_test.py', self.config)

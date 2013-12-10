@@ -12,6 +12,7 @@ import sys
 import random
 import os
 import datetime
+from time import time
 from pandaepl import ptime
 # crazy gymnastics to not load the fake data unless necessary
 try:
@@ -22,14 +23,15 @@ except:
     pass
 
 class World(DirectObject):
-    def __init__(self, manual=None):
+    def __init__(self, mode=None):
         #print 'init'
+        #print manual
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
-        # Python assumes all input are string?
-        #
-        if manual == 'True':
+        # Python assumes all input from sys are string, but not
+        # input variables
+        if mode == '1' or mode == 1:
             self.manual = True
         else:
             self.manual = False
@@ -117,9 +119,11 @@ class World(DirectObject):
             os.makedirs(data_dir)
         self.eye_file_name = data_dir + '/eye_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
         self.eye_data_file = open(self.eye_file_name, 'w')
+        self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
         # open file for recording event times
         self.time_file_name = data_dir + '/time_cal_' +datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
         self.time_data_file = open(self.time_file_name,'w')
+        self.time_data_file.write('timestamp, task' + '\n')
         self.first = True
 
         # if you want to see the frame rate
@@ -152,6 +156,7 @@ class World(DirectObject):
             self.reward = True
             self.pos = Positions(config)
         else:
+            print 'manual is false'
             self.reward = False
             self.pos = Positions(config).get_position(self.depth)
 
@@ -218,6 +223,14 @@ class World(DirectObject):
             3: self.give_reward,
             4: self.square_move}
 
+        # Corresponding dictionary for writing to file
+        self.frameTask.file = {
+            0: 'Square on',
+            1: 'Square dims',
+            2: 'Square off',
+            3: 'Reward',
+            4: 'Square moves, on'
+        }
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
         self.frameTask.move = False
@@ -238,13 +251,15 @@ class World(DirectObject):
         #print eye_data
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
-            self.time_data_file.write('start calibration' + '\n')
+            #print 'first?', eye_data[0], eye_data[1]
+            self.time_data_file.write(str(time()) + ', start calibration' + '\n')
+            self.first = False
         if not unittest:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
-            eye.setPos(eye_data[0], 55, eye_data[1], )
+            eye.setPos(eye_data[0], 55, eye_data[1],)
             self.eyes += [eye]
-        self.eye_data_file.write(str(eye_data).strip('()') + '\n')
+        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -260,10 +275,13 @@ class World(DirectObject):
                 # task.switch will manipulate the square and
                 # update the interval to the next task.
                 #print task.time
-                #print 'task', task.switch[task.now]
+                #print 'task', task.switch[self.next]
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
                 task.switch[self.next]()
+                print task.file[self.next]
+                #self.time_data_file.write('test' + '\n')
+                self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
                 #print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
@@ -301,7 +319,7 @@ class World(DirectObject):
                 self.next += 1
                 #print 'update task number', self.next
         else:
-            print "check for key"
+            #print "check for key"
             #print self.keys["switch"]
             # check to see if we should move the target
             #print 'switch', self.keys
@@ -369,7 +387,7 @@ class World(DirectObject):
 
     def give_reward(self):
         out = sys.stdout
-        #print 'reward'
+        #print 'reward', self.reward
         if self.reward:
             for i in range(self.num_beeps):
                 if self.reward_task:
@@ -382,25 +400,18 @@ class World(DirectObject):
         #print 'position', position
         if not position:
             #print 'trying to get a auto position'
-            self.square.setPos(Point3(self.pos.next()))
+            position = self.pos.next()
+
+            #self.square.setPos(Point3(self.pos.next()))
+            #self.time_data_file.write(time()) + ', move, ' x_position, y_position' + '\n')
             #print self.square.getPos()
-        else:
-            self.square.setPos(Point3(position))
+        #else:
+        #    self.square.setPos(Point3(position))
+        self.square.setPos(Point3(position))
+        print position[0],[2]
+        self.time_data_file.write(str(time()) + ', move, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
         self.square_on()
-
-    #def set_manual(self, config, manual=None):
-    #    # allow to override manual setting in config file
-    #    # for non-random, non-manual:
-    #    if manual is None:
-    #        self.manual = config['MANUAL']
-    #    else:
-    #        self.manual = manual
-    #    # self.manual is now true or false
-    #    if not self.manual:
-    #        self.pos = Positions(config).get_position(self.depth)
-    #    else:
-    #        self.pos = Positions(config)
 
     def set_resolution(self, res):
         wp = WindowProperties()

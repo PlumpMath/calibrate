@@ -22,7 +22,8 @@ class TestCalibration(unittest.TestCase):
 #            2: self.square_off,
 #            3: self.square_move}
     ClassIsSetup = False
-    manual = True
+    #manual = True
+    manual = 1
 
     def setUp(self):
         if not self.ClassIsSetup:
@@ -32,8 +33,7 @@ class TestCalibration(unittest.TestCase):
         loadPrcFileData("", "window-type offscreen")
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
-        # all these tests are for manual
-        print 'boo', self.manual
+        #print 'boo', self.manual
         self.w = World(self.manual)
         self.config = {}
         execfile('config_test.py', self.config)
@@ -42,7 +42,8 @@ class TestCalibration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if cls.ClassIsSetup:
-            cls.manual = False
+            #cls.manual = False
+            cls.manual = 2
         # remember it was setup already
         cls.ClassIsSetup = True
 
@@ -189,7 +190,29 @@ class TestCalibration(unittest.TestCase):
         # since we are using fake data, know that first point is (0,0)
         f = open(self.w.eye_file_name, 'r')
         #print(f.readline())
-        self.assertEqual(f.readline(), '0, 0\n')
+        self.assertIn('timestamp', f.readline())
+        self.assertIn( '0, 0\n', f.readline())
+        f.close()
+
+    def test_tasks_and_timestamp_written_to_file(self):
+        # make sure data is written to file.
+        square_off = True
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be on'
+                square_off = False
+        # need to stop task, so file is closed
+        self.w.close()
+        # since we are using fake data, know that first point is (0,0)
+        f = open(self.w.time_file_name, 'r')
+        #print(f.readline())
+        self.assertIn('timestamp', f.readline())
+        self.assertIn('start calibration', f.readline())
+        self.assertIn('Square on', f.readline())
+
         f.close()
 
     def tearDown(self):
@@ -205,6 +228,8 @@ def suite():
     return unittest.makeSuite( TestCalibration, 'test' )
 
 if __name__ == "__main__":
+    #unittest.main(verbosity=2)
+    #print 'run suite'
     # run twice to cover both conditions
     unittest.TextTestRunner(verbosity=1).run(suite())
     unittest.TextTestRunner(verbosity=1).run(suite())
