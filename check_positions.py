@@ -15,15 +15,22 @@ class World(DirectObject):
         window.setBackgroundColor(115/255, 115/255, 115/255)
         pos = Positions().get_position(self.depth)
 
-        for i in pos:
+        for i, j in enumerate(pos):
+            #print i
+            #print j
             square = window.loader.loadModel("models/plane")
             square.reparentTo(camera)
             square.setScale(1)
             square.setDepthTest(False)
             square.setTransparency(1)
             square.setTexture(window.loader.loadTexture("textures/calibration_square.png"), 1)
-            square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-            square.setPos(Point3(i))
+            # gray
+            #square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
+            # yellow
+            #square.setColor(175 / 255, 175 / 255, 130 / 255, 1.0)
+            square.setColor(175 / 255, 175 / 255, (i * 10) / 255, 1.0)
+            print square.getColor()
+            square.setPos(Point3(j))
             #print square.getPos()
         print 'done'
 
