@@ -284,6 +284,61 @@ class TestCalibration(unittest.TestCase):
         # make sure timing within 2 places
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
+    def test_square_moves_to_center_if_no_keypress(self):
+        # Wait for reward, don't send keypress
+        # check position changed to center, which is
+        # conveniently the same place it started...
+        old_position = self.w.square.getPos()
+        no_reward = True
+        loop = 0
+        last_next = 0
+        while no_reward:
+            taskMgr.step()
+            #print self.w.next
+            if self.w.next == 1 and self.w.next != last_next:
+                if loop == 0:
+                    #print 'loop 1'
+                    loop += 1
+                elif loop == 1:
+                    #print 'reward?'
+                    no_reward = False
+            last_next = self.w.next
+        self.assertEqual(self.w.square.getPos(), old_position)
+
+    def test_waits_correct_time_with_no_keypress(self):
+        # if we don't press a key, do we still wait the correct
+        # time before we move?
+        # We turn on at the same time we move, so check the
+        # interval between turning off and turning on, which will
+        # be when self.w.next switches to 1.
+        #old_position = self.w.square.getPos()
+        #print old_position
+        signal = False
+        while not signal:
+            taskMgr.step()
+            if self.w.frameTask.move is True:
+                signal = True
+        # when w.frameTask.move is True, the square has just turned off
+        # time until it is on, and moved
+        #print 'check time'
+        a = datetime.datetime.now()
+        # we wait until it comes back on
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            if self.w.next == 1:
+                square_off = False
+
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 2 places
+        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
+
     def tearDown(self):
         taskMgr.remove(self.w.frameTask)
         self.w.close()

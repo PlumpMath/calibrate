@@ -18,7 +18,7 @@ Y_LIMITS = 10
 # Assume random.uniform really works for intervals.
 ON_INTERVAL = (0.75, 0.75)  # Time on
 FADE_INTERVAL = (0.50, 0.50) # Time faded
-REWARD_INTERVAL = (0.35, 0.35) # Time from off to reward
+REWARD_INTERVAL = (0, 0) # Time from off to reward
 MOVE_INTERVAL = (1.0, 1.0) # Time from fading off until on in new place
 
 # how many rewards per trial

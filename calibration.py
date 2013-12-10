@@ -169,7 +169,7 @@ class World(DirectObject):
         else:
             #print 'manual is false'
             self.reward = False
-            self.pos = Positions(config).get_position(self.depth)
+            self.pos = Positions(config).get_position(self.depth, True)
 
         # Eye Data and reward
         self.eye_data = []
@@ -226,9 +226,12 @@ class World(DirectObject):
         # persistent for the task function from frame to frame
         # first interval will be the move interval (off to move/on - won't
         # actually move)
-        # first square will turn on 2 minutes after experiment started,
-        # unless the spacebar is pressed to start it early
-        self.frameTask.interval = 120
+        # if not testing, first square will turn on 2 minutes after experiment started,
+        #  or when the spacebar is pressed to start it early
+        if self.test:
+            self.frameTask.interval = random.uniform(*self.all_intervals[3])
+        else:
+            self.frameTask.interval = 120
         #print 'first interval', self.frameTask.interval
 
         # Main work horse: index with self.next to choose appropriate method
@@ -275,7 +278,7 @@ class World(DirectObject):
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
                 task.switch[self.next]()
-                print task.file[self.next]
+                #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
                 #print 'just did task', self.next
@@ -319,24 +322,27 @@ class World(DirectObject):
             #print self.keys["switch"]
             # check to see if we should move the target
             #print 'switch', self.keys
-            # it is possible to change the keypress before the last square turns off,
-            # in this case we want to make sure we wait, before switching task.move to false
-            if self.keys["switch"] and task.time > task.interval:
-                if task.time > task.interval:
+            # if we haven't received a keypress before interval is over, default to 0,0
+            if task.time > task.interval:
+                if self.keys["switch"]:
                     #print 'manual move'
                     #print 'switch', self.keys["switch"]
                     self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
-                    self.keys["switch"] = 0  # remove the switch flag
-                    # square is on, so nex thing to happen is it dims,
-                    # this happens after on interval, 0
-                    # make sure next interval is based on the time we actually moved the target (now!)
-                    task.interval = task.time + random.uniform(*self.all_intervals[0])
-                    # Next is dim, since it turned on when
-                    self.next = 1
+                else:
+                    # switch to center
+                    self.square_move(self.pos.get_key_position(self.depth, 5))
 
-                    # don't come back here until ready to move again
-                    task.move = False
-                    #print 'back to regularly scheduled program'
+                self.keys["switch"] = 0  # remove the switch flag
+                # square is on, so nex thing to happen is it dims,
+                # this happens after on interval, 0
+                # make sure next interval is based on the time we actually moved the target (now!)
+                task.interval = task.time + random.uniform(*self.all_intervals[0])
+                # Next is dim, since it turned on when
+                self.next = 1
+
+                # don't come back here until ready to move again
+                task.move = False
+                #print 'back to regularly scheduled program'
 
         # if using fake data, plot
         if self.test:
@@ -420,8 +426,10 @@ class World(DirectObject):
         #print 'position', position
         if not position:
             #print 'trying to get a auto position'
-            position = self.pos.next()
-
+            try:
+                position = self.pos.next()
+            except StopIteration:
+                self.close()
             #self.square.setPos(Point3(self.pos.next()))
             #self.time_data_file.write(time()) + ', move, ' x_position, y_position' + '\n')
             #print self.square.getPos()
