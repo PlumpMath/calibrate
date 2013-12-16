@@ -15,13 +15,15 @@ def create_eye_data(size):
     return eye_data
 
 
-def yield_eye_data():
+def yield_eye_data(origin = []):
     global next_call
-    (x, y) = (0, 0)
+    #(x, y) = (0, 0)
+    if origin:
+        (x, y) = origin
     while True:
         yield x, y
-        x = random.uniform(x + 0.31, x - 0.3)
-        y = random.uniform(y + 0.31, y - 0.3)
+        x = random.uniform(x + 0.01, x - 0.01)
+        y = random.uniform(y + 0.01, y - 0.01)
     next_call = next_call + 0.1
     threading.Timer( next_call - time.time(), yield_eye_data ).start()
 
