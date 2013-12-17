@@ -32,8 +32,8 @@ class World(DirectObject):
     def __init__(self, mode=None):
         #print 'init'
         #print manual
-        self.gain = (100, 100)
-        self.offset = (0, 0)
+        self.gain = [100, 100]
+        self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
@@ -118,11 +118,19 @@ class World(DirectObject):
             camera2.node().setLens(lens)
             camera2.reparentTo( render )
 
-            text = TextNode('adjust')
-            text.setText('Gain:')
-            textNodePath = aspect2d.attachNewNode(text)
+            self.text = TextNode('gain')
+            self.text.setText('Gain:' + str(self.gain))
+            textNodePath = aspect2d.attachNewNode(self.text)
             textNodePath.setScale(0.1)
-            textNodePath.setPos(-400, 300)
+            #textNodePath.setPos(-300, 0, 200)
+            textNodePath.setPos(0.2, 0, 0.9)
+
+            self.text2 = TextNode('offset')
+            self.text2.setText('Offset:' + str(self.offset))
+            text2NodePath = aspect2d.attachNewNode(self.text2)
+            text2NodePath.setScale(0.1)
+            #textNodePath.setPos(-300, 0, 200)
+            text2NodePath.setPos(0.2, 0, 0.8)
 
             # eye position is just a smiley painted black
             self.smiley = self.base.loader.loadModel('smiley')
@@ -139,8 +147,8 @@ class World(DirectObject):
             print size[0], size[2]
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
-            self.smiley.hide(BitMask32.bit(0))
-            self.smiley.show(BitMask32.bit(1))
+            self.smiley.hide(BitMask32.bit(1))
+            self.smiley.show(BitMask32.bit(0))
             # if root is set to camera, don't see at all
             # if set to pixel2d, see large on first, and teeny on second. meh.
             self.root = self.base.render.attachNewNode("Root")
@@ -222,6 +230,23 @@ class World(DirectObject):
         # Keyboard stuff:
         self.accept("escape", self.close)  # escape
         self.accept("space", self.start) # default is the program waits 2
+        self.accept("shift-arrow_up", self.increase_y_gain)
+        self.accept("shift-arrow_up-repeat", self.increase_y_gain)
+        self.accept("shift-arrow_right", self.increase_x_gain)
+        self.accept("shift-arrow_right-repeat", self.increase_x_gain)
+        self.accept("shift-arrow_down", self.decrease_y_gain)
+        self.accept("shift-arrow_down-repeat", self.decrease_y_gain)
+        self.accept("shift-arrow_left", self.decrease_x_gain)
+        self.accept("shift-arrow_left-repeat", self.decrease_x_gain)
+        self.accept("control-arrow_up", self.increase_y_offset)
+        self.accept("control-arrow_up-repeat", self.increase_y_offset)
+        self.accept("control-arrow_right", self.increase_x_offset)
+        self.accept("control-arrow_right-repeat", self.increase_x_offset)
+        self.accept("control-arrow_down", self.decrease_y_offset)
+        self.accept("control-arrow_down-repeat", self.decrease_y_offset)
+        self.accept("control-arrow_left", self.decrease_x_offset)
+        self.accept("control-arrow_left-repeat", self.decrease_x_offset)
+
         # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
         # but may want to use more keys eventually
@@ -416,7 +441,7 @@ class World(DirectObject):
             eye.setPos(eye_data[0], 55, eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        print eye.getPos()
+        #print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
         #print size[0], size[2]
@@ -424,6 +449,46 @@ class World(DirectObject):
     def eye_data_to_pixel(self, eye_data):
         return [(eye_data[0] * self.gain[0]) + self.offset[0],
                 (eye_data[1] * self.gain[1]) + self.offset[1]]
+
+    def increase_x_gain(self):
+        #print 'increase x gain', self.gain[0]
+        self.gain[0] += 1
+        self.text.setText('Gain:' + str(self.gain))
+
+    def decrease_x_gain(self):
+        #print 'decrease gain'
+        self.gain[0] -= 1
+        self.text.setText('Gain:' + str(self.gain))
+
+    def increase_x_offset(self):
+        #print 'increase offset'
+        self.offset[0] += 1
+        self.text2.setText('Offset:' + str(self.offset))
+
+    def decrease_x_offset(self):
+        #print 'decrease offset'
+        self.offset[0] -= 1
+        self.text2.setText('Offset:' + str(self.offset))
+
+    def increase_y_gain(self):
+        #print 'increase gain'
+        self.gain[1] += 1
+        self.text.setText('Gain:' + str(self.gain))
+
+    def decrease_y_gain(self):
+        #print 'decrease gain'
+        self.gain[1] -= 1
+        self.text.setText('Gain:' + str(self.gain))
+
+    def increase_y_offset(self):
+        #print 'increase offset'
+        self.offset[1] += 1
+        self.text2.setText('Offset:' + str(self.offset))
+
+    def decrease_y_offset(self):
+        #print 'decrease offset'
+        self.offset[1] -= 1
+        self.text2.setText('Offset:' + str(self.offset))
 
     def square_on(self):
         #print 'square', self.manual
