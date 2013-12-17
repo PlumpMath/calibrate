@@ -2,7 +2,11 @@
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
-WIN_RES = 'Test'
+#WIN_RES = 'Test'
+WIN_RES = [1024, 768]
+# Screen size
+SCREEN = [1331, 991]
+VIEW_DIST = 1219
 # number of pixels from outer edges to first point
 PADDING = 100
 # how many times to repeat each point when in random mode
