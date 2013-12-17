@@ -6,6 +6,8 @@ from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32, getModelPath
 from panda3d.core import WindowProperties
 from pandac.PandaModules import ClockObject
+#from panda3d.core import GraphicsWindow
+from panda3d.core import OrthographicLens
 #from direct.task.Task import Task
 from positions import Positions
 import sys
@@ -13,7 +15,8 @@ import random
 import os
 import datetime
 from time import time, sleep
-from pandaepl import ptime
+#from pandaepl import ptime
+
 # crazy gymnastics to not load the fake data unless necessary
 try:
     sys.path.insert(1, '../pydaq')
@@ -29,6 +32,7 @@ class World(DirectObject):
     def __init__(self, mode=None):
         #print 'init'
         #print manual
+        self.gain = 100
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
@@ -68,10 +72,7 @@ class World(DirectObject):
         execfile(config_file, config)
 
         #window = direct.showbase.ShowBase.ShowBase()
-        self.win = ShowBase()
-
-        panda = self.win.loader.loadModel('panda')
-        panda.reparentTo(self.win.render)
+        self.base = ShowBase()
 
         #print base.pipe.getDisplayWidth()
         #print base.pipe.getDisplayHeight()
@@ -81,21 +82,21 @@ class World(DirectObject):
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
             props = WindowProperties()
-            props.setForeground(True)
-            props.setCursorHidden(True)
-            self.win.win.requestProperties(props)
+            #props.setForeground(True)
+            #props.setCursorHidden(True)
+            self.base.win.requestProperties(props)
             #print props
 
             # Need to get this better. keypress only works with one window.
             # plus looks ugly.
-            # when getting eye data, probably should put in a list of tuples, separate class,
-            # also write to file
 
-            window2 = self.win.openWindow()
+            window2 = self.base.openWindow()
             window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
+            #window2.setClearColor((1, 0, 0, 1))
             #props.setCursorHidden(True)
             #props.setOrigin(0, 0)
             if config['WIN_RES'] is not None:
+                self.set_resolution(config['WIN_RES'])
                 props.setOrigin(-1600, 0)
                 props.setSize(1600, 900)
             else:
@@ -103,22 +104,39 @@ class World(DirectObject):
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
-            camera = self.win.camList[0]
-            camera2 = self.win.camList[1]
+            lens = OrthographicLens()
+            lens.setFilmSize(self.base.win.getProperties().getXSize(), self.base.win.getProperties().getYSize())
+            #lens.setFilmSize(800, 600)
+            lens.setNearFar(-100,100)
 
-            self.smiley = self.win.loader.loadModel('smiley')
-            self.smiley.reparentTo(camera)
-            #self.smiley.setPos(-3, 55, 3)
+            camera = self.base.camList[0]
+            camera.node().setLens(lens)
+            camera.reparentTo( render )
+
+            camera2 = self.base.camList[1]
+            camera2.node().setLens(lens)
+            camera2.reparentTo( render )
+
+            self.smiley = self.base.loader.loadModel('smiley')
+            #self.smiley.reparentTo(camera)
+            self.smiley.setPos(-3, 0, 3)
+            #self.smiley.setPos(0, 55, 0)
             self.smiley.setColor(0, 0, 0, 0)
-            self.smiley.setScale(0.1)
+            #self.smiley.setColor(0, 0, 1, 0)
+            #self.smiley.setScale(0.1)
+            #self.smiley.setScale(1.001)
+            self.smiley.setScale(3)
+            min, max = self.smiley.getTightBounds()
+            size = max - min
+            print size[0], size[2]
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
             self.smiley.hide(BitMask32.bit(0))
             self.smiley.show(BitMask32.bit(1))
-
-            self.root = self.win.render.attachNewNode("Root")
-            if config['WIN_RES'] is not None:
-                self.set_resolution(config['WIN_RES'])
+            # if root is set to camera, don't see at all
+            # if set to pixel2d, see large on first, and teeny on second. meh.
+            self.root = self.base.render.attachNewNode("Root")
+            #self.root = self.base.render.attachNewNode("Root")
 
         #print 'window loaded'
         self.eyes = []
@@ -139,21 +157,26 @@ class World(DirectObject):
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
-        self.win.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
-        self.win.disableMouse()
+        self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
+        self.base.disableMouse()
         # initial position of Square
         pos = Point2(0, 0)
+        #pos = Point2((base.win.getXSize()/2, -base.win.getYSize()/2))
+        #print pos
         # setting up square object
-        obj = self.win.loader.loadModel("models/plane")
+        obj = self.base.loader.loadModel("models/plane")
         # don't turn on yet
         # obj.reparentTo(camera)
+        # make depth greater than eye positions so eye positions are on top of squares,
+        # intuitive, eh?
         self.depth = 55
         obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
         self.time_data_file.write(str(time()) + ', First Position, ' + str(pos.getX()) + ', ' + str(pos.getY()) + '\n')
         # need to scale to be correct visual angle
-        obj.setScale(1)
-        obj.setTransparency(1)
-        square = self.win.loader.loadTexture("textures/calibration_square.png")
+        #obj.setScale(1)
+        obj.setScale(20)
+        #obj.setTransparency(1)
+        square = self.base.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
         # starting color, should be set by model, but let's make sure
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
@@ -181,7 +204,8 @@ class World(DirectObject):
             self.eye_task.StartTask()
             self.reward_task = pydaq.GiveReward()
         else:
-            self.fake_data = fake_eye_data.yield_eye_data()
+            #self.fake_data = fake_eye_data.yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
+            self.fake_data = fake_eye_data.yield_eye_data((0,0))
             self.reward_task = None
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
@@ -219,7 +243,7 @@ class World(DirectObject):
         #argument is the function to be called, and the second argument is the name
         #for the task. It returns a task object, that is passed to the function
         #each frame
-        self.frameTask = self.win.taskMgr.add(self.frame_loop, "frame_loop")
+        self.frameTask = self.base.taskMgr.add(self.frame_loop, "frame_loop")
         #print self.frameTask.time
 
         # The task object is a good place to put variables that should stay
@@ -363,6 +387,7 @@ class World(DirectObject):
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
+        eye_data = self.eye_data_to_pixel(eye_data)
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
         self.eye_data.append(eye_data)
@@ -381,13 +406,27 @@ class World(DirectObject):
             eye.setPos(eye_data[0], 55, eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
+        #print eye.getPos()
+        #min, max = eye.getTightBounds()
+        #size = max - min
+        #print size[0], size[2]
+
+    def eye_data_to_pixel(self, eye_data):
+        return (eye_data[0] * self.gain, eye_data[1] * self.gain)
 
     def square_on(self):
         #print 'square', self.manual
         #print 'square on, 0'
         #Pos(Point3(pos.getX(), self.depth, pos.getY()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-        self.square.reparentTo(camera)
+        #self.square.reparentTo(camera)
+        # if on camera don't see in either window,
+        # pixel2d only see in first window
+        self.square.reparentTo( render )
+        min, max = self.square.getTightBounds()
+        size = max - min
+        #print size[0], size[2]
+        #print self.square.getPos()
         # next interval is fade on to off
         #self.interval = random.uniform(*FADE_INTERVAL)
         #print self.frameTask.new_interval
@@ -466,7 +505,7 @@ class World(DirectObject):
         wp.setSize(1024, 768)
         wp.setOrigin(0, 0)
         wp.setUndecorated(True)
-        self.win.win.requestProperties(wp)
+        self.base.win.requestProperties(wp)
 
     def close(self):
         #print 'close'

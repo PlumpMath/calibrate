@@ -1,7 +1,10 @@
 # This file is only used for unittests
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
+# use 'Test' for testing, so does not try to open second window
 WIN_RES = 'Test'
+# number of pixels from outer edges to first point
+PADDING = 100
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2
 # How many points in x direction
