@@ -4,7 +4,7 @@ from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32, getModelPath
-from panda3d.core import WindowProperties
+from panda3d.core import WindowProperties, TextNode
 from pandac.PandaModules import ClockObject
 #from panda3d.core import GraphicsWindow
 from panda3d.core import OrthographicLens
@@ -32,7 +32,8 @@ class World(DirectObject):
     def __init__(self, mode=None):
         #print 'init'
         #print manual
-        self.gain = 100
+        self.gain = (100, 100)
+        self.offset = (0, 0)
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
         self.test = False
@@ -117,6 +118,13 @@ class World(DirectObject):
             camera2.node().setLens(lens)
             camera2.reparentTo( render )
 
+            text = TextNode('adjust')
+            text.setText('Gain:')
+            textNodePath = aspect2d.attachNewNode(text)
+            textNodePath.setScale(0.1)
+            textNodePath.setPos(-400, 300)
+
+            # eye position is just a smiley painted black
             self.smiley = self.base.loader.loadModel('smiley')
             #self.smiley.reparentTo(camera)
             self.smiley.setPos(-3, 0, 3)
@@ -197,8 +205,8 @@ class World(DirectObject):
         # Eye Data and reward
         self.eye_data = []
         if self.daq:
-            self.gain = 0
-            self.offset = 0
+            #self.gain = 0
+            #self.offset = 0
             self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
@@ -387,7 +395,9 @@ class World(DirectObject):
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
+        #print eye_data
         eye_data = self.eye_data_to_pixel(eye_data)
+        #print eye_data
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
         self.eye_data.append(eye_data)
@@ -406,13 +416,14 @@ class World(DirectObject):
             eye.setPos(eye_data[0], 55, eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        #print eye.getPos()
+        print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
         #print size[0], size[2]
 
     def eye_data_to_pixel(self, eye_data):
-        return (eye_data[0] * self.gain, eye_data[1] * self.gain)
+        return [(eye_data[0] * self.gain[0]) + self.offset[0],
+                (eye_data[1] * self.gain[1]) + self.offset[1]]
 
     def square_on(self):
         #print 'square', self.manual
