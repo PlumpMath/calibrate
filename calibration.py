@@ -12,7 +12,7 @@ import sys
 import random
 import os
 import datetime
-from time import time
+from time import time, sleep
 from pandaepl import ptime
 # crazy gymnastics to not load the fake data unless necessary
 try:
@@ -31,7 +31,7 @@ class World(DirectObject):
         #print manual
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        self.test = True
+        self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -277,6 +277,11 @@ class World(DirectObject):
                 #print 'task', task.switch[self.next]
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
+                # before we switch, check to see if we are on random,
+                # and need to check for fixation. If we are about to turn
+                # off square, need to make sure was fixating during dimming
+                if not self.manual and self.next == 2:
+                    self.check_fixation()
                 task.switch[self.next]()
                 #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
@@ -300,7 +305,9 @@ class World(DirectObject):
                     task.interval = task.time + task.interval
                     # do not complete this loop
                     return task.cont
-                    # if we are at self.next = 4, then the last task was reward,
+
+
+                # if we are at self.next = 4, then the last task was reward,
                 # and we need to reset our counter to zero. Since we do square_on
                 # at the end of our move method, the incrementing to one at the
                 # end of our loop will put as at self.next = 1, (square_fade), which
@@ -391,7 +398,7 @@ class World(DirectObject):
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
-        self.square.setColor(175 / 255, 175 / 255, 130 / 255, 1.0)
+        self.square.setColor(0.9, 0.9, 0.6, 1.0)
         # next interval is fade off to on, at which time we move
         # if manual move is set, after off we just wait for move, so we
         # won't actually check this interval
@@ -418,6 +425,8 @@ class World(DirectObject):
             for i in range(self.num_beeps):
                 if self.reward_task:
                     self.reward_task.pumpOut()
+                    sleep(.2)
+                    print 'beep'
                 else:
                     out.write("beep\n")
 
@@ -440,6 +449,14 @@ class World(DirectObject):
         self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
         self.square_on()
+
+    def check_fixation(self):
+        # look at last 100 eye positions.
+        #check_data = self.eye_data[-100:]
+        # x = [x[0] for x in self.eye_data
+        # y = [y[1] for y in self.eye_data
+        #for i in check_data:
+        pass
 
     def set_resolution(self, res):
         wp = WindowProperties()

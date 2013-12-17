@@ -9,7 +9,7 @@ X_POINTS = 10
 # How many points in y direction
 Y_POINTS = 10
 # x limit, 0 is center, so limit in other direction just negative
-X_LIMITS = 10
+X_LIMITS = 15
 # y limits, 0 is center, so limit in other direction just negative
 Y_LIMITS = 10
 
