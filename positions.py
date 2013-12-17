@@ -34,11 +34,13 @@ class Positions:
         #x_range = np.linspace(padding, int(resolution[0]) - padding, 3)
         #y_range = np.linspace(-padding, -int(resolution[1]) + padding, 3)
         x = resolution[0]/2 - padding
+        print x
         y = resolution[1]/2 - padding
         x_range = np.linspace(x, -x, 3)
         y_range = np.linspace(y, -y, 3)
-        self.small_set = [(i, j) for i in x_range for j in y_range]
-
+        self.small_set = [(i, j) for j in y_range for i in x_range]
+        self.small_set.reverse()
+        #print self.small_set
         #self.small_set = [(100, -100), (500, -100), (900, -100), (100, 200), (500, 200), (900, 900), (0, 100), (200, 500), (400, 900), ]
 
         #x_range = np.linspace(-int(CONFIG['X_LIMITS']), int(CONFIG['X_LIMITS']), CONFIG['X_POINTS'])
@@ -66,17 +68,25 @@ class Positions:
         #print 'position in position', position
         return position
 
-    def get_position(self, depth, do_random=None):
-        # default is not random
-        if not do_random:
+    def get_position(self, depth, mode=None):
+        # default is not random, large set
+        if not mode:
             control_set = self.large_set
             for i in control_set:
-                #print 'get random point'
+                #print 'get non-random point'
                 pos = Point2(i)
                 #print 'pos in positions', pos
+                yield (pos.getX(), depth, pos.getY())
+        elif mode == 'small':
+            control_set = self.small_set
+            for i in control_set:
+                pos = Point2(i)
                 yield (pos.getX(), depth, pos.getY())
         else:
             control_set = self.large_set * self.repeat
             while len(control_set) > 0:
                 pos = Point2(control_set.pop(random.randrange(len(control_set))))
                 yield (pos.getX(), depth, pos.getY())
+
+    def visual_angle(self):
+        pass

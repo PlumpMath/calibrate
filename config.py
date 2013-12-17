@@ -1,8 +1,10 @@
 SUBJECT = 'test'
 
 # window resolution, can be a resolution or None for normal panda3d window
-WIN_RES = None
-#WIN_RES = [1024, 768]
+#WIN_RES = None
+WIN_RES = [1024, 768]
+# Screen size
+
 # number of pixels from outer edges to first point
 PADDING = 100
 

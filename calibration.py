@@ -202,7 +202,7 @@ class World(DirectObject):
         # if auto, require fixation. If doing manual, need to initiate Positions
         # differently than if random
         if self.manual:
-            #print 'yes, still manual'
+            print 'yes, still manual'
             self.reward = True
             self.pos = Positions(config)
         else:
@@ -390,7 +390,7 @@ class World(DirectObject):
             if task.time > task.interval:
                 if self.keys["switch"]:
                     #print 'manual move'
-                    #print 'switch', self.keys["switch"]
+                    print 'switch', self.keys["switch"]
                     self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
                 else:
                     # switch to center
@@ -420,7 +420,7 @@ class World(DirectObject):
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
-        #print eye_data
+        print eye_data
         eye_data = self.eye_data_to_pixel(eye_data)
         #print eye_data
         # pydaq calls this function every time it calls back to get eye data,
@@ -547,7 +547,7 @@ class World(DirectObject):
 
     def square_move(self, position=None):
         #print 'square move, 3'
-        #print 'position', position
+        print 'position', position
         if not position:
             #print 'trying to get a auto position'
             try:

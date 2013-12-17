@@ -14,10 +14,11 @@ class World(DirectObject):
         #ShowBase.__init__(self)
         self.base = ShowBase()
         wp = WindowProperties()
-        #wp.setSize(1024, 768)
-        #wp.setOrigin(0, 0)
-        #wp.setUndecorated(True)
+        wp.setSize(1024, 768)
+        wp.setOrigin(0, 0)
+        wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
+        #print self.base.win.getRejectedProperties()
         self.config = {}
         execfile('config_test.py', self.config)
         # depth completely doesn't matter, since just 2d
@@ -27,20 +28,22 @@ class World(DirectObject):
         # set up a 2d camera
         camera = self.base.camList[0]
         lens = OrthographicLens()
-
-        lens.setFilmSize(self.base.win.getProperties().getXSize(), self.base.win.getProperties().getYSize())
+        print 'xwin', self.base.win.getProperties().getXSize()
+        #lens.setFilmSize(self.base.win.getProperties().getXSize(), self.base.win.getProperties().getYSize())
         #lens.setFilmSize(800, 600)
+        lens.setFilmSize(1024, 768)
         lens.setNearFar(-100,100)
         camera.node().setLens(lens)
         # reparent it to pixel2d, so renders in pixel coordinates
         camera.reparentTo( render )
-        #print self.base.win.getXSize()
+        print 'xwin2', self.base.win.getXSize()
         #print self.base.win.getYSize()
         #print camera.ls()
         self.accept("escape", sys.exit)
         self.accept('space', self.next)
         self.accept('a', self.all)
-        self.pos = Positions().get_position(self.depth)
+        self.mode = 0
+
 
         #square = self.window.loader.loadModel("smiley")
         #square.reparentTo( pixel2d )
@@ -64,6 +67,10 @@ class World(DirectObject):
         #print 'done'
 
     def next(self):
+        if self.mode == 0:
+            self.pos = Positions().get_position(self.depth, 'small')
+            self.mode = 1
+
         #square = self.window.loader.loadModel("smiley")
         square = self.base.loader.loadModel("models/plane")
         square.reparentTo( render )
@@ -87,6 +94,9 @@ class World(DirectObject):
         #print square.getColor()
 
     def all(self):
+        if self.mode == 0:
+            self.pos = Positions().get_position(self.depth)
+            self.mode = 1
         b = 0
         for i, j in enumerate(self.pos):
             #b += 0.04  # covers all of the values if using 25 points
