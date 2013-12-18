@@ -7,9 +7,9 @@ WIN_RES = [1024, 768]
 SCREEN = [1327, 991]
 VIEW_DIST = 1219
 
-# number of pixels from outer edges to first point
-PADDING_X = 100
-PADDING_Y = 100
+# How far out in visual angle degrees do you want the outer targets?
+MAX_DEGREES_X = 15
+MAX_DEGREES_Y = 10
 
 # How close to the stimulus does the monkey have to be to get reward in
 # auto mode? distance in pixels
@@ -23,9 +23,9 @@ X_POINTS = 5
 Y_POINTS = 5
 
 # x limit, 0 is center, so limit in other direction just negative
-X_LIMITS = 15
+#X_LIMITS = 15
 # y limits, 0 is center, so limit in other direction just negative
-Y_LIMITS = 10
+#Y_LIMITS = 10
 
 # Pixel coordinates
 # x limit, 0 is center, so limit in other direction just negative

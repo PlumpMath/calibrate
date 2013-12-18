@@ -31,40 +31,25 @@ class Positions:
             #print 'test'
             # assume testing, small window
             self.res = (800, 600)
-        #print resolution
-        #padding = 100  # number of pixels from points to outer edge of screen
-        x_padding = CONFIG['PADDING_X']
-        y_padding = CONFIG['PADDING_Y']
-        #x_range = np.linspace(padding, int(resolution[0]) - padding, 3)
-        #y_range = np.linspace(-padding, -int(resolution[1]) + padding, 3)
-        x = self.res[0]/2 - x_padding
+
+        # limits are in pixels so max degree * pixels per degree
+        x = CONFIG['MAX_DEGREES_X'] * self.visual_angle()[0]
+        y = CONFIG['MAX_DEGREES_Y'] * self.visual_angle()[1]
         #print x
-        y = self.res[1]/2 - y_padding
+        #print y
+
         x_range = np.linspace(x, -x, 3)
         y_range = np.linspace(y, -y, 3)
+        # for small set order is important, since these will be mapped to the number keys
         self.small_set = [(i, j) for j in y_range for i in x_range]
         self.small_set.reverse()
-        #print self.small_set
-        #self.small_set = [(100, -100), (500, -100), (900, -100), (100, 200), (500, 200), (900, 900), (0, 100), (200, 500), (400, 900), ]
-
-        #x_range = np.linspace(-int(CONFIG['X_LIMITS']), int(CONFIG['X_LIMITS']), CONFIG['X_POINTS'])
-        #print x_range
-        #y_range = np.linspace(-int(CONFIG['Y_LIMITS']), int(CONFIG['Y_LIMITS']), CONFIG['Y_POINTS'])
-        # Pixels
-        #x_range = np.linspace(int(CONFIG['X_LIMITS'][0]), int(CONFIG['X_LIMITS'][1]), CONFIG['X_POINTS'])
-        #print x_range
-        #y_range = np.linspace(int(CONFIG['Y_LIMITS'][0]), int(CONFIG['Y_LIMITS'][1]), CONFIG['Y_POINTS'])
-
-        #x_range = np.linspace(padding, resolution[0] - padding, CONFIG['X_POINTS'])
-        #y_range = np.linspace(-padding, -resolution[1] + padding, CONFIG['Y_POINTS'])
 
         x_range = np.linspace(x, -x, CONFIG['X_POINTS'])
         y_range = np.linspace(y, -y, CONFIG['Y_POINTS'])
         self.large_set = [(i, j) for i in x_range for j in y_range]
         #print self.large_set
-        #self.large_set = [(i, j) for i in range(-10, 11, 5) for j in range(-10, 11, 5)]
+
         self.repeat = CONFIG['POINT_REPEAT']
-        self.visual_angle()
 
     def get_key_position(self, depth, key=None):
         #print 'get key position', key

@@ -36,8 +36,7 @@ class World(DirectObject):
         camera = self.base.camList[0]
         lens = OrthographicLens()
         #print 'xwin', self.base.win.getProperties().getXSize()
-        #lens.setFilmSize(self.base.win.getProperties().getXSize(), self.base.win.getProperties().getYSize())
-        #lens.setFilmSize(800, 600)
+
         lens.setFilmSize(int(resolution[0]),int(resolution[1]))
         lens.setNearFar(-100,100)
         camera.node().setLens(lens)
@@ -52,6 +51,8 @@ class World(DirectObject):
         self.accept('d', self.degree_positions)
         self.mode = 0
         self.pos = []
+        circle = self.make_circle()
+        circle.reparentTo(render)
 
     def next(self):
         #print 'xwin', self.base.win.getProperties().getXSize()
@@ -126,7 +127,9 @@ class World(DirectObject):
     def make_circle(self, angle_deg = 360):
         ls = LineSegs()
         angleRadians = np.deg2rad(angle_deg)
-        radius = 100
+        # assume visual angle is approximately the same for x and y,
+        # otherwise we don't get a circle
+        radius = 1 * Positions().visual_angle()[0]
         for i in range(50):
             a = angleRadians * i / 49
             y = radius * np.sin(a)

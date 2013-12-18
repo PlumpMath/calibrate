@@ -97,9 +97,11 @@ class World(DirectObject):
             #window2.setClearColor((1, 0, 0, 1))
             #props.setCursorHidden(True)
             #props.setOrigin(0, 0)
-            if config['WIN_RES'] is not None:
-                self.set_resolution(config['WIN_RES'])
-                props.setOrigin(-1600, 0)
+            resolution = config['WIN_RES']
+            # THIS MIGHT NOT BE RIGHT, SIZE FOR MONITORS MAY BE REVERSED
+            if resolution is not None:
+                self.set_resolution(resolution)
+                props.setOrigin(0, 0)
                 props.setSize(1600, 900)
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
@@ -107,7 +109,7 @@ class World(DirectObject):
             #print window2.getRequestedProperties()
 
             lens = OrthographicLens()
-            lens.setFilmSize(self.base.win.getProperties().getXSize(), self.base.win.getProperties().getYSize())
+            lens.setFilmSize(int(resolution[0]),int(resolution[1]))
             #lens.setFilmSize(800, 600)
             lens.setNearFar(-100,100)
 
@@ -608,7 +610,7 @@ class World(DirectObject):
         #wp.setSize(int(res[0]), int(res[1]))
         #wp.setFullscreen(True)
         wp.setSize(1024, 768)
-        wp.setOrigin(0, 0)
+        wp.setOrigin(-1600, 0)
         wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
 

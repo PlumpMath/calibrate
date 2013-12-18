@@ -7,18 +7,15 @@ WIN_RES = [1024, 768]
 # Screen size
 SCREEN = [1327, 991]
 VIEW_DIST = 1219
-# number of pixels from outer edges to first point
-PADDING = 100
+# How far out in visual angle degrees do you want the outer targets?
+MAX_DEGREES_X = 15
+MAX_DEGREES_Y = 10
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2
 # How many points in x direction
 X_POINTS = 10
 # How many points in y direction
 Y_POINTS = 10
-# x limit, 0 is center, so limit in other direction just negative
-X_LIMITS = 15
-# y limits, 0 is center, so limit in other direction just negative
-Y_LIMITS = 10
 
 # All intervals represent min and max for a uniform random distribution
 # give it equal min and max, and each unique, so we can test intervals.
