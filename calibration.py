@@ -212,6 +212,8 @@ class World(DirectObject):
 
         # Eye Data and reward
         self.eye_data = []
+        self.square_time_on = 0
+
         if self.daq:
             #self.gain = 0
             #self.offset = 0
@@ -229,7 +231,13 @@ class World(DirectObject):
 
         # Keyboard stuff:
         self.accept("escape", self.close)  # escape
-        self.accept("space", self.start) # default is the program waits 2
+        # starts turning square on
+        self.accept("space", self.start)  # default is the program waits 2 min
+        # Resets offset for zero. Waits until next center dims, and then takes
+        # average of that 350 ms window as zero.
+        self.accept("return", self.set_zero)
+
+        # For adjusting calibration
         self.accept("shift-arrow_up", self.increase_y_gain)
         self.accept("shift-arrow_up-repeat", self.increase_y_gain)
         self.accept("shift-arrow_right", self.increase_x_gain)
@@ -420,9 +428,11 @@ class World(DirectObject):
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
-        print eye_data
-        eye_data = self.eye_data_to_pixel(eye_data)
+        # Want to change data being plotted, but write to file the data as
+        # received from eye tracker. this also means we can re-set zero.
         #print eye_data
+        plot_eye_data = self.eye_data_to_pixel(eye_data)
+        #print plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
         self.eye_data.append(eye_data)
@@ -438,7 +448,7 @@ class World(DirectObject):
         if not unittest:
             eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
-            eye.setPos(eye_data[0], 55, eye_data[1], )
+            eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
         #print eye.getPos()
@@ -491,6 +501,7 @@ class World(DirectObject):
         self.text2.setText('Offset:' + str(self.offset))
 
     def square_on(self):
+        self.square_time_on = len(self.eye_data)
         #print 'square', self.manual
         #print 'square on, 0'
         #Pos(Point3(pos.getX(), self.depth, pos.getY()
@@ -532,6 +543,11 @@ class World(DirectObject):
         for eye in self.eyes:
             eye.removeNode()
         self.eyes = []
+        if self.eye_reset:
+            (x, y) = self.average_position()
+            self.offset = [0 + x, 0 + y]
+        # now can also get rid of eye_data, so we don't eat up all of our memory
+        self.eye_data = []
 
     def give_reward(self):
         out = sys.stdout
@@ -566,12 +582,31 @@ class World(DirectObject):
         self.square_on()
 
     def check_fixation(self):
-        # look at last 100 eye positions.
+        (x, y) = self.average_position()
+        # need to figure out how to get x and y position of square that just dimmed
+        #self.square.get
+        #if self.distance((x,y),()
+        # check eye positions while looking at square
+        # before dim, make sure was fixating.
         #check_data = self.eye_data[-100:]
         # x = [x[0] for x in self.eye_data
         # y = [y[1] for y in self.eye_data
         #for i in check_data:
-        pass
+
+    def average_position(self):
+        eye_check = self.eye_data[self.square_time_on:]
+        x = sum([pair[0] for pair in eye_check]) / len(eye_check)
+        y = sum([pair[1] for pair in eye_check]) / len(eye_check)
+        return (x,y)
+
+    def distance(p0, p1):
+        """
+        (tuple, tuple) -> float
+        Returns the distance between 2 points. p0 is a tuple with (x, y)
+        and p1 is a tuple with (x1, y1)
+        """
+        dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
+        return dist
 
     def set_resolution(self, res):
         wp = WindowProperties()

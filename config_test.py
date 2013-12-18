@@ -5,7 +5,7 @@ SUBJECT = 'test'
 #WIN_RES = 'Test'
 WIN_RES = [1024, 768]
 # Screen size
-SCREEN = [1331, 991]
+SCREEN = [1327, 991]
 VIEW_DIST = 1219
 # number of pixels from outer edges to first point
 PADDING = 100

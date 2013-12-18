@@ -4,11 +4,15 @@ SUBJECT = 'test'
 #WIN_RES = None
 WIN_RES = [1024, 768]
 # Screen size
-SCREEN = [1331, 991]
+SCREEN = [1327, 991]
 VIEW_DIST = 1219
 
 # number of pixels from outer edges to first point
 PADDING = 100
+
+# How close to the stimulus does the monkey have to be to get reward in
+# auto mode? distance in pixels
+TOLERANCE = 100
 
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2

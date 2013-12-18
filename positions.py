@@ -97,17 +97,17 @@ class Positions:
         degree = 0
         while degree < 40:
             if degree == 0:
-                print 'yup'
+                #print 'yup'
                 pos = Point2(0, 0)
                 yield (pos.getX(), depth, pos.getY())
             else:
                 pix_per_deg = self.visual_angle()
-                print pix_per_deg
+                #print pix_per_deg
                 pixels = [i * degree for i in pix_per_deg]
-                print 'x?', pixels[0]
-                print 'y?', pixels[1]
+                #print 'x?', pixels[0]
+                #print 'y?', pixels[1]
                 x = [pixels[0], -pixels[0], 0, 0]
-                y = [0, 0, pixels[0], -pixels[0]]
+                y = [0, 0, pixels[1], -pixels[1]]
                 for i in range(4):
                     pos = Point2(x[i],y[i])
                     yield (pos.getX(), depth, pos.getY())
