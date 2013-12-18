@@ -33,12 +33,13 @@ class Positions:
             self.res = (800, 600)
         #print resolution
         #padding = 100  # number of pixels from points to outer edge of screen
-        padding = CONFIG['PADDING']
+        x_padding = CONFIG['PADDING_X']
+        y_padding = CONFIG['PADDING_Y']
         #x_range = np.linspace(padding, int(resolution[0]) - padding, 3)
         #y_range = np.linspace(-padding, -int(resolution[1]) + padding, 3)
-        x = self.res[0]/2 - padding
+        x = self.res[0]/2 - x_padding
         #print x
-        y = self.res[1]/2 - padding
+        y = self.res[1]/2 - y_padding
         x_range = np.linspace(x, -x, 3)
         y_range = np.linspace(y, -y, 3)
         self.small_set = [(i, j) for j in y_range for i in x_range]

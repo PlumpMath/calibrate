@@ -8,7 +8,8 @@ SCREEN = [1327, 991]
 VIEW_DIST = 1219
 
 # number of pixels from outer edges to first point
-PADDING = 100
+PADDING_X = 100
+PADDING_Y = 100
 
 # How close to the stimulus does the monkey have to be to get reward in
 # auto mode? distance in pixels

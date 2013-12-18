@@ -15,6 +15,7 @@ import random
 import os
 import datetime
 from time import time, sleep
+from math import sqrt
 #from pandaepl import ptime
 
 # crazy gymnastics to not load the fake data unless necessary
@@ -84,7 +85,7 @@ class World(DirectObject):
         if config['WIN_RES'] != 'Test':
             props = WindowProperties()
             #props.setForeground(True)
-            #props.setCursorHidden(True)
+            props.setCursorHidden(True)
             self.base.win.requestProperties(props)
             #print props
 
@@ -213,6 +214,8 @@ class World(DirectObject):
         # Eye Data and reward
         self.eye_data = []
         self.square_time_on = 0
+        self.eye_reset_now = False
+
 
         if self.daq:
             #self.gain = 0
@@ -235,25 +238,30 @@ class World(DirectObject):
         self.accept("space", self.start)  # default is the program waits 2 min
         # Resets offset for zero. Waits until next center dims, and then takes
         # average of that 350 ms window as zero.
-        self.accept("return", self.set_zero)
+        self.accept("enter", self.eye_reset)
 
         # For adjusting calibration
-        self.accept("shift-arrow_up", self.increase_y_gain)
-        self.accept("shift-arrow_up-repeat", self.increase_y_gain)
-        self.accept("shift-arrow_right", self.increase_x_gain)
-        self.accept("shift-arrow_right-repeat", self.increase_x_gain)
-        self.accept("shift-arrow_down", self.decrease_y_gain)
-        self.accept("shift-arrow_down-repeat", self.decrease_y_gain)
-        self.accept("shift-arrow_left", self.decrease_x_gain)
-        self.accept("shift-arrow_left-repeat", self.decrease_x_gain)
-        self.accept("control-arrow_up", self.increase_y_offset)
-        self.accept("control-arrow_up-repeat", self.increase_y_offset)
-        self.accept("control-arrow_right", self.increase_x_offset)
-        self.accept("control-arrow_right-repeat", self.increase_x_offset)
-        self.accept("control-arrow_down", self.decrease_y_offset)
-        self.accept("control-arrow_down-repeat", self.decrease_y_offset)
-        self.accept("control-arrow_left", self.decrease_x_offset)
-        self.accept("control-arrow_left-repeat", self.decrease_x_offset)
+        # inputs, gain or offset, x or y, how much change
+        # gain - up and down are y
+        self.accept("shift-arrow_up", self.change_gain_or_offset, ['gain', 1, 1])
+        self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['gain', 1, 1])
+        self.accept("shift-arrow_down", self.change_gain_or_offset, ['gain', 1, -1])
+        self.accept("shift-arrow_down-repeat", self.change_gain_or_offset, ['gain', 1, -1])
+        # gain - right and left are x
+        self.accept("shift-arrow_right", self.change_gain_or_offset, ['gain', 0, 1])
+        self.accept("shift-arrow_right-repeat", self.change_gain_or_offset, ['gain', 0, 1])
+        self.accept("shift-arrow_left", self.change_gain_or_offset, ['gain', 0, -1])
+        self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['gain', 0, -1])
+        # offset - up and down are y
+        self.accept("control-arrow_up", self.change_gain_or_offset, ['offset', 1, 1])
+        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['offset', 1, 1])
+        self.accept("control-arrow_down", self.change_gain_or_offset, ['offset', 1, -1])
+        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['offset', 1, -1])
+        # offset - right and left are x
+        self.accept("control-arrow_right", self.change_gain_or_offset, ['offset', 0, 1])
+        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['offset', 0, 1])
+        self.accept("control-arrow_left", self.change_gain_or_offset, ['offset', 0, -1])
+        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
 
         # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
@@ -430,7 +438,7 @@ class World(DirectObject):
     def get_eye_data(self, eye_data):
         # Want to change data being plotted, but write to file the data as
         # received from eye tracker. this also means we can re-set zero.
-        #print eye_data
+        print eye_data
         plot_eye_data = self.eye_data_to_pixel(eye_data)
         #print plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
@@ -451,54 +459,30 @@ class World(DirectObject):
             eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        #print eye.getPos()
+        print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
         #print size[0], size[2]
 
     def eye_data_to_pixel(self, eye_data):
-        return [(eye_data[0] * self.gain[0]) + self.offset[0],
-                (eye_data[1] * self.gain[1]) + self.offset[1]]
+        return [(eye_data[0] + self.offset[0]) * self.gain[0],
+                (eye_data[1] + self.offset[1]) * self.gain[1]]
 
-    def increase_x_gain(self):
-        #print 'increase x gain', self.gain[0]
-        self.gain[0] += 1
-        self.text.setText('Gain:' + str(self.gain))
-
-    def decrease_x_gain(self):
-        #print 'decrease gain'
-        self.gain[0] -= 1
-        self.text.setText('Gain:' + str(self.gain))
-
-    def increase_x_offset(self):
-        #print 'increase offset'
-        self.offset[0] += 1
-        self.text2.setText('Offset:' + str(self.offset))
-
-    def decrease_x_offset(self):
-        #print 'decrease offset'
-        self.offset[0] -= 1
-        self.text2.setText('Offset:' + str(self.offset))
-
-    def increase_y_gain(self):
-        #print 'increase gain'
-        self.gain[1] += 1
-        self.text.setText('Gain:' + str(self.gain))
-
-    def decrease_y_gain(self):
-        #print 'decrease gain'
-        self.gain[1] -= 1
-        self.text.setText('Gain:' + str(self.gain))
-
-    def increase_y_offset(self):
-        #print 'increase offset'
-        self.offset[1] += 1
-        self.text2.setText('Offset:' + str(self.offset))
-
-    def decrease_y_offset(self):
-        #print 'decrease offset'
-        self.offset[1] -= 1
-        self.text2.setText('Offset:' + str(self.offset))
+    def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
+        if ch_type == 'gain':
+            self.gain[x_or_y] += ch_amount
+            self.text.setText('Gain:' + str(self.gain))
+            self.time_data_file.write(
+                str(time()) + ', Change Gain, ' +
+                str(self.gain[0]) + ', ' +
+                str(self.gain[1]) + '\n')
+        else:
+            self.offset[x_or_y] += ch_amount
+            self.text2.setText('Offset:' + str(self.offset))
+            self.time_data_file.write(
+                str(time()) + ', Change Offset, ' +
+                str(self.offset[0]) + ', ' +
+                str(self.offset[1]) + '\n')
 
     def square_on(self):
         self.square_time_on = len(self.eye_data)
@@ -543,11 +527,21 @@ class World(DirectObject):
         for eye in self.eyes:
             eye.removeNode()
         self.eyes = []
-        if self.eye_reset:
+        if self.eye_reset_now:
+            print 'okay, reset'
             (x, y) = self.average_position()
-            self.offset = [0 + x, 0 + y]
+            print 'average pos', x, y
+            self.offset = [0 - x, 0 - y]
+            self.eye_reset_now = False
+            print 'offset', self.offset
+            self.time_data_file.write(str(time()) + ', reset zero' + '\n')
+
         # now can also get rid of eye_data, so we don't eat up all of our memory
         self.eye_data = []
+
+    def eye_reset(self):
+        print 'reset now'
+        self.eye_reset_now = True
 
     def give_reward(self):
         out = sys.stdout
@@ -563,7 +557,7 @@ class World(DirectObject):
 
     def square_move(self, position=None):
         #print 'square move, 3'
-        print 'position', position
+        #print 'square position', position
         if not position:
             #print 'trying to get a auto position'
             try:
@@ -597,7 +591,7 @@ class World(DirectObject):
         eye_check = self.eye_data[self.square_time_on:]
         x = sum([pair[0] for pair in eye_check]) / len(eye_check)
         y = sum([pair[1] for pair in eye_check]) / len(eye_check)
-        return (x,y)
+        return (x, y)
 
     def distance(p0, p1):
         """
