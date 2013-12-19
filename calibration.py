@@ -40,6 +40,7 @@ class World(DirectObject):
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
+        #self.test = True
         self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
@@ -105,7 +106,7 @@ class World(DirectObject):
             if resolution is not None:
                 self.set_resolution(resolution)
                 props.setOrigin(0, 0)
-                props.setSize(1600, 900)
+                props.setSize(1024, 768)
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
                 resolution = [800, 600]  # if no resolution given, assume normal panda window
@@ -379,7 +380,7 @@ class World(DirectObject):
                 #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
-                print 'just did task', self.next
+                #print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
                 #print self.all_intervals
@@ -426,7 +427,7 @@ class World(DirectObject):
             if task.time > task.interval:
                 if self.keys["switch"]:
                     #print 'manual move'
-                    print 'switch', self.keys["switch"]
+                    #print 'switch', self.keys["switch"]
                     self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
                 else:
                     # switch to center
@@ -498,7 +499,8 @@ class World(DirectObject):
                 str(self.gain[1]) + '\n')
         else:
             self.offset[x_or_y] += ch_amount
-            self.text2.setText('Offset:' + str(self.offset))
+            self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
+                               + ', ' + '{0:03.2f}]'.format(self.offset[1]))
             self.time_data_file.write(
                 str(time()) + ', Change Offset, ' +
                 str(self.offset[0]) + ', ' +
@@ -543,13 +545,7 @@ class World(DirectObject):
         # next interval is on to fade on
         #self.interval = random.uniform(*ON_INTERVAL)
         #print 'next-on-interval', self.interval
-        # when the square goes off, stop plotting eye positions,
-        # and get rid of eye positions. Have to wait for after
-        # the reward to get rid of eye data itself, since need this
-        # to check fixation for random trials.
-        for eye in self.eyes:
-            eye.removeNode()
-        self.eyes = []
+
         if self.eye_reset_now:
             print 'okay, reset'
             (x, y) = self.average_position()
@@ -558,14 +554,21 @@ class World(DirectObject):
             self.eye_reset_now = False
             print 'offset', self.offset
             self.time_data_file.write(str(time()) + ', reset zero' + '\n')
+            self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
+                               + ', ' + '{0:03.2f}]'.format(self.offset[1]))
+            #self.text2.setText('Offset:' + str(self.offset))
+            self.time_data_file.write(
+                str(time()) + ', Change Offset, ' +
+                str(self.offset[0]) + ', ' +
+                str(self.offset[1]) + '\n')
 
     def give_reward(self):
         out = sys.stdout
         # only want to check this if on random?
         if not self.manual:
-            print 'random?, check reward'
+            #print 'random?, check reward'
             self.reward = self.check_fixation()
-        print 'reward', self.reward
+        #print 'reward', self.reward
         if self.reward:
             for i in range(self.num_beeps):
                 if self.reward_task:
@@ -574,7 +577,11 @@ class World(DirectObject):
                     print 'beep'
                 else:
                     out.write("beep\n")
-
+        # We can now stop plotting eye positions,
+        # and get rid of eye positions.
+        for eye in self.eyes:
+            eye.removeNode()
+        self.eyes = []
         # now can also get rid of eye_data, so we don't eat up all of our memory
         self.eye_data = []
 
@@ -604,9 +611,9 @@ class World(DirectObject):
 
     def check_fixation(self):
         (x, y) = self.average_position()
-        print (x,y)
+        print (x, y)
         print (self.square.getPos()[0], self.square.getPos()[2])
-        if self.distance((x,y),(self.square.getPos()[0],self.square.getPos()[2])) < self.tolerance:
+        if self.distance((x, y), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
             return True
         return False
 
@@ -630,7 +637,7 @@ class World(DirectObject):
         #print res
         #wp.setSize(int(res[0]), int(res[1]))
         #wp.setFullscreen(True)
-        wp.setSize(1024, 768)
+        wp.setSize(1600, 900)
         wp.setOrigin(-1600, 0)
         wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
