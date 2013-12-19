@@ -2,11 +2,18 @@
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
-#WIN_RES = 'Test'
-WIN_RES = [1024, 768]
+WIN_RES = 'Test'
+#WIN_RES = [1024, 768]
 # Screen size
+# This is obviously wrong if you aren't calibrating with the projector,
+# but shouldn't matter for testing.
 SCREEN = [1327, 991]
 VIEW_DIST = 1219
+
+# How close to the stimulus does the eye position have to be to get reward in
+# auto mode? distance in pixels
+TOLERANCE = 100
+
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 15
 MAX_DEGREES_Y = 10

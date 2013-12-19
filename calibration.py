@@ -5,7 +5,7 @@ from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32, getModelPath
 from panda3d.core import WindowProperties, TextNode
-from pandac.PandaModules import ClockObject
+#from pandac.PandaModules import ClockObject
 #from panda3d.core import GraphicsWindow
 from panda3d.core import OrthographicLens
 #from direct.task.Task import Task
@@ -16,6 +16,7 @@ import os
 import datetime
 from time import time, sleep
 from math import sqrt
+
 #from pandaepl import ptime
 
 # crazy gymnastics to not load the fake data unless necessary
@@ -33,6 +34,8 @@ class World(DirectObject):
     def __init__(self, mode=None):
         #print 'init'
         #print manual
+        # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
+        # 100 should be sort of close...
         self.gain = [100, 100]
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
@@ -105,6 +108,8 @@ class World(DirectObject):
                 props.setSize(1600, 900)
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
+                resolution = [800, 600]  # if no resolution given, assume normal panda window
+
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
@@ -126,14 +131,14 @@ class World(DirectObject):
             textNodePath = aspect2d.attachNewNode(self.text)
             textNodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
-            textNodePath.setPos(0.2, 0, 0.9)
+            textNodePath.setPos(0.1, 0, 0.9)
 
             self.text2 = TextNode('offset')
             self.text2.setText('Offset:' + str(self.offset))
             text2NodePath = aspect2d.attachNewNode(self.text2)
             text2NodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
-            text2NodePath.setPos(0.2, 0, 0.8)
+            text2NodePath.setPos(0.1, 0, 0.8)
 
             # eye position is just a smiley painted black
             self.smiley = self.base.loader.loadModel('smiley')
@@ -172,7 +177,19 @@ class World(DirectObject):
         self.time_data_file = open(self.time_file_name, 'w')
         self.time_data_file.write('timestamp, task' + '\n')
         self.first = True
+        # open and close file for keeping configuration info
+        # turns out there is a lot of extra crap in the config dictionary,
+        # and I haven't figured out a pretty way to get rid of the extra crap.
+        # Honestly, the best thing may be to just make a copy of the original damn file.
+        # maybe look to see how pandaepl handles this
+        #config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
 
+        #w = csv.writer(open(config_file_name, 'w'))
+        #for name, value in config.items():
+        #    w.writerow([name, value])
+
+        #for name, value in config.items():
+        #    print name, value
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
@@ -217,6 +234,7 @@ class World(DirectObject):
         self.eye_data = []
         self.square_time_on = 0
         self.eye_reset_now = False
+        self.tolerance = config['TOLERANCE']
 
 
         if self.daq:
@@ -361,7 +379,7 @@ class World(DirectObject):
                 #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
-                #print 'just did task', self.next
+                print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
                 #print self.all_intervals
@@ -440,7 +458,7 @@ class World(DirectObject):
     def get_eye_data(self, eye_data):
         # Want to change data being plotted, but write to file the data as
         # received from eye tracker. this also means we can re-set zero.
-        print eye_data
+        #print eye_data
         plot_eye_data = self.eye_data_to_pixel(eye_data)
         #print plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
@@ -461,7 +479,7 @@ class World(DirectObject):
             eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        print eye.getPos()
+        #print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
         #print size[0], size[2]
@@ -525,7 +543,10 @@ class World(DirectObject):
         # next interval is on to fade on
         #self.interval = random.uniform(*ON_INTERVAL)
         #print 'next-on-interval', self.interval
-        # when the square goes off, get rid of eye positions.
+        # when the square goes off, stop plotting eye positions,
+        # and get rid of eye positions. Have to wait for after
+        # the reward to get rid of eye data itself, since need this
+        # to check fixation for random trials.
         for eye in self.eyes:
             eye.removeNode()
         self.eyes = []
@@ -538,16 +559,13 @@ class World(DirectObject):
             print 'offset', self.offset
             self.time_data_file.write(str(time()) + ', reset zero' + '\n')
 
-        # now can also get rid of eye_data, so we don't eat up all of our memory
-        self.eye_data = []
-
-    def eye_reset(self):
-        print 'reset now'
-        self.eye_reset_now = True
-
     def give_reward(self):
         out = sys.stdout
-        #print 'reward', self.reward
+        # only want to check this if on random?
+        if not self.manual:
+            print 'random?, check reward'
+            self.reward = self.check_fixation()
+        print 'reward', self.reward
         if self.reward:
             for i in range(self.num_beeps):
                 if self.reward_task:
@@ -556,6 +574,9 @@ class World(DirectObject):
                     print 'beep'
                 else:
                     out.write("beep\n")
+
+        # now can also get rid of eye_data, so we don't eat up all of our memory
+        self.eye_data = []
 
     def square_move(self, position=None):
         #print 'square move, 3'
@@ -577,17 +598,17 @@ class World(DirectObject):
         # go directly to on
         self.square_on()
 
+    def eye_reset(self):
+        print 'reset now'
+        self.eye_reset_now = True
+
     def check_fixation(self):
         (x, y) = self.average_position()
-        # need to figure out how to get x and y position of square that just dimmed
-        #self.square.get
-        #if self.distance((x,y),()
-        # check eye positions while looking at square
-        # before dim, make sure was fixating.
-        #check_data = self.eye_data[-100:]
-        # x = [x[0] for x in self.eye_data
-        # y = [y[1] for y in self.eye_data
-        #for i in check_data:
+        print (x,y)
+        print (self.square.getPos()[0], self.square.getPos()[2])
+        if self.distance((x,y),(self.square.getPos()[0],self.square.getPos()[2])) < self.tolerance:
+            return True
+        return False
 
     def average_position(self):
         eye_check = self.eye_data[self.square_time_on:]
@@ -595,7 +616,7 @@ class World(DirectObject):
         y = sum([pair[1] for pair in eye_check]) / len(eye_check)
         return (x, y)
 
-    def distance(p0, p1):
+    def distance(self, p0, p1):
         """
         (tuple, tuple) -> float
         Returns the distance between 2 points. p0 is a tuple with (x, y)
