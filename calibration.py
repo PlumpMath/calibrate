@@ -141,6 +141,13 @@ class World(DirectObject):
             #textNodePath.setPos(-300, 0, 200)
             text2NodePath.setPos(0.1, 0, 0.8)
 
+            self.text3 = TextNode('iscan')
+            self.text3.setText('IScan:' + '0, 0')
+            text3NodePath = aspect2d.attachNewNode(self.text3)
+            text3NodePath.setScale(0.1)
+            #textNodePath.setPos(-300, 0, 200)
+            text3NodePath.setPos(0.1, 0, 0.7)
+
             # eye position is just a smiley painted black
             self.smiley = self.base.loader.loadModel('smiley')
             #self.smiley.reparentTo(camera)
@@ -480,6 +487,7 @@ class World(DirectObject):
             eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
+        self.text3.setText('IScan:' + str(eye_data))
         #print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min

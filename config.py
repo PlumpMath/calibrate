@@ -12,8 +12,8 @@ VIEW_DIST = 1219
 TOLERANCE = 100
 
 # How far out in visual angle degrees do you want the outer targets?
-MAX_DEGREES_X = 15
-MAX_DEGREES_Y = 10
+MAX_DEGREES_X = 5
+MAX_DEGREES_Y = 5
 
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 2
