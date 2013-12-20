@@ -7,7 +7,7 @@ WIN_RES = 'Test'
 # Screen size
 # This is obviously wrong if you aren't calibrating with the projector,
 # but shouldn't matter for testing.
-SCREEN = [1327, 991]
+SCREEN = [1337, 991]
 VIEW_DIST = 1219
 
 # How close to the stimulus does the eye position have to be to get reward in

@@ -3,14 +3,10 @@ from panda3d.core import Point2, Point3
 import random
 import numpy as np
 # generate positions
-# need to:
+# modes:
 # a. return position according to a key press
 # b. return position randomly from a large set - each point must be sampled x times
-# c. return position from a large set in a fixed order
-# make position an object?
-# make a matrix of large_set * how ever many times per point, and
-# remove positions as we use them
-# basically same thing for non-random, non-key, but pull out in order
+# c. return positions demonstrating visual angles
 # projector resolution
 # 1024 x 768
 # normal panda window resolution (size)
@@ -33,8 +29,9 @@ class Positions:
             self.res = (800, 600)
 
         # limits are in pixels so max degree * pixels per degree
-        x = CONFIG['MAX_DEGREES_X'] * self.visual_angle()[0]
-        y = CONFIG['MAX_DEGREES_Y'] * self.visual_angle()[1]
+        # determine max in pixels, visual_angle returns deg_per_pix
+        x = CONFIG['MAX_DEGREES_X'] / visual_angle(self.screen, self.res, self.v_dist)[0]
+        y = CONFIG['MAX_DEGREES_Y'] / visual_angle(self.screen, self.res, self.v_dist)[1]
         #print x
         #print y
 
@@ -87,9 +84,9 @@ class Positions:
                 pos = Point2(0, 0)
                 yield (pos.getX(), depth, pos.getY())
             else:
-                pix_per_deg = self.visual_angle()
+                deg_per_pix = visual_angle(self.screen, self.res, self.v_dist)
                 #print pix_per_deg
-                pixels = [i * degree for i in pix_per_deg]
+                pixels = [degree / i for i in deg_per_pix]
                 #print 'x?', pixels[0]
                 #print 'y?', pixels[1]
                 x = [pixels[0], -pixels[0], 0, 0]
@@ -99,20 +96,16 @@ class Positions:
                     yield (pos.getX(), depth, pos.getY())
             degree += 5
 
-    def visual_angle(self):
-        #print self.res
-        #print self.screen
-        #print self.v_dist
-        self.pixel = [0, 0]
-        self.deg_per_pix = [0, 0]
-        self.pix_per_deg = [0, 0]
-        self.pixel[0] = self.screen[0]/self.res[0]
-        #print self.pixel
-        self.pixel[1] = self.screen[1]/self.res[1]
-        #print self.pixel[0]/(2*self.v_dist)
-        self.deg_per_pix[0] = (2 * np.arctan(self.pixel[0]/(2 * self.v_dist))) * (180/np.pi)
-        self.deg_per_pix[1] = (2 * np.arctan(self.pixel[1]/(2 * self.v_dist))) * (180/np.pi)
-        self.pix_per_deg[0] = 1 / self.deg_per_pix[0]
-        self.pix_per_deg[1] = 1 / self.deg_per_pix[1]
-        #print self.pix_per_deg, self.deg_per_pix
-        return self.pix_per_deg
+def visual_angle(screen, res, v_dist):
+    #print self.res
+    #print self.screen
+    #print self.v_dist
+    pixel = [0, 0]
+    deg_per_pix = [0, 0]
+    pixel[0] = screen[0]/res[0]
+    pixel[1] = screen[1]/res[1]
+    #print self.pixel
+    deg_per_pix[0] = (2 * np.arctan(pixel[0]/(2 * v_dist))) * (180/np.pi)
+    deg_per_pix[1] = (2 * np.arctan(pixel[1]/(2 * v_dist))) * (180/np.pi)
+    #print self.pix_per_deg
+    return deg_per_pix

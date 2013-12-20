@@ -4,7 +4,7 @@ SUBJECT = 'test'
 #WIN_RES = None
 WIN_RES = [1024, 768]
 # Screen size
-SCREEN = [1327, 991]
+SCREEN = [1337, 991]
 VIEW_DIST = 1219
 
 # How close to the stimulus does the monkey have to be to get reward in
