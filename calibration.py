@@ -7,7 +7,7 @@ from panda3d.core import BitMask32, getModelPath
 from panda3d.core import WindowProperties, TextNode
 #from pandac.PandaModules import ClockObject
 #from panda3d.core import GraphicsWindow
-from panda3d.core import OrthographicLens
+from panda3d.core import OrthographicLens, LineSegs
 #from direct.task.Task import Task
 from positions import Positions
 import sys
@@ -27,7 +27,7 @@ try:
 except:
     pass
 
-
+# IF SWITCHING MACHINES, ALWAYS MAKE SURE CONFIG HAS CORRECT RESOLUTION!!!!
 # NEED TO SAVE STUFF NECESSARY FOR CALIBRATION - RESOLUTION, ETC.
 
 class World(DirectObject):
@@ -149,22 +149,22 @@ class World(DirectObject):
             text3NodePath.setPos(0.1, 0, 0.7)
 
             # eye position is just a smiley painted black
-            self.smiley = self.base.loader.loadModel('smiley')
+            #self.smiley = self.base.loader.loadModel('smiley')
             #self.smiley.reparentTo(camera)
-            self.smiley.setPos(-3, 0, 3)
+            #self.smiley.setPos(-3, 0, 3)
             #self.smiley.setPos(0, 55, 0)
-            self.smiley.setColor(0, 0, 0, 0)
+            #self.smiley.setColor(0, 0, 0, 0)
             #self.smiley.setColor(0, 0, 1, 0)
             #self.smiley.setScale(0.1)
             #self.smiley.setScale(1.001)
-            self.smiley.setScale(3)
-            min, max = self.smiley.getTightBounds()
-            size = max - min
-            print size[0], size[2]
+            #self.smiley.setScale(3)
+            #min, max = self.smiley.getTightBounds()
+            #size = max - min
+            #print size[0], size[2]
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
-            self.smiley.hide(BitMask32.bit(1))
-            self.smiley.show(BitMask32.bit(0))
+            #self.smiley.hide(BitMask32.bit(1))
+            #self.smiley.show(BitMask32.bit(0))
             # if root is set to camera, don't see at all
             # if set to pixel2d, see large on first, and teeny on second. meh.
             self.root = self.base.render.attachNewNode("Root")
@@ -230,7 +230,7 @@ class World(DirectObject):
         # if auto, require fixation. If doing manual, need to initiate Positions
         # differently than if random
         if self.manual:
-            print 'yes, still manual'
+            #print 'yes, still manual'
             self.reward = True
             self.pos = Positions(config)
         else:
@@ -240,6 +240,7 @@ class World(DirectObject):
 
         # Eye Data and reward
         self.eye_data = []
+        self.eye_data.append((0,0))
         self.square_time_on = 0
         self.eye_reset_now = False
         self.tolerance = config['TOLERANCE']
@@ -467,6 +468,9 @@ class World(DirectObject):
         # Want to change data being plotted, but write to file the data as
         # received from eye tracker. this also means we can re-set zero.
         #print eye_data
+        # get last eye position
+        last_eye = self.eye_data_to_pixel(self.eye_data[-1])
+        #print last_eye
         plot_eye_data = self.eye_data_to_pixel(eye_data)
         #print plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
@@ -482,10 +486,16 @@ class World(DirectObject):
             self.time_data_file.write(str(time()) + ', start calibration' + '\n')
             self.first = False
         if not unittest:
-            eye = self.smiley.copyTo(self.root)
+            eye = LineSegs()
+            eye.setThickness(2.0)
+            eye.moveTo(last_eye[0], 55, last_eye[1])
+            eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
+            node = render2d.attachNewNode(eye.create())
+            self.eyes.append(node)
+            #eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
-            eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
-            self.eyes += [eye]
+            #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
+            #self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
         self.text3.setText('IScan:' + str(eye_data))
         #print eye.getPos()
@@ -555,12 +565,12 @@ class World(DirectObject):
         #print 'next-on-interval', self.interval
 
         if self.eye_reset_now:
-            print 'okay, reset'
+            #print 'okay, reset'
             (x, y) = self.average_position()
-            print 'average pos', x, y
+            #print 'average pos', x, y
             self.offset = [0 - x, 0 - y]
             self.eye_reset_now = False
-            print 'offset', self.offset
+            #print 'offset', self.offset
             self.time_data_file.write(str(time()) + ', reset zero' + '\n')
             self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
                                + ', ' + '{0:03.2f}]'.format(self.offset[1]))
@@ -590,8 +600,11 @@ class World(DirectObject):
         for eye in self.eyes:
             eye.removeNode()
         self.eyes = []
-        # now can also get rid of eye_data, so we don't eat up all of our memory
+        # now can also get rid of eye_data, except the last position, so we don't eat up all of our memory
+        last_eye = self.eye_data[-1]
         self.eye_data = []
+        self.eye_data.append(last_eye)
+        #print self.eye_data
 
     def square_move(self, position=None):
         #print 'square move, 3'
@@ -608,19 +621,19 @@ class World(DirectObject):
         #else:
         #    self.square.setPos(Point3(position))
         self.square.setPos(Point3(position))
-        #print position[0], position[2]
+        #print 'square', position[0], position[2]
         self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
         self.square_on()
 
     def eye_reset(self):
-        print 'reset now'
+        #print 'reset now'
         self.eye_reset_now = True
 
     def check_fixation(self):
         (x, y) = self.average_position()
-        print (x, y)
-        print (self.square.getPos()[0], self.square.getPos()[2])
+        #print (x, y)
+        #print (self.square.getPos()[0], self.square.getPos()[2])
         if self.distance((x, y), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
             return True
         return False
