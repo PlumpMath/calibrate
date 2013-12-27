@@ -1,5 +1,4 @@
 Creating a panda3d task to calibrate eye position for Iscan. 
 
-need to set up interface for switching modes
-need to set up check for fixation in auto mode
-need to scale to be correct visual angle
+tests still need:
+checking rewarded during auto calibrate if and only if in fixation window during square on

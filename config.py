@@ -9,7 +9,7 @@ VIEW_DIST = 1219
 
 # How close to the stimulus does the monkey have to be to get reward in
 # auto mode? distance in pixels
-TOLERANCE = 100
+TOLERANCE = 30
 
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 5

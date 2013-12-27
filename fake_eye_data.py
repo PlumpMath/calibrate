@@ -5,7 +5,7 @@ next_call = time.time()
 # create some fake eye data
 def create_eye_data(size):
     eye_data = []
-    (x, y) = (0, 0)
+    (x, y) = (0.0, 0.0)
     eye_data.append((x, y))
     for i in range(size):
         x = random.uniform(x + 0.5, x - 0.5)
@@ -22,8 +22,8 @@ def yield_eye_data(origin = []):
         (x, y) = origin
     while True:
         yield x, y
-        x = random.uniform(x + 0.0001, x - 0.0001)
-        y = random.uniform(y + 0.0001, y - 0.0001)
+        x = random.uniform(x + 0.03, x - 0.03)
+        y = random.uniform(y + 0.03, y - 0.03)
     next_call = next_call + 0.1
     threading.Timer( next_call - time.time(), yield_eye_data ).start()
 

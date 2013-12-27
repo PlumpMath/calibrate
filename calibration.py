@@ -15,7 +15,7 @@ import random
 import os
 import datetime
 from time import time, sleep
-from math import sqrt
+from math import sqrt, radians, cos, sin
 
 #from pandaepl import ptime
 
@@ -76,6 +76,7 @@ class World(DirectObject):
         # get configurations from config file
         config = {}
         execfile(config_file, config)
+        self.tolerance = config['TOLERANCE']
 
         #window = direct.showbase.ShowBase.ShowBase()
         self.base = ShowBase()
@@ -128,25 +129,32 @@ class World(DirectObject):
             camera2.reparentTo( render )
 
             self.text = TextNode('gain')
-            self.text.setText('Gain:' + str(self.gain))
+            self.text.setText('Gain: ' + str(self.gain))
             textNodePath = aspect2d.attachNewNode(self.text)
             textNodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
             textNodePath.setPos(0.1, 0, 0.9)
 
             self.text2 = TextNode('offset')
-            self.text2.setText('Offset:' + str(self.offset))
+            self.text2.setText('Offset: ' + str(self.offset))
             text2NodePath = aspect2d.attachNewNode(self.text2)
             text2NodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
             text2NodePath.setPos(0.1, 0, 0.8)
 
             self.text3 = TextNode('iscan')
-            self.text3.setText('IScan:' + '0, 0')
+            self.text3.setText('IScan: ' + '[0, 0]')
             text3NodePath = aspect2d.attachNewNode(self.text3)
             text3NodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
             text3NodePath.setPos(0.1, 0, 0.7)
+
+            self.text4 = TextNode('tolerance')
+            self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
+            text3NodePath = aspect2d.attachNewNode(self.text4)
+            text3NodePath.setScale(0.1)
+            #textNodePath.setPos(-300, 0, 200)
+            text3NodePath.setPos(0.1, 0, 0.6)
 
             # eye position is just a smiley painted black
             #self.smiley = self.base.loader.loadModel('smiley')
@@ -243,7 +251,9 @@ class World(DirectObject):
         self.eye_data.append((0,0))
         self.square_time_on = 0
         self.eye_reset_now = False
-        self.tolerance = config['TOLERANCE']
+        # first square is always in center
+        self.eye_window = []
+        self.show_window((0,0,0))
 
 
         if self.daq:
@@ -255,7 +265,7 @@ class World(DirectObject):
             self.reward_task = pydaq.GiveReward()
         else:
             #self.fake_data = fake_eye_data.yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
-            self.fake_data = fake_eye_data.yield_eye_data((0,0))
+            self.fake_data = fake_eye_data.yield_eye_data((0.0,0.0))
             self.reward_task = None
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
@@ -291,6 +301,10 @@ class World(DirectObject):
         self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['offset', 0, 1])
         self.accept("control-arrow_left", self.change_gain_or_offset, ['offset', 0, -1])
         self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
+
+        # For adjusting tolerance (allowable distance from target that still gets reward)
+        self.accept("alt-arrow_up", self.change_tolerance, [1])
+        self.accept("alt-arrow_down", self.change_tolerance, [-1])
 
         # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
@@ -490,14 +504,19 @@ class World(DirectObject):
             eye.setThickness(2.0)
             eye.moveTo(last_eye[0], 55, last_eye[1])
             eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
-            node = render2d.attachNewNode(eye.create())
+            node = render.attachNewNode(eye.create())
+            node.show(BitMask32.bit(0))
+            node.hide(BitMask32.bit(1))
             self.eyes.append(node)
+            #print 'eyes', self.eyes
             #eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
             #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             #self.eyes += [eye]
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        self.text3.setText('IScan:' + str(eye_data))
+        #print eye_data
+        #self.text3.setText('IScan: ' + '[0, 0]')
+        self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) + ', ' + str(round(eye_data[1], 3)) + ']')
         #print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
@@ -524,6 +543,14 @@ class World(DirectObject):
                 str(self.offset[0]) + ', ' +
                 str(self.offset[1]) + '\n')
 
+    def change_tolerance(self, direction):
+        self.tolerance += direction
+        self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
+        for win in self.eye_window:
+            win.detachNode()
+        #self.eye_window.detachNode()
+        self.show_window(self.square.getPos())
+
     def square_on(self):
         self.square_time_on = len(self.eye_data)
         #print 'square', self.manual
@@ -544,6 +571,7 @@ class World(DirectObject):
         #print 'square is now on'
 
     def square_fade(self):
+        self.square_time_fade = len(self.eye_data)
         #print 'square fade, 1'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
@@ -559,6 +587,10 @@ class World(DirectObject):
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
+        for win in self.eye_window:
+            win.detachNode()
+        #print 'erase eye window'
+        #self.eye_window.detachNode()
         #print 'parent 2', self.square.getParent()
         # next interval is on to fade on
         #self.interval = random.uniform(*ON_INTERVAL)
@@ -621,6 +653,8 @@ class World(DirectObject):
         #else:
         #    self.square.setPos(Point3(position))
         self.square.setPos(Point3(position))
+        # show window for tolerance
+        self.show_window(position)
         #print 'square', position[0], position[2]
         self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
@@ -629,6 +663,32 @@ class World(DirectObject):
     def eye_reset(self):
         #print 'reset now'
         self.eye_reset_now = True
+
+    def show_window(self, square):
+        # draw line around target representing how close the subject has to be looking to get reward
+        #print 'show window'
+        #self.tolerance =
+        #print 'square', square[0], square[2]
+        eye_window = LineSegs()
+        eye_window.setThickness(2.0)
+        eye_window.setColor(1, 0, 0, 1)
+        angleRadians = radians(360)
+        for i in range(50):
+            a = angleRadians * i /49
+            y = self.tolerance * sin(a)
+            x = self.tolerance * cos(a)
+            eye_window.drawTo((x + square[0], 55, y + square[2]))
+
+        #eye_window.moveTo(square[0] + self.tolerance, 55, square[2] + self.tolerance)
+        #eye_window.drawTo(square[0] - self.tolerance, 55, square[2] + self.tolerance)
+        #eye_window.drawTo(square[0] - self.tolerance, 55, square[2] - self.tolerance)
+        #eye_window.drawTo(square[0] + self.tolerance, 55, square[2] - self.tolerance)
+        #eye_window.drawTo(square[0] + self.tolerance, 55, square[2] + self.tolerance)
+        node = render.attachNewNode(eye_window.create())
+        node.show(BitMask32.bit(0))
+        node.hide(BitMask32.bit(1))
+        self.eye_window.append(node)
+        #print 'eye window', self.eye_window
 
     def check_fixation(self):
         (x, y) = self.average_position()
@@ -639,7 +699,7 @@ class World(DirectObject):
         return False
 
     def average_position(self):
-        eye_check = self.eye_data[self.square_time_on:]
+        eye_check = self.eye_data[self.square_time_on:self.square_time_fade]
         x = sum([pair[0] for pair in eye_check]) / len(eye_check)
         y = sum([pair[1] for pair in eye_check]) / len(eye_check)
         return (x, y)
