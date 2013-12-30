@@ -144,7 +144,8 @@ class TestCalibration(unittest.TestCase):
         self.assertTrue(self.w.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
+        # use fix interval, since fake data will start it right away in fixation window
+        self.assertAlmostEqual(c.total_seconds(), self.config['FIX_INTERVAL'], 1)
 
     def test_timing_fade_on_to_off(self):
         # First get to fade on

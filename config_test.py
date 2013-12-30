@@ -24,6 +24,8 @@ X_POINTS = 10
 # How many points in y direction
 Y_POINTS = 10
 
+# How long must fixate before square changes color
+FIX_INTERVAL = 1
 # All intervals represent min and max for a uniform random distribution
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.

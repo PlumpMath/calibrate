@@ -104,7 +104,6 @@ class World(DirectObject):
             #props.setCursorHidden(True)
             #props.setOrigin(0, 0)
             resolution = config['WIN_RES']
-            # THIS MIGHT NOT BE RIGHT, SIZE FOR MONITORS MAY BE REVERSED
             if resolution is not None:
                 self.set_resolution(resolution)
                 props.setOrigin(0, 0)
@@ -196,6 +195,7 @@ class World(DirectObject):
         self.first = True
         # starts out not fixated
         self.fix_time = None
+        self.check_fixation = False
         # open and close file for keeping configuration info
         # turns out there is a lot of extra crap in the config dictionary,
         # and I haven't figured out a pretty way to get rid of the extra crap.
@@ -253,7 +253,8 @@ class World(DirectObject):
         self.eye_data = []
         self.eye_data.append((0,0))
         self.square_time_on = 0
-        self.eye_reset_now = False
+        self.remove_eyes = False
+
         # first square is always in center
         self.eye_window = []
         if not self.manual:
@@ -279,9 +280,6 @@ class World(DirectObject):
         self.accept("escape", self.close)  # escape
         # starts turning square on
         self.accept("space", self.start)  # default is the program waits 2 min
-        # Resets offset for zero. Waits until next center dims, and then takes
-        # average of that 350 ms window as zero.
-        self.accept("enter", self.eye_reset)
 
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
@@ -333,7 +331,7 @@ class World(DirectObject):
         # reward_interval - time from off to reward
         # move_interval - time from reward to move/on
         self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
-                              config['MOVE_INTERVAL']]
+                              config['MOVE_INTERVAL'], config['FIX_INTERVAL']]
         #Now we create the task. taskMgr is the task manager that actually calls
         #The function each frame. The add method creates a new task. The first
         #argument is the function to be called, and the second argument is the name
@@ -388,45 +386,25 @@ class World(DirectObject):
         # are we waiting for a manual move?
         #print task.move
         if not task.move:
-            print 'new loop', task.time
+
+            #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
+                print 'actual time interval was over: ', task.interval
+                # for auto-random task, if we are checking for fixation,
+                # but don't have a fix_time, then we have not fixated by
+                # end of interval, and need to task start over.
+                #print 'fix?', self.check_fixation
+                if self.check_fixation and not self.fix_time:
+                    print 'no fixation, start over'
+                    self.restart_task(None)
+                    return task.cont
                 # task.switch will manipulate the square and
                 # update the interval to the next task.
                 #print task.time
                 #print 'task', task.switch[self.next]
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
-                # before we switch, check to see if we are on random,
-                # and need to check for fixation. If we are about to fade
-
-                if not self.manual and self.next == 2:
-                    #fix_time = self.check_fixation()
-                    print 'check fixation in loop', self.fix_time
-                    if self.fix_time:
-                        print 'fixation'
-                        # make sure have waited long enough, wait longer if not,
-                        # continue if have
-                        if task.time < self.fix_time:
-                            print 'fix_time', self.fix_time
-                            print 'task_interval', task.interval
-                            task.interval = self.fix_time + task.interval
-                            print 'new interval', task.interval
-                            return task.cont
-                    else:
-                        print 'no fixation, start over'
-                        # if interval is over, and no fixation, start over
-                        # new square in same place as old one?
-                        # move interval
-                        task.interval = random.uniform(*self.all_intervals[3])
-                        print 'next interval', task.interval
-                        task.interval = task.time + task.interval
-                        print 'next interval', task.interval
-                        self.next = 0
-                        self.time_data_file.write(str(time()) + ', no fixation, restart' + '\n')
-                        return task.cont
-
-                print 'all good, keep going'
                 task.switch[self.next]()
                 #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
@@ -451,7 +429,6 @@ class World(DirectObject):
                     # do not complete this loop
                     return task.cont
 
-
                 # if we are at self.next = 4, then the last task was reward,
                 # and we need to reset our counter to zero. Since we do square_on
                 # at the end of our move method, the incrementing to one at the
@@ -461,9 +438,9 @@ class World(DirectObject):
                 if self.next == 4:
                     self.next = 0
                     #print self.all_intervals[self.next]
-                task.interval = random.uniform(*self.all_intervals[self.next])
+                interval = random.uniform(*self.all_intervals[self.next])
                 #print 'next interval', task.interval
-                task.interval = task.time + task.interval
+                task.interval = task.time + interval
                 #print 'next switch time', task.interval
                 #print 'time now', task.time
                 #print 'next', self.next
@@ -531,6 +508,11 @@ class World(DirectObject):
         if not unittest:
             #print 'last eye', last_eye
             #print 'show eye', plot_eye_data
+            if self.remove_eyes:
+                # get rid of any eye positions left on screen
+                self.eye_restart()
+                self.remove_eyes = False
+
             eye = LineSegs()
             eye.setThickness(3.0)
             eye.moveTo(last_eye[0], 55, last_eye[1])
@@ -544,21 +526,55 @@ class World(DirectObject):
             #print eye_data[0], eye_data[1]
             #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             #self.eyes += [eye]
+            #self.text3.setText('IScan: ' + '[0, 0]')
+            self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) + ', ' + str(round(eye_data[1], 3)) + ']')
+
         self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
         #print eye_data
-        #self.text3.setText('IScan: ' + '[0, 0]')
-        self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) + ', ' + str(round(eye_data[1], 3)) + ']')
-        # check if in window - only update time if was none
-        if self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
-            if not self.fix_time:
-                self.fix_time = self.frameTask.time
-                print 'time fixated', self.fix_time
-        else:
-            self.fix_time = None
+        # check if in window for auto-calibrate - only update time if was none
+        if self.check_fixation:
+            #print 'check fixation', self.check_fixation
+            # if already fixated, make sure hasn't left
+            if self.fix_time:
+                #print 'already fixated'
+                if self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2])) > self.tolerance:
+                    # abort trial, start again with square in same position
+                    print 'abort'
+                    self.restart_task(None)
+            else:
+                #print 'waiting for fixation'
+                if self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
+                    print 'and fixated!'
+                    self.restart_task(self.frameTask.time)
+                    #self.fix_time = self.frameTask.time
+                    #print 'time fixated', self.fix_time
+                    #print 'self.next', self.next
+                    #interval = self.all_intervals[4]
+                    #self.frameTask.interval = self.fix_time + interval
+                    #print 'new interval', self.frameTask.interval
         #print eye.getPos()
         #min, max = eye.getTightBounds()
         #size = max - min
         #print size[0], size[2]
+
+    def restart_task(self, fix_time):
+        print 'restarting'
+        # if fix_time is none, then restarting because fixation was broken, or never fixated,
+        # immediately turn off square and start over.
+        if not fix_time:
+            print 'restart, no fixation'
+            self.next = 2
+            interval = 0.0
+            # when new target shows up, this will change back to true
+            self.check_fixation = False
+        else:
+            print 'restarting timer for holding fixation'
+            self.next = 1
+            interval = self.all_intervals[4]
+        # new interval always starts with now
+        self.frameTask.interval = self.frameTask.time + interval
+        self.fix_time = fix_time
+        #print self.fix_time
 
     def eye_data_to_pixel(self, eye_data):
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
@@ -607,6 +623,9 @@ class World(DirectObject):
         #self.interval = random.uniform(*FADE_INTERVAL)
         #print self.frameTask.new_interval
         #print 'square is now on'
+        if not self.manual:
+            self.check_fixation = True
+        self.fixed = False
 
     def square_fade(self):
         self.square_time_fade = len(self.eye_data)
@@ -619,6 +638,9 @@ class World(DirectObject):
         # if manual move is set, after off we just wait for move, so we
         # won't actually check this interval
         #self.interval = random.uniform(*MOVE_INTERVAL)
+        self.check_fixation = False
+        # if square has faded, then we can reset fixation time
+        self.fix_time = None
 
     def square_off(self):
         #print 'square off, 2'
@@ -627,6 +649,7 @@ class World(DirectObject):
         self.square.detachNode()
         for win in self.eye_window:
             win.detachNode()
+        self.remove_eyes = True
         #print 'erase eye window'
         #self.eye_window.detachNode()
         #print 'parent 2', self.square.getParent()
@@ -634,28 +657,12 @@ class World(DirectObject):
         #self.interval = random.uniform(*ON_INTERVAL)
         #print 'next-on-interval', self.interval
 
-        if self.eye_reset_now:
-            #print 'okay, reset'
-            (x, y) = self.average_position()
-            #print 'average pos', x, y
-            self.offset = [0 - x, 0 - y]
-            self.eye_reset_now = False
-            #print 'offset', self.offset
-            self.time_data_file.write(str(time()) + ', reset zero' + '\n')
-            self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
-                               + ', ' + '{0:03.2f}]'.format(self.offset[1]))
-            #self.text2.setText('Offset:' + str(self.offset))
-            self.time_data_file.write(
-                str(time()) + ', Change Offset, ' +
-                str(self.offset[0]) + ', ' +
-                str(self.offset[1]) + '\n')
-
     def give_reward(self):
         out = sys.stdout
         # only want to check this if on random?
-        if not self.manual:
+        #if not self.manual:
             #print 'random?, check reward'
-            self.reward = self.check_fixation()
+            #self.reward = self.check_fixation()
         #print 'reward', self.reward
         if self.reward:
             for i in range(self.num_beeps):
@@ -665,17 +672,6 @@ class World(DirectObject):
                     print 'beep'
                 else:
                     out.write("beep\n")
-        # We can now stop plotting eye positions,
-        # and get rid of eye positions.
-        for eye in self.eyes:
-            eye.removeNode()
-        print 'should be no nodes now', self.eyes
-        self.eyes = []
-        # now can also get rid of eye_data, except the last position, so we don't eat up all of our memory
-        last_eye = self.eye_data[-1]
-        self.eye_data = []
-        self.eye_data.append(last_eye)
-        print 'eye data, should be just one position', self.eye_data
 
     def square_move(self, position=None):
         #print 'square move, 3'
@@ -700,9 +696,18 @@ class World(DirectObject):
         # go directly to on
         self.square_on()
 
-    def eye_reset(self):
-        #print 'reset now'
-        self.eye_reset_now = True
+    def eye_restart(self):
+        # We can now stop plotting eye positions,
+        # and get rid of old eye positions.
+        for eye in self.eyes:
+            eye.removeNode()
+        #print 'should be no nodes now', self.eyes
+        self.eyes = []
+        # now can also get rid of eye_data, except the last position, so we don't eat up all of our memory
+        last_eye = self.eye_data[-1]
+        self.eye_data = []
+        self.eye_data.append(last_eye)
+        #print 'eye data, should be just one position', self.eye_data
 
     def show_window(self, square):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -729,27 +734,6 @@ class World(DirectObject):
         node.hide(BitMask32.bit(1))
         self.eye_window.append(node)
         #print 'eye window', self.eye_window
-
-    def check_fixation(self):
-        # make sure eye is in window, check time entered window.
-        eye_check = self.eye_data[self.square_time_on:]
-        fix = False
-        #print (x, y)
-        #print (self.square.getPos()[0], self.square.getPos()[2])
-        for i, eye in enumerate(eye_check):
-            # find time when entered fixation window
-            if not fix:
-                if self.distance((eye), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
-                    fix = True
-                    print 'fixated'
-                    fix_time = i + self.square_time_on
-            else:
-                # make sure didn't leave window
-                if self.distance((eye), (self.square.getPos()[0], self.square.getPos()[2])) > self.tolerance:
-                    print "left window, or hasn't entered yet"
-                    fix = False
-                    fix_time = None
-        return fix_time
 
     def average_position(self):
         eye_check = self.eye_data[self.square_time_on:self.square_time_fade]

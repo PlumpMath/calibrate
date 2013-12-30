@@ -139,12 +139,19 @@ class TestCalibration(unittest.TestCase):
         c = b - a
         #print 'c', c.total_seconds()
         # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.getParent())
+        # if in random mode, checking fixation time
+        #print self.manual
+        if self.manual == 1:
+            interval = self.config['ON_INTERVAL'][0]
+            #print 'manual', interval
+        else:
+            interval = self.config['FIX_INTERVAL']
+            #print 'auto-random', interval
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
+        self.assertAlmostEqual(c.total_seconds(), interval, 1)
 
     def test_timing_fade_on_to_off(self):
         # First get to fade on
@@ -192,7 +199,7 @@ class TestCalibration(unittest.TestCase):
         f = open(self.w.eye_file_name, 'r')
         #print(f.readline())
         self.assertIn('timestamp', f.readline())
-        self.assertIn( '0, 0\n', f.readline())
+        self.assertIn( '0.0, 0.0\n', f.readline())
         f.close()
 
     def test_tasks_and_timestamp_written_to_file(self):
