@@ -36,12 +36,13 @@ class World(DirectObject):
         #print manual
         # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
         # 100 should be sort of close...
-        self.gain = [100, 100]
+        #self.gain = [100, 100]
+        self.gain = [10, 10]
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        #self.test = True
-        self.test = False
+        self.test = True
+        #self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -255,7 +256,8 @@ class World(DirectObject):
         self.eye_reset_now = False
         # first square is always in center
         self.eye_window = []
-        self.show_window((0,0,0))
+        if not self.manual:
+            self.show_window((0,0,0))
 
 
         if self.daq:
@@ -527,8 +529,10 @@ class World(DirectObject):
             self.time_data_file.write(str(time()) + ', start calibration' + '\n')
             self.first = False
         if not unittest:
+            #print 'last eye', last_eye
+            #print 'show eye', plot_eye_data
             eye = LineSegs()
-            eye.setThickness(2.0)
+            eye.setThickness(3.0)
             eye.moveTo(last_eye[0], 55, last_eye[1])
             eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
             node = render.attachNewNode(eye.create())
@@ -665,12 +669,13 @@ class World(DirectObject):
         # and get rid of eye positions.
         for eye in self.eyes:
             eye.removeNode()
+        print 'should be no nodes now', self.eyes
         self.eyes = []
         # now can also get rid of eye_data, except the last position, so we don't eat up all of our memory
         last_eye = self.eye_data[-1]
         self.eye_data = []
         self.eye_data.append(last_eye)
-        #print self.eye_data
+        print 'eye data, should be just one position', self.eye_data
 
     def square_move(self, position=None):
         #print 'square move, 3'
@@ -688,7 +693,8 @@ class World(DirectObject):
         #    self.square.setPos(Point3(position))
         self.square.setPos(Point3(position))
         # show window for tolerance
-        self.show_window(position)
+        if not self.manual:
+            self.show_window(position)
         #print 'square', position[0], position[2]
         self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
