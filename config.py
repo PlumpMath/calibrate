@@ -1,4 +1,5 @@
 SUBJECT = 'test'
+#SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
 #WIN_RES = None
@@ -29,7 +30,7 @@ FIX_INTERVAL = 1
 ON_INTERVAL = (1, 2)  # Time on
 FADE_INTERVAL = (0.35, 0.35) # Time faded
 REWARD_INTERVAL = (0, 0) # Time from off to reward - make go off when turns off
-MOVE_INTERVAL = (1, 1) # Time from reward until on in new place
+MOVE_INTERVAL = (2, 2) # Time from reward until on in new place
 
 # how many rewards per trial
 NUM_BEEPS = 3

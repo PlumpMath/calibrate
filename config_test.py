@@ -2,8 +2,8 @@
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
-WIN_RES = 'Test'
-#WIN_RES = [1024, 768]
+#WIN_RES = 'Test'
+WIN_RES = [1024, 768]
 # Screen size
 # This is obviously wrong if you aren't calibrating with the projector,
 # but shouldn't matter for testing.

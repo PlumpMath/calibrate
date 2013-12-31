@@ -5,6 +5,7 @@ from panda3d.core import Point2, Point3, NodePath, LineSegs
 from panda3d.core import OrthographicLens, Camera
 from positions import Positions
 from panda3d.core import WindowProperties
+from positions import visual_angle
 import numpy as np
 import sys
 
@@ -51,8 +52,11 @@ class World(DirectObject):
         self.accept('d', self.degree_positions)
         self.mode = 0
         self.pos = []
-        circle = self.make_circle()
-        circle.reparentTo(render)
+        #self.root = self.base.render.attachNewNode("Root")
+        self.make_circle()
+
+
+        #circle.reparentTo(render)
 
     def next(self):
         #print 'xwin', self.base.win.getProperties().getXSize()
@@ -63,7 +67,7 @@ class World(DirectObject):
         square = self.make_square()
         try:
             square.setPos(Point3(self.pos.next()))
-            print square.getPos()
+            #print square.getPos()
         except StopIteration:
             print 'done'
         #square.setColor(175 / 255, 175 / 255, (i * 7) / 255, 1.0)
@@ -113,7 +117,7 @@ class World(DirectObject):
         square.reparentTo( render )
         #square.ls()
         #square.setScale(0.05)
-        square.setScale(20)
+        square.setScale(8.5)
         square.setDepthTest(False)
         square.setTransparency(1)
         square.setTexture(self.base.loader.loadTexture("textures/calibration_square.png"), 1)
@@ -122,22 +126,39 @@ class World(DirectObject):
         # yellow
         #square.setColor(175 / 255, 175 / 255, 130 / 255, 1.0)
         square.setColor(0.9, 0.9, 0.6, 1.0)
+        print square.getX()
+        print square.getY()
+        min, max = square.getTightBounds()
+        size = max - min
+        print size[0], size[2]
         return square
 
     def make_circle(self, angle_deg = 360):
         ls = LineSegs()
         angleRadians = np.deg2rad(angle_deg)
         # assume visual angle is approximately the same for x and y,
-        # otherwise we don't get a circle
-        radius = 1 * Positions().visual_angle()[0]
+        # which probably is not true, maybe need to change
+        #radius = 1 * Positions().visual_angle()[0]
+        res = [1024, 768]
+        # Screen size
+        screen = [1337, 991]
+        v_dist = 1219
+        # number of visual angles want circle radius to be
+        angle = 0.25
+        # visual angle returns degrees per pixel, so invert since
+        # we want pixel per degree
+        deg_per_pixel = visual_angle(screen, res, v_dist)
+        x_radius = angle * 1 / deg_per_pixel[0]
+        y_radius = angle * 1 / deg_per_pixel[0]
         for i in range(50):
             a = angleRadians * i / 49
-            y = radius * np.sin(a)
-            print y
-            x = radius * np.cos(a)
-            print x
-            ls.drawTo(x, 0, y)
-        node = ls.create()
+            y = y_radius * np.sin(a)
+            #print y
+            x = x_radius * np.cos(a)
+            #print x
+            ls.drawTo(x, self.depth, y)
+        #node = ls.create()
+        node = render.attachNewNode(ls.create())
         return NodePath(node)
 
 if __name__ == "__main__":

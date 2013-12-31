@@ -175,7 +175,7 @@ class World(DirectObject):
             #self.smiley.show(BitMask32.bit(0))
             # if root is set to camera, don't see at all
             # if set to pixel2d, see large on first, and teeny on second. meh.
-            self.root = self.base.render.attachNewNode("Root")
+            #self.root = self.base.render.attachNewNode("Root")
             #self.root = self.base.render.attachNewNode("Root")
 
         #print 'window loaded'
@@ -229,7 +229,8 @@ class World(DirectObject):
         self.time_data_file.write(str(time()) + ', First Position, ' + str(pos.getX()) + ', ' + str(pos.getY()) + '\n')
         # need to scale to be correct visual angle
         #obj.setScale(1)
-        obj.setScale(20)
+        # scale 17 is one visual angle in x and y direction
+        obj.setScale(15)
         #obj.setTransparency(1)
         square = self.base.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
