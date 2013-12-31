@@ -37,12 +37,12 @@ class World(DirectObject):
         # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
         # 100 should be sort of close...
         #self.gain = [100, 100]
-        self.gain = [10, 10]
+        self.gain = [100, 100]
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        self.test = True
-        #self.test = False
+        #self.test = True
+        self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -251,7 +251,7 @@ class World(DirectObject):
 
         # Eye Data and reward
         self.eye_data = []
-        self.eye_data.append((0,0))
+        self.eye_data.append((0.0, 0.0))
         self.square_time_on = 0
         self.remove_eyes = False
 
@@ -270,7 +270,7 @@ class World(DirectObject):
             self.reward_task = pydaq.GiveReward()
         else:
             #self.fake_data = fake_eye_data.yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
-            self.fake_data = fake_eye_data.yield_eye_data((0.0,0.0))
+            self.fake_data = fake_eye_data.yield_eye_data((0.0, 0.0))
             self.reward_task = None
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
@@ -315,15 +315,15 @@ class World(DirectObject):
         # to get new position
         self.keys = {"switch": 0}
         # keyboard
-        self.accept("1", self.setKey, ["switch", 1])
-        self.accept("2", self.setKey, ["switch", 2])
-        self.accept("3", self.setKey, ["switch", 3])
-        self.accept("4", self.setKey, ["switch", 4])
-        self.accept("5", self.setKey, ["switch", 5])
-        self.accept("6", self.setKey, ["switch", 6])
-        self.accept("7", self.setKey, ["switch", 7])
-        self.accept("8", self.setKey, ["switch", 8])
-        self.accept("9", self.setKey, ["switch", 9])
+        self.accept("1", self.set_key, ["switch", 1])
+        self.accept("2", self.set_key, ["switch", 2])
+        self.accept("3", self.set_key, ["switch", 3])
+        self.accept("4", self.set_key, ["switch", 4])
+        self.accept("5", self.set_key, ["switch", 5])
+        self.accept("6", self.set_key, ["switch", 6])
+        self.accept("7", self.set_key, ["switch", 7])
+        self.accept("8", self.set_key, ["switch", 8])
+        self.accept("9", self.set_key, ["switch", 9])
 
         # Our intervals
         # on_interval - time from on to fade
@@ -344,12 +344,14 @@ class World(DirectObject):
         # persistent for the task function from frame to frame
         # first interval will be the move interval (off to move/on - won't
         # actually move)
-        # if not testing, first square will turn on 2 minutes after experiment started,
+        # if not testing, first square will turn on 1 minute after experiment started,
         #  or when the spacebar is pressed to start it early
+        # hmmm, 40 seconds is the limit after which windows decides python isn't responding
+        # what do I have to do inside the loop so it doesn't think this?
         if self.test:
             self.frameTask.interval = random.uniform(*self.all_intervals[3])
         else:
-            self.frameTask.interval = 120
+            self.frameTask.interval = 40
         #print 'first interval', self.frameTask.interval
 
         # Main work horse: index with self.next to choose appropriate method
@@ -374,13 +376,14 @@ class World(DirectObject):
 
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
-    def setKey(self, key, val):
+    def set_key(self, key, val):
         self.keys[key] = val
         #print 'set key', self.keys[key]
 
     def frame_loop(self, task):
         #print 'in loop'
         #print task.time
+        #print task.interval
         #dt = task.time - task.last
         #task.last = task.time
         # are we waiting for a manual move?
@@ -390,13 +393,13 @@ class World(DirectObject):
             #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
-                print 'actual time interval was over: ', task.interval
+                #print 'actual time interval was over: ', task.interval
                 # for auto-random task, if we are checking for fixation,
                 # but don't have a fix_time, then we have not fixated by
                 # end of interval, and need to task start over.
                 #print 'fix?', self.check_fixation
                 if self.check_fixation and not self.fix_time:
-                    print 'no fixation, start over'
+                    #print 'no fixation, start over'
                     self.restart_task(None)
                     return task.cont
                 # task.switch will manipulate the square and
@@ -409,7 +412,7 @@ class World(DirectObject):
                 #print task.file[self.next]
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
-                print 'just did task', self.next
+                #print 'just did task', self.next
                 #print 'should be updated interval', task.interval
                 #print 'new interval', task.new_interval
                 #print self.all_intervals
@@ -485,20 +488,19 @@ class World(DirectObject):
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
-        # Want to change data being plotted, but write to file the data as
-        # received from eye tracker. this also means we can re-set zero.
-        #print eye_data
+        # We want to change gain on data being plotted,
+        # but write to file the data as received from eye tracker.
         # get last eye position
+        #print self.eye_data
         last_eye = self.eye_data_to_pixel(self.eye_data[-1])
-        #print last_eye
+        #print 'first eye', self.eye_data_to_pixel(self.eye_data[0])
+        #print 'last', last_eye
         plot_eye_data = self.eye_data_to_pixel(eye_data)
-        #print plot_eye_data
+        #print 'now', plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
-        self.eye_data.append(eye_data)
-        #VLQ.getInstance().writeLine("EyeData",
-        #                            [((eye_data[0] * self.gain[0]) - self.offset[0]),
-        #                             ((eye_data[1] * self.gain[1]) - self.offset[1])])
+        self.eye_data.append((eye_data[0], eye_data[1]))
+        #print 'size eye data', len(self.eye_data)
         #print eye_data
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
@@ -509,18 +511,23 @@ class World(DirectObject):
             #print 'last eye', last_eye
             #print 'show eye', plot_eye_data
             if self.remove_eyes:
+                #print 'clear eyes'
                 # get rid of any eye positions left on screen
-                self.eye_restart()
+                self.clear_eyes()
                 self.remove_eyes = False
 
             eye = LineSegs()
-            eye.setThickness(3.0)
+            #eye.setThickness(2.0)
+            eye.setThickness(2.0)
+            #print 'last', last_eye
+            #print 'now', plot_eye_data
             eye.moveTo(last_eye[0], 55, last_eye[1])
             eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
             node = render.attachNewNode(eye.create())
             node.show(BitMask32.bit(0))
             node.hide(BitMask32.bit(1))
             self.eyes.append(node)
+            #print eye.getVertices()
             #print 'eyes', self.eyes
             #eye = self.smiley.copyTo(self.root)
             #print eye_data[0], eye_data[1]
@@ -696,7 +703,7 @@ class World(DirectObject):
         # go directly to on
         self.square_on()
 
-    def eye_restart(self):
+    def clear_eyes(self):
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
         for eye in self.eyes:
@@ -707,7 +714,7 @@ class World(DirectObject):
         last_eye = self.eye_data[-1]
         self.eye_data = []
         self.eye_data.append(last_eye)
-        #print 'eye data, should be just one position', self.eye_data
+        #print 'eye data clear, should be just one position', self.eye_data
 
     def show_window(self, square):
         # draw line around target representing how close the subject has to be looking to get reward

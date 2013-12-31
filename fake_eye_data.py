@@ -22,8 +22,8 @@ def yield_eye_data(origin = []):
         (x, y) = origin
     while True:
         yield x, y
-        x = random.uniform(x + 0.3, x - 0.3)
-        y = random.uniform(y + 0.3, y - 0.3)
+        x = random.uniform(x + 0.03, x - 0.03)
+        y = random.uniform(y + 0.03, y - 0.03)
     next_call = next_call + 0.1
     threading.Timer( next_call - time.time(), yield_eye_data ).start()
 
