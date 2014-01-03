@@ -22,45 +22,43 @@ class TestCalibration(unittest.TestCase):
 #            2: self.square_off,
 #            3: self.square_move}
 
-
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         loadPrcFileData("", "window-type offscreen")
-        #ConfigVariableString("window-type","offscreen").setValue("offscreen")
-        #print 'about to load world'
         # all these tests are for manual
         # manual move is mode 1
-        self.w = World(1)
+        cls.w = World(1)
         #print 'loaded world'
+
+    def setUp(self):
         self.config = {}
         execfile('config_test.py', self.config)
         self.depth = 0
 
-    def test_correct_reward_after_square_off(self):
+    def test_reward_after_square_off(self):
         # should get reward automatically if on manual
-        # easiest way to stop after reward on manual is to
-        # go to second time next = 1
-        # this test collects all the print statements, so is a
-        # little awkward for troubleshooting...
-        # best to comment out held, sys.stdout line, but keep
-        # in mind, this ensures failure
+        # easiest way to stop after reward on manual is to start,
+        # then until it changes twice, at which time should be reward.
         self.w.keys["switch"] = 7
-        held, sys.stdout = sys.stdout, StringIO()
-        no_reward = True
-        loop = 0
-        last_next = 0
-        while no_reward:
+        no_start = True
+        while no_start:
+             taskMgr.step()
+             #print self.w.next
+             if self.w.next == 1:
+                 no_start = False
+        # now wait for it to change twice, once for fade, once for reward.
+        wait_change_twice = True
+        count = 2
+        while wait_change_twice:
             taskMgr.step()
-            #print self.w.next
-            if self.w.next == 1 and self.w.next != last_next:
-                if loop == 0:
-                    #print 'loop 1'
-                    loop += 1
-                elif loop == 1:
-                    #print 'reward?'
-                    no_reward = False
-            last_next = self.w.next
-        output = 'beep\n' * self.config['NUM_BEEPS']
-        self.assertIn(output, sys.stdout.getvalue())
+            # if taskTask.now changes to 2, then we have just faded
+            if self.w.next == count:
+                if count == 3:
+                    wait_change_twice = False
+                else:
+                    count += 1
+                    # if next step is reward, then we got a reward...
+        self.assertEqual(self.w.next, 3)
 
     def test_timing_off_to_reward(self):
         # only get reward automatically if on manual
@@ -139,7 +137,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if self.w.frameTask.move is True:
                 signal = True
-                #print 'made it out of loop!'
+                print 'made it out of loop!'
         # and move
         self.w.keys["switch"] = 7
         # we wait until it comes back on

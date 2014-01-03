@@ -42,8 +42,8 @@ class World(DirectObject):
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        #self.test = True
-        self.test = False
+        self.test = True
+        #self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -628,7 +628,7 @@ class World(DirectObject):
     def square_on(self):
         self.square_time_on = len(self.eye_data)
         #print 'square', self.manual
-        #print 'square on, 0'
+        print 'square on, 0'
         #Pos(Point3(pos.getX(), self.depth, pos.getY()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         #self.square.reparentTo(camera)
@@ -649,7 +649,7 @@ class World(DirectObject):
 
     def square_fade(self):
         self.square_time_fade = len(self.eye_data)
-        #print 'square fade, 1'
+        print 'square fade, 1'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
@@ -663,7 +663,7 @@ class World(DirectObject):
         self.fix_time = None
 
     def square_off(self):
-        #print 'square off, 2'
+        print 'square off, 2'
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
@@ -678,7 +678,7 @@ class World(DirectObject):
         #print 'next-on-interval', self.interval
 
     def give_reward(self):
-        #print 'reward, 3'
+        print 'reward, 3'
         #out = sys.stdout
         # only want to check this if on random?
         #if not self.manual:
@@ -695,7 +695,7 @@ class World(DirectObject):
         #        out.write("beep\n")
 
     def square_move(self, position=None):
-        #print 'square move, 4'
+        print 'square move, 4'
         #print 'square position', position
         if not position:
             #print 'trying to get a auto position'
