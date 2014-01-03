@@ -32,6 +32,7 @@ except:
 
 class World(DirectObject):
     def __init__(self, mode=None):
+        #print 'unittest', unittest
         #print 'init'
         #print manual
         # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
@@ -66,6 +67,7 @@ class World(DirectObject):
 
             self.daq = False
         if unittest:
+            #print 'yup, still unittest'
             config_file = 'config_test.py'
             # if doing tests, I think we need fake data
             self.test = True
@@ -243,11 +245,11 @@ class World(DirectObject):
         # differently than if random
         if self.manual:
             #print 'yes, still manual'
-            self.reward = True
+            #self.reward = True
             self.pos = Positions(config)
         else:
             #print 'manual is false'
-            self.reward = False
+            #self.reward = False
             self.pos = Positions(config).get_position(self.depth, True)
 
         # Eye Data and reward
@@ -255,6 +257,7 @@ class World(DirectObject):
         self.eye_data.append((0.0, 0.0))
         self.square_time_on = 0
         self.remove_eyes = False
+        #self.reward = True
 
         # first square is always in center
         self.eye_window = []
@@ -396,6 +399,7 @@ class World(DirectObject):
             if task.time > task.interval:
                 #print 'actual time interval was over: ', task.interval
                 # for auto-random task, if we are checking for fixation,
+                # (this happens when square is on, but not yet faded)
                 # but don't have a fix_time, then we have not fixated by
                 # end of interval, and need to task start over.
                 #print 'fix?', self.check_fixation
@@ -553,6 +557,10 @@ class World(DirectObject):
                 #print 'waiting for fixation'
                 if self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2])) < self.tolerance:
                     print 'and fixated!'
+                    #print 'square', self.square.getPos()[0], self.square.getPos()[2]
+                    #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
+                    #print 'tolerance', self.tolerance
+                    #print eye_data
                     self.restart_task(self.frameTask.time)
                     #self.fix_time = self.frameTask.time
                     #print 'time fixated', self.fix_time
@@ -566,16 +574,20 @@ class World(DirectObject):
         #print size[0], size[2]
 
     def restart_task(self, fix_time):
-        print 'restarting'
+        #print 'restarting'
         # if fix_time is none, then restarting because fixation was broken, or never fixated,
         # immediately turn off square and start over.
         if not fix_time:
             print 'restart, no fixation'
-            self.next = 2
+            print 'no reward!'
+            self.next = 4
             interval = 0.0
             # when new target shows up, this will change back to true
             self.check_fixation = False
         else:
+            # timer starts out as interval for how long the subject has to fixate,
+            # once fixated, need to reset the timer so fixation is held right amount of time.
+            # So, keep interval as 1, but set the interval to fixation interval
             print 'restarting timer for holding fixation'
             self.next = 1
             interval = self.all_intervals[4]
@@ -666,23 +678,24 @@ class World(DirectObject):
         #print 'next-on-interval', self.interval
 
     def give_reward(self):
-        out = sys.stdout
+        #print 'reward, 3'
+        #out = sys.stdout
         # only want to check this if on random?
         #if not self.manual:
             #print 'random?, check reward'
             #self.reward = self.check_fixation()
         #print 'reward', self.reward
-        if self.reward:
-            for i in range(self.num_beeps):
-                if self.reward_task:
-                    self.reward_task.pumpOut()
-                    sleep(.2)
-                    print 'beep'
-                else:
-                    out.write("beep\n")
+        #if self.reward:
+        for i in range(self.num_beeps):
+            if self.reward_task:
+                self.reward_task.pumpOut()
+                sleep(.2)
+                print 'beep'
+        #    else:
+        #        out.write("beep\n")
 
     def square_move(self, position=None):
-        #print 'square move, 3'
+        #print 'square move, 4'
         #print 'square position', position
         if not position:
             #print 'trying to get a auto position'

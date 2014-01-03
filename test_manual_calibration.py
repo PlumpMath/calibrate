@@ -36,7 +36,7 @@ class TestCalibration(unittest.TestCase):
         self.depth = 0
 
     def test_correct_reward_after_square_off(self):
-        # should only get reward automatically if on manual
+        # should get reward automatically if on manual
         # easiest way to stop after reward on manual is to
         # go to second time next = 1
         # this test collects all the print statements, so is a
