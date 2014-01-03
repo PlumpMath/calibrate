@@ -2,8 +2,8 @@
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
-#WIN_RES = 'Test'
-WIN_RES = [1024, 768]
+WIN_RES = 'Test'
+#WIN_RES = [1024, 768]
 # Screen size
 # This is obviously wrong if you aren't calibrating with the projector,
 # but shouldn't matter for testing.
@@ -12,13 +12,15 @@ VIEW_DIST = 1219
 
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? distance in pixels
-TOLERANCE = 100
+TOLERANCE = 30
 
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 15
 MAX_DEGREES_Y = 10
 # how many times to repeat each point when in random mode
-POINT_REPEAT = 2
+# for testing set this to one, so we know that each time there is a move
+# it is to a new place
+POINT_REPEAT = 1
 # How many points in x direction
 X_POINTS = 10
 # How many points in y direction
