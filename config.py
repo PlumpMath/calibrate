@@ -1,9 +1,9 @@
-SUBJECT = 'test'
-#SUBJECT = 'Gus'
+#SUBJECT = 'test'
+SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
-WIN_RES = None
-#WIN_RES = [1024, 768]
+#WIN_RES = None
+WIN_RES = [1024, 768]
 # Screen size
 SCREEN = [1337, 991]
 VIEW_DIST = 1219

@@ -98,6 +98,8 @@ class World(DirectObject):
 
     def change_square_size(self):
         if self.mode == 0:
+            self.config['MAX_DEGREES_X'] = 20
+            self.config['MAX_DEGREES_Y'] = 20
             circle_node = self.make_circle()
             pos = Positions(self.config).get_position(self.depth)
             self.mode = 1
@@ -107,11 +109,12 @@ class World(DirectObject):
         v_dist = 1219
         b = 0
         scale = 1
+        size_list = []
         for i, j in enumerate(pos):
             #b += 0.04  # covers all of the values if using 25 points
             #b += 0.08
             b += 0.03
-            scale += 0.1
+            scale += 0.5
             #print b
             #print i
             #print j
@@ -121,11 +124,16 @@ class World(DirectObject):
             #print square.getTightBounds()
             min, max = square.getTightBounds()
             size = max - min
-            print size[0], size[2]
+            #print size[0], size[2]
             deg_per_pixel = visual_angle(screen, res, v_dist)
-            print deg_per_pixel
+            #print deg_per_pixel
+            print scale
             print 'size in degrees, x', size[0] * deg_per_pixel[0]
             print 'size in degrees, y', size[2] * deg_per_pixel[1]
+            size_list.append(size[0] * deg_per_pixel[0])
+        print size_list
+        import pickle
+        pickle.dump(size_list, open('size_list', 'wb'))
 
     def degree_positions(self):
         # set center, than 4 squares in cardinal directions at interval of 5 degree angles
@@ -180,6 +188,7 @@ class World(DirectObject):
         screen = [1337, 991]
         v_dist = 1219
         # number of visual angles want circle radius to be
+        # (so twice this is the x and y of the square)
         angle = 0.25
         # visual angle returns degrees per pixel, so invert since
         # we want pixel per degree

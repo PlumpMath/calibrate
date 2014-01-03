@@ -230,7 +230,7 @@ class World(DirectObject):
         # need to scale to be correct visual angle
         #obj.setScale(1)
         # scale 17 is one visual angle in x and y direction
-        obj.setScale(15)
+        obj.setScale(8.5)
         #obj.setTransparency(1)
         square = self.base.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
