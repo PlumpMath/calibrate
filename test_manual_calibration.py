@@ -1,7 +1,7 @@
 import unittest
 from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
-from panda3d.core import VBase4
+from panda3d.core import VBase4, Point3
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 from StringIO import StringIO
@@ -13,10 +13,6 @@ import datetime
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
-# Need to make these tests faster. Since we are testing the logic
-# of moving from one task to the next, probably easiest way is to
-# override the intervals to much smaller amounts.
-# codes for w.next
 #            0: self.square_on,
 #            1: self.square_fade,
 #            2: self.square_off,
@@ -34,6 +30,48 @@ class TestCalibration(unittest.TestCase):
         self.config = {}
         execfile('config_test.py', self.config)
         self.depth = 0
+
+    def test_square_fades(self):
+        # we may change the actual colors, so just make sure the
+        # color before and after the switch are different
+        old_color = self.w.square.getColor()
+        #print 'color', old_color
+        square_on = True
+        while square_on:
+            taskMgr.step()
+            if self.w.next == 2:
+                #print 'square should be dim'
+                square_on = False
+        #print self.w.square.getColor()
+        self.assertNotEqual(self.w.square.getColor(), old_color)
+
+    def test_timing_fade_on_to_off(self):
+        # First get to fade on
+        square_dim = True
+        while square_dim:
+            taskMgr.step()
+            # if taskTask.now changes to 2, then we have just faded
+            if self.w.next == 2:
+                #print 'square should be faded'
+                square_dim = False
+        # now wait for fade off:
+        square_fade = True
+        a = datetime.datetime.now()
+        while square_fade:
+            taskMgr.step()
+            # if taskTask.now changes to 3, then we have just turned off
+            if self.w.next == 3:
+                square_fade = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really off, sanity check
+        self.assertFalse(self.w.square.getParent())
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        self.assertAlmostEqual(c.total_seconds(), self.config['FADE_INTERVAL'][0], 1)
 
     def test_reward_after_square_off(self):
         # should get reward automatically if on manual
@@ -72,7 +110,7 @@ class TestCalibration(unittest.TestCase):
                 #print 'square should be off'
                 square_fade = False
                 # now wait for move/on:
-        print 'out of first loop'
+        #print 'out of first loop'
         self.w.keys["switch"] = 3
         # now wait for reward, when move changes, we are done with reward
         # and ready for moving
@@ -92,6 +130,70 @@ class TestCalibration(unittest.TestCase):
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['REWARD_INTERVAL'][0], 1)
+
+    def test_timing_off_to_on(self):
+        # first make sure off, turns off when given reward
+        print 'timing off to on'
+        square_on = True
+        while square_on:
+            taskMgr.step()
+            if self.w.next == 3:
+                a = datetime.datetime.now()
+                square_on = False
+        # make sure really off
+        self.assertFalse(self.w.square.getParent())
+        print 'next loop'
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                b = datetime.datetime.now()
+                #print 'square should be on'
+                square_off = False
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        # checking move interval, not actually moving, but this is the time
+        # from off to move/on, which we do without the moving part...
+        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
+
+    def test_timing_on_to_fade(self):
+        # First get to on
+        square_off = True
+        print 'time on to fade'
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                #print 'square should be on'
+                a = datetime.datetime.now()
+                square_off = False
+        # now wait for fade:
+        square_on = True
+        while square_on:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 2, then we have just faded
+            if self.w.next == 2:
+                b = datetime.datetime.now()
+                #print 'square should be faded'
+                square_on = False
+        c = b - a
+        print 'c', c.total_seconds()
+        # check that time is close
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        interval = self.config['ON_INTERVAL'][0]
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        self.assertAlmostEqual(c.total_seconds(), interval, 1)
 
     def test_timing_reward_to_move(self):
         # only get reward automatically if on manual
@@ -137,7 +239,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if self.w.frameTask.move is True:
                 signal = True
-                print 'made it out of loop!'
+                #print 'made it out of loop!'
         # and move
         self.w.keys["switch"] = 7
         # we wait until it comes back on
@@ -153,14 +255,14 @@ class TestCalibration(unittest.TestCase):
     def test_on_after_manual_move(self):
         # make sure square goes on after manual move
         # wait for square to turn off, then send signal to move
-        before = self.w.square.getParent()
         signal = False
         while not signal:
             taskMgr.step()
             if self.w.frameTask.move is True:
                 signal = True
         #print 'done with loop'
-        # and move
+        # make sure square is off
+        before = self.w.square.getParent()
         # and move
         self.w.keys["switch"] = 3
         # we wait until it comes back on
@@ -284,9 +386,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_square_moves_to_center_if_no_keypress(self):
         # Wait for reward, don't send keypress
-        # check position changed to center, which is
-        # conveniently the same place it started...
-        old_position = self.w.square.getPos()
+        # check position changed to center
         no_reward = True
         loop = 0
         last_next = 0
@@ -301,7 +401,8 @@ class TestCalibration(unittest.TestCase):
                     #print 'reward?'
                     no_reward = False
             last_next = self.w.next
-        self.assertEqual(self.w.square.getPos(), old_position)
+        #print self.w.square.getPos()
+        self.assertEqual(self.w.square.getPos(), Point3(0, 55, 0))
 
     def test_waits_correct_time_with_no_keypress(self):
         # if we don't press a key, do we still wait the correct
@@ -337,10 +438,11 @@ class TestCalibration(unittest.TestCase):
         # make sure timing within 2 places
         self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
-    def tearDown(self):
-        taskMgr.remove(self.w.frameTask)
-        self.w.close()
-        del self.w
+    @classmethod
+    def tearDownClass(cls):
+        taskMgr.remove(cls.w.frameTask)
+        cls.w.close()
+        del cls.w
         print 'tore down'
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 

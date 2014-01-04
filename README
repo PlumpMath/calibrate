@@ -7,3 +7,32 @@ wait for monkey to fixate, start timer.
 if monkey doesn't fixate in x time, abort and start over
 
 square turns on, check that eye has entered fixation window, turn on timer
+
+doesn't fixate, waits time out
+
+
+Manual and Random Sequence:
+
+square moves (either set at beginning or by square_moves (4)
+goes directly to square turns on (0)
+
+Random:
+once square turns on, check for fixation
+once fixated, start timer for how long to fixate
+if breaks fixation or leaves fixation window, goes to move without reward
+(checks fixation window every time receive new eye position)
+
+If fixates:
+goes through normal sequence loop:
+square changes color (1)
+square turns off     (2)
+reward               (3)
+moves to new spot and turns on (one step) (4-1)
+
+Manual:
+square changes color  (1)
+square turns off      (2)
+reward                (3)
+after reward leaves main loop and goes directly to waiting for key press
+if interval ends and no key press, defaults to center
+moves and then goes back into main loop and waits for color change (1)

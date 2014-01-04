@@ -5,15 +5,11 @@ from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import fake_eye_data
-from StringIO import StringIO
-import sys
 import datetime
 
-# This test suite is for calibration when in auto (random) mode.as
+# This test suite is for calibration when in auto (random) mode, and
 # not testing stuff that is exactly the same as manual move (iow, before
-# mode even kicks in. Too much of a time sync, and if it works for manual,
-# no reason to think it won't work for auto. Will be really obvious if it
-# doesn't anyway..
+# mode even kicks in.
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
@@ -39,6 +35,23 @@ class TestCalibration(unittest.TestCase):
         self.config = {}
         execfile('config_test.py', self.config)
         self.depth = 0
+
+    def test_square_fades(self):
+        # we may change the actual colors, so just make sure the
+        # color before and after the switch are different
+        old_color = self.w.square.getColor()
+        #print 'color', old_color
+        square_on = True
+        while square_on:
+            taskMgr.step()
+            if self.w.next == 1:
+                # make sure we will fade
+                self.move_eye_to_get_reward()
+            if self.w.next == 2:
+                #print 'square should be dim'
+                square_on = False
+        #print self.w.square.getColor()
+        self.assertNotEqual(self.w.square.getColor(), old_color)
 
     def test_square_moves_automatically(self):
         old_position = self.w.square.getPos()
@@ -97,15 +110,16 @@ class TestCalibration(unittest.TestCase):
 
     def test_timing_off_to_on(self):
         square_off = True
+        # how do I know we are off now???
         a = datetime.datetime.now()
         while square_off:
         #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 1:
+                b = datetime.datetime.now()
                 #print 'square should be on'
                 square_off = False
-        b = datetime.datetime.now()
         c = b - a
         #print 'c', c.total_seconds()
         # check that time is close

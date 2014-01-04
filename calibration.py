@@ -31,6 +31,8 @@ except:
 # NEED TO SAVE STUFF NECESSARY FOR CALIBRATION - RESOLUTION, ETC.
 
 class World(DirectObject):
+
+
     def __init__(self, mode=None):
         #print 'unittest', unittest
         #print 'init'
@@ -183,62 +185,18 @@ class World(DirectObject):
         #print 'window loaded'
         self.eyes = []
 
-        # open file for recording eye data
-        data_dir = 'data/' + config['SUBJECT']
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-        self.eye_data_file = open(self.eye_file_name, 'w')
-        self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
-        # open file for recording event times
-        self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-        self.time_data_file = open(self.time_file_name, 'w')
-        self.time_data_file.write('timestamp, task' + '\n')
-        self.first = True
-        # starts out not fixated
+        self.open_files(config)
+
+        # starts out not fixated, so no fixation time, and not checking for fixation (will
+        # check for fixation when stimulus comes on, if we are doing a random task)
         self.fix_time = None
         self.check_fixation = False
-        # open and close file for keeping configuration info
-        # turns out there is a lot of extra crap in the config dictionary,
-        # and I haven't figured out a pretty way to get rid of the extra crap.
-        # Honestly, the best thing may be to just make a copy of the original damn file.
-        # maybe look to see how pandaepl handles this
-        #config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-
-        #w = csv.writer(open(config_file_name, 'w'))
-        #for name, value in config.items():
-        #    w.writerow([name, value])
-
-        #for name, value in config.items():
-        #    print name, value
-        # if you want to see the frame rate
-        # window.setFrameRateMeter(True)
 
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
-        # initial position of Square
-        pos = Point2(0, 0)
-        #pos = Point2((base.win.getXSize()/2, -base.win.getYSize()/2))
-        #print pos
-        # setting up square object
-        obj = self.base.loader.loadModel("models/plane")
-        # don't turn on yet
-        # obj.reparentTo(camera)
-        # make depth greater than eye positions so eye positions are on top of squares,
-        # intuitive, eh?
-        self.depth = 55
-        obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
-        self.time_data_file.write(str(time()) + ', First Position, ' + str(pos.getX()) + ', ' + str(pos.getY()) + '\n')
-        # need to scale to be correct visual angle
-        #obj.setScale(1)
-        # scale 17 is one visual angle in x and y direction
-        obj.setScale(8.5)
-        #obj.setTransparency(1)
-        square = self.base.loader.loadTexture("textures/calibration_square.png")
-        obj.setTexture(square, 1)
-        # starting color, should be set by model, but let's make sure
-        obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-        self.square = obj
+
+        # create square for stimulus
+        self.square = self.create_square()
 
         # if doing manual calibration, always get reward after square turns off,
         # if auto, require fixation. If doing manual, need to initiate Positions
@@ -255,7 +213,6 @@ class World(DirectObject):
         # Eye Data and reward
         self.eye_data = []
         self.eye_data.append((0.0, 0.0))
-        self.square_time_on = 0
         self.remove_eyes = False
         #self.reward = True
 
@@ -335,7 +292,7 @@ class World(DirectObject):
         # reward_interval - time from off to reward
         # move_interval - time from reward to move/on
         self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
-                              config['MOVE_INTERVAL'], config['FIX_INTERVAL']]
+                              config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
         #Now we create the task. taskMgr is the task manager that actually calls
         #The function each frame. The add method creates a new task. The first
         #argument is the function to be called, and the second argument is the name
@@ -372,7 +329,7 @@ class World(DirectObject):
             1: 'Square dims',
             2: 'Square off',
             3: 'Reward',
-            4: 'Square moves, on'
+            4: 'Square moves'
         }
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
@@ -415,13 +372,9 @@ class World(DirectObject):
                 #print 'old interval', task.interval
                 task.switch[self.next]()
                 #print task.file[self.next]
+                print 'just did task', self.next
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next] + '\n')
-                #print 'just did task', self.next
-                #print 'should be updated interval', task.interval
-                #print 'new interval', task.new_interval
-                #print self.all_intervals
-                #print self.next
                 # if we are turning off the square, next is moving.
                 # check to see if we are moving manually
                 # we will set self.next correctly for the next task
@@ -433,6 +386,8 @@ class World(DirectObject):
                     task.move = True
                     # need interval from off to move
                     task.interval = random.uniform(*self.all_intervals[self.next])
+                    #print 'next interval', task.interval
+                    #print 'waiting for keypress'
                     task.interval = task.time + task.interval
                     # do not complete this loop
                     return task.cont
@@ -447,7 +402,7 @@ class World(DirectObject):
                     self.next = 0
                     #print self.all_intervals[self.next]
                 interval = random.uniform(*self.all_intervals[self.next])
-                #print 'next interval', task.interval
+                #print 'next interval', interval
                 task.interval = task.time + interval
                 #print 'next switch time', task.interval
                 #print 'time now', task.time
@@ -474,7 +429,7 @@ class World(DirectObject):
                 # this happens after on interval, 0
                 # make sure next interval is based on the time we actually moved the target (now!)
                 task.interval = task.time + random.uniform(*self.all_intervals[0])
-                # Next is dim, since it turned on when
+                # Next is dim, since it turned on when moved
                 self.next = 1
 
                 # don't come back here until ready to move again
@@ -510,7 +465,7 @@ class World(DirectObject):
         #for x in [-3.0, 0.0, 3.0]:
         if self.first:
             #print 'first?', eye_data[0], eye_data[1]
-            self.time_data_file.write(str(time()) + ', start calibration' + '\n')
+            self.time_data_file.write(str(time()) + ', start collecting eye data' + '\n')
             self.first = False
         if not unittest:
             #print 'last eye', last_eye
@@ -578,10 +533,11 @@ class World(DirectObject):
         # if fix_time is none, then restarting because fixation was broken, or never fixated,
         # immediately turn off square and start over.
         if not fix_time:
-            print 'restart, no fixation'
+            print 'restart, did not fixate'
             print 'no reward!'
+            self.time_data_file.write(str(time()) + ', ' + 'no fixation, restart' + '\n')
             self.next = 4
-            interval = 0.0
+            interval = self.all_intervals[5]
             # when new target shows up, this will change back to true
             self.check_fixation = False
         else:
@@ -625,8 +581,12 @@ class World(DirectObject):
         #self.eye_window.detachNode()
         self.show_window(self.square.getPos())
 
-    def square_on(self):
-        self.square_time_on = len(self.eye_data)
+    def square_on(self, position=[]):
+        # default is center
+        if not position:
+            position = [0, 0, 0]
+        self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', '
+                                  + str(position[2]) + '\n')\
         #print 'square', self.manual
         print 'square on, 0'
         #Pos(Point3(pos.getX(), self.depth, pos.getY()
@@ -648,7 +608,6 @@ class World(DirectObject):
         self.fixed = False
 
     def square_fade(self):
-        self.square_time_fade = len(self.eye_data)
         print 'square fade, 1'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
@@ -703,19 +662,14 @@ class World(DirectObject):
                 position = self.pos.next()
             except StopIteration:
                 self.close()
-            #self.square.setPos(Point3(self.pos.next()))
-            #self.time_data_file.write(time()) + ', move, ' x_position, y_position' + '\n')
-            #print self.square.getPos()
-        #else:
-        #    self.square.setPos(Point3(position))
+
         self.square.setPos(Point3(position))
         # show window for tolerance
         if not self.manual:
             self.show_window(position)
         #print 'square', position[0], position[2]
-        self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', ' + str(position[2]) + '\n')
         # go directly to on
-        self.square_on()
+        self.square_on(position)
 
     def clear_eyes(self):
         # We can now stop plotting eye positions,
@@ -756,12 +710,6 @@ class World(DirectObject):
         self.eye_window.append(node)
         #print 'eye window', self.eye_window
 
-    def average_position(self):
-        eye_check = self.eye_data[self.square_time_on:self.square_time_fade]
-        x = sum([pair[0] for pair in eye_check]) / len(eye_check)
-        y = sum([pair[1] for pair in eye_check]) / len(eye_check)
-        return (x, y)
-
     def distance(self, p0, p1):
         """
         (tuple, tuple) -> float
@@ -770,6 +718,33 @@ class World(DirectObject):
         """
         dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
         return dist
+
+    def create_square(self):
+        # initial position of Square
+        pos = Point2(0, 0)
+        #pos = Point2((base.win.getXSize()/2, -base.win.getYSize()/2))
+        #print pos
+        # setting up square object
+        obj = self.base.loader.loadModel("models/plane")
+        # don't turn on yet
+        # obj.reparentTo(camera)
+        # make depth greater than eye positions so eye positions are on top of squares,
+        # intuitive, eh?
+        self.depth = 55
+        obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
+        #self.time_data_file.write(str(time()) + ', Square on, ' + str(pos.getX()) + ', '
+        #                          + str(pos.getY()) + '\n')\
+        #self.time_data_file.write(str(time()) + ', First Position, ' + str(pos.getX()) + ', ' + str(pos.getY()) + '\n')
+        # need to scale to be correct visual angle
+        #obj.setScale(1)
+        # scale 17 is one visual angle in x and y direction
+        obj.setScale(8.5)
+        #obj.setTransparency(1)
+        square = self.base.loader.loadTexture("textures/calibration_square.png")
+        obj.setTexture(square, 1)
+        # starting color, should be set by model, but let's make sure
+        obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
+        return obj
 
     def set_resolution(self, res):
         wp = WindowProperties()
@@ -781,13 +756,47 @@ class World(DirectObject):
         wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
 
+    def open_files(self, config):
+        # open file for recording eye data
+        data_dir = 'data/' + config['SUBJECT']
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.eye_data_file = open(self.eye_file_name, 'w')
+        self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
+        # open file for recording event times
+        self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        self.time_data_file = open(self.time_file_name, 'w')
+        self.time_data_file.write('timestamp, task' + '\n')
+        # When we first open the file, we will write a line for time started calibration
+        self.first = True
+
+        # open and close file for keeping configuration info
+        # turns out there is a lot of extra crap in the config dictionary,
+        # and I haven't figured out a pretty way to get rid of the extra crap.
+        # Honestly, the best thing may be to just make a copy of the original damn file.
+        # maybe look to see how pandaepl handles this
+        #config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+
+        #w = csv.writer(open(config_file_name, 'w'))
+        #for name, value in config.items():
+        #    w.writerow([name, value])
+
+        #for name, value in config.items():
+        #    print name, value
+        # if you want to see the frame rate
+        # window.setFrameRateMeter(True)
+
+    def close_files(self):
+        self.eye_data_file.close()
+        self.time_data_file.close()
+
     def close(self):
         #print 'close'
         if self.daq:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
-        self.eye_data_file.close()
-        self.time_data_file.close()
+        self.close_files()
         if unittest:
             self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
         else:
