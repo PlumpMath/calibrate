@@ -24,15 +24,15 @@ X_POINTS = 5
 Y_POINTS = 5
 
 # How long must fixate before square changes color
-FIX_INTERVAL = 1
+FIX_INTERVAL = 1.0
 # How long to wait until next square if break fixation
-BREAK_INTERVAL = 1
+BREAK_INTERVAL = 1.0
 # All intervals represent min and max for a uniform random distribution
 #ON_INTERVAL = (0.7, 1.25)  # Time on
-ON_INTERVAL = (1, 2)  # Time on
+ON_INTERVAL = (1.0, 2.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35) # Time faded
-REWARD_INTERVAL = (0, 0) # Time from off to reward - make go off when turns off
-MOVE_INTERVAL = (2, 2) # Time from reward until on in new place
+REWARD_INTERVAL = (0.0, 0.0) # Time from off to reward - make go off when turns off
+MOVE_INTERVAL = (2.0, 2.0) # Time from reward until on in new place
 
 # how many rewards per trial
 NUM_BEEPS = 3

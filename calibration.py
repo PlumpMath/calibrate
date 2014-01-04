@@ -33,7 +33,7 @@ except:
 class World(DirectObject):
 
 
-    def __init__(self, mode=None):
+    def __init__(self, mode=None, test=None):
         #print 'unittest', unittest
         #print 'init'
         #print manual
@@ -42,54 +42,38 @@ class World(DirectObject):
         #self.gain = [100, 100]
         self.gain = [100, 100]
         self.offset = [0, 0]
-        # True for fake data, false for pydaq provides data
-        # only need to change this for testing on windows
-        #self.test = True
-        self.test = False
+        print 'test', test
+        if test == 1:
+            print 'test'
+            self.test = True
+            self.daq = False
+            import fake_eye_data
+            config_file = 'config_test.py'
+        else:
+            print 'no test'
+            self.test = False
+            self.daq = True
+            config_file = 'config.py'
+
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
             self.manual = True
         else:
             self.manual = False
-            #print 'manual', self.manual
-
-        try:
-            pydaq
-            self.daq = True
-        except NameError:
-            self.daq = False
-            # if there is no daq, we are on mac, and must be in test mode
-            self.test = True
-            # If we are on the mac (no pydaq), always testing,
-        # and always load fade data
-        # if on windows, only do it while testing
-        if self.test:
-            import fake_eye_data
-
-            self.daq = False
-        if unittest:
-            #print 'yup, still unittest'
-            config_file = 'config_test.py'
-            # if doing tests, I think we need fake data
-            self.test = True
-            #FrameBufferProperties.getDefault()
-            #WindowProperties.getDefault()
-        else:
-            config_file = 'config.py'
 
         # get configurations from config file
         config = {}
         execfile(config_file, config)
         self.tolerance = config['TOLERANCE']
 
-        #window = direct.showbase.ShowBase.ShowBase()
+        # start Panda3d
         self.base = ShowBase()
-
         #print base.pipe.getDisplayWidth()
         #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
-        # should be better way to deal with this, but haven't found it yet.
+        # so can't open second window.
+        # Should be better way to deal with this, but haven't found it yet.
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
@@ -101,13 +85,14 @@ class World(DirectObject):
 
             # Need to get this better. keypress only works with one window.
             # plus looks ugly.
-
             window2 = self.base.openWindow()
             window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
             #window2.setClearColor((1, 0, 0, 1))
             #props.setCursorHidden(True)
             #props.setOrigin(0, 0)
             resolution = config['WIN_RES']
+            # if resolution given, set the appropriate resolution
+            # otherwise assume want small windows
             if resolution is not None:
                 self.set_resolution(resolution)
                 props.setOrigin(0, 0)
@@ -119,9 +104,13 @@ class World(DirectObject):
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
+            # orthographic lens means 2d, then we can set size to resolution
+            # so coordinate system is in pixels
             lens = OrthographicLens()
             lens.setFilmSize(int(resolution[0]),int(resolution[1]))
             #lens.setFilmSize(800, 600)
+            # this allows us to layer, as long as we use between -100
+            # and 100 for z. (eye position on top of squares)
             lens.setNearFar(-100,100)
 
             camera = self.base.camList[0]
@@ -161,27 +150,9 @@ class World(DirectObject):
                 #textNodePath.setPos(-300, 0, 200)
                 text3NodePath.setPos(0.1, 0, 0.6)
 
-            # eye position is just a smiley painted black
-            #self.smiley = self.base.loader.loadModel('smiley')
-            #self.smiley.reparentTo(camera)
-            #self.smiley.setPos(-3, 0, 3)
-            #self.smiley.setPos(0, 55, 0)
-            #self.smiley.setColor(0, 0, 0, 0)
-            #self.smiley.setColor(0, 0, 1, 0)
-            #self.smiley.setScale(0.1)
-            #self.smiley.setScale(1.001)
-            #self.smiley.setScale(3)
-            #min, max = self.smiley.getTightBounds()
-            #size = max - min
-            #print size[0], size[2]
+            # set bit mask for eye positions
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
-            #self.smiley.hide(BitMask32.bit(1))
-            #self.smiley.show(BitMask32.bit(0))
-            # if root is set to camera, don't see at all
-            # if set to pixel2d, see large on first, and teeny on second. meh.
-            #self.root = self.base.render.attachNewNode("Root")
-            #self.root = self.base.render.attachNewNode("Root")
 
         #print 'window loaded'
         self.eyes = []
@@ -220,10 +191,11 @@ class World(DirectObject):
         # first square is always in center
         self.eye_window = []
         if not self.manual:
-            self.show_window((0,0,0))
+            self.show_window((0, 0, 0))
 
-
-        if self.daq:
+        # set up daq for eye and reward, if on windows and not testing
+        # testing random mode depends on being able to control eye position
+        if self.daq and not self.test:
             #self.gain = 0
             #self.offset = 0
             self.eye_task = pydaq.EOGTask()
@@ -239,60 +211,16 @@ class World(DirectObject):
         self.next = 0
 
         # Keyboard stuff:
-        self.accept("escape", self.close)  # escape
-        # starts turning square on
-        self.accept("space", self.start)  # default is the program waits 2 min
-
-        # For adjusting calibration
-        # inputs, gain or offset, x or y, how much change
-        # gain - up and down are y
-        self.accept("shift-arrow_up", self.change_gain_or_offset, ['gain', 1, 1])
-        self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['gain', 1, 1])
-        self.accept("shift-arrow_down", self.change_gain_or_offset, ['gain', 1, -1])
-        self.accept("shift-arrow_down-repeat", self.change_gain_or_offset, ['gain', 1, -1])
-        # gain - right and left are x
-        self.accept("shift-arrow_right", self.change_gain_or_offset, ['gain', 0, 1])
-        self.accept("shift-arrow_right-repeat", self.change_gain_or_offset, ['gain', 0, 1])
-        self.accept("shift-arrow_left", self.change_gain_or_offset, ['gain', 0, -1])
-        self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['gain', 0, -1])
-        # offset - up and down are y
-        self.accept("control-arrow_up", self.change_gain_or_offset, ['offset', 1, 1])
-        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['offset', 1, 1])
-        self.accept("control-arrow_down", self.change_gain_or_offset, ['offset', 1, -1])
-        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['offset', 1, -1])
-        # offset - right and left are x
-        self.accept("control-arrow_right", self.change_gain_or_offset, ['offset', 0, 1])
-        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['offset', 0, 1])
-        self.accept("control-arrow_left", self.change_gain_or_offset, ['offset', 0, -1])
-        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
-
-        # For adjusting tolerance (allowable distance from target that still gets reward)
-        if not self.manual:
-            self.accept("alt-arrow_up", self.change_tolerance, [1])
-            self.accept("alt-arrow_down", self.change_tolerance, [-1])
-
-        # minutes and then starts, spacebar will start the program right away
-        # this really doesn't need to be a dictionary now,
-        # but may want to use more keys eventually
-        # keys will update the list, and loop will query it
-        # to get new position
-        self.keys = {"switch": 0}
-        # keyboard
-        self.accept("1", self.set_key, ["switch", 1])
-        self.accept("2", self.set_key, ["switch", 2])
-        self.accept("3", self.set_key, ["switch", 3])
-        self.accept("4", self.set_key, ["switch", 4])
-        self.accept("5", self.set_key, ["switch", 5])
-        self.accept("6", self.set_key, ["switch", 6])
-        self.accept("7", self.set_key, ["switch", 7])
-        self.accept("8", self.set_key, ["switch", 8])
-        self.accept("9", self.set_key, ["switch", 9])
+        self.setup_keys()
 
         # Our intervals
         # on_interval - time from on to fade
         # fade_interval - time from fade on to off
         # reward_interval - time from off to reward
         # move_interval - time from reward to move/on
+        # fix_interval - used for random, how long required to fixate
+        # break_interval - used for random, how long time out before
+        #            next square on, if missed or broke fixation
         self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
                               config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
         #Now we create the task. taskMgr is the task manager that actually calls
@@ -336,12 +264,6 @@ class World(DirectObject):
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
         self.frameTask.move = False
-
-    #As described earlier, this simply sets a key in the self.keys dictionary to
-    #the given value
-    def set_key(self, key, val):
-        self.keys[key] = val
-        #print 'set key', self.keys[key]
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -554,6 +476,12 @@ class World(DirectObject):
         self.fix_time = fix_time
         #print self.fix_time
 
+    #As described earlier, this simply sets a key in the self.keys dictionary to
+    #the given value
+    def set_key(self, key, val):
+        self.keys[key] = val
+        #print 'set key', self.keys[key]
+
     def eye_data_to_pixel(self, eye_data):
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
@@ -748,6 +676,56 @@ class World(DirectObject):
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         return obj
 
+    def setup_keys(self):
+        self.accept("escape", self.close)  # escape
+        # starts turning square on
+        self.accept("space", self.start)  # default is the program waits 2 min
+
+        # For adjusting calibration
+        # inputs, gain or offset, x or y, how much change
+        # gain - up and down are y
+        self.accept("shift-arrow_up", self.change_gain_or_offset, ['gain', 1, 1])
+        self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['gain', 1, 1])
+        self.accept("shift-arrow_down", self.change_gain_or_offset, ['gain', 1, -1])
+        self.accept("shift-arrow_down-repeat", self.change_gain_or_offset, ['gain', 1, -1])
+        # gain - right and left are x
+        self.accept("shift-arrow_right", self.change_gain_or_offset, ['gain', 0, 1])
+        self.accept("shift-arrow_right-repeat", self.change_gain_or_offset, ['gain', 0, 1])
+        self.accept("shift-arrow_left", self.change_gain_or_offset, ['gain', 0, -1])
+        self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['gain', 0, -1])
+        # offset - up and down are y
+        self.accept("control-arrow_up", self.change_gain_or_offset, ['offset', 1, 1])
+        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['offset', 1, 1])
+        self.accept("control-arrow_down", self.change_gain_or_offset, ['offset', 1, -1])
+        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['offset', 1, -1])
+        # offset - right and left are x
+        self.accept("control-arrow_right", self.change_gain_or_offset, ['offset', 0, 1])
+        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['offset', 0, 1])
+        self.accept("control-arrow_left", self.change_gain_or_offset, ['offset', 0, -1])
+        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
+
+        # For adjusting tolerance (allowable distance from target that still gets reward)
+        if not self.manual:
+            self.accept("alt-arrow_up", self.change_tolerance, [1])
+            self.accept("alt-arrow_down", self.change_tolerance, [-1])
+
+        # minutes and then starts, spacebar will start the program right away
+        # this really doesn't need to be a dictionary now,
+        # but may want to use more keys eventually
+        # keys will update the list, and loop will query it
+        # to get new position
+        self.keys = {"switch": 0}
+        # keyboard
+        self.accept("1", self.set_key, ["switch", 1])
+        self.accept("2", self.set_key, ["switch", 2])
+        self.accept("3", self.set_key, ["switch", 3])
+        self.accept("4", self.set_key, ["switch", 4])
+        self.accept("5", self.set_key, ["switch", 5])
+        self.accept("6", self.set_key, ["switch", 6])
+        self.accept("7", self.set_key, ["switch", 7])
+        self.accept("8", self.set_key, ["switch", 8])
+        self.accept("9", self.set_key, ["switch", 9])
+
     def set_resolution(self, res):
         wp = WindowProperties()
         #print res
@@ -800,7 +778,7 @@ class World(DirectObject):
             self.eye_task.ClearTask()
         self.close_files()
         if unittest:
-            self.ignoreAll() # ignore everything, so nothing weird happens after deleting it.
+            self.ignoreAll()  # ignore everything, so nothing weird happens after deleting it.
         else:
             sys.exit()
 
@@ -818,7 +796,7 @@ if __name__ == "__main__":
 
 else:
     #print 'test'
+    # some things we truly only want to do while unit testing
     unittest = True
-
     # file was imported
     # only happens during testing...

@@ -28,7 +28,7 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
         # 2 is random mode
-        cls.w = World(2)
+        cls.w = World(2, 1)
         #print 'loaded world'
 
     def setUp(self):
@@ -108,31 +108,8 @@ class TestCalibration(unittest.TestCase):
                 square_off = False
         self.assertTrue(self.w.square.getParent())
 
-    def test_timing_off_to_on(self):
-        square_off = True
-        # how do I know we are off now???
-        a = datetime.datetime.now()
-        while square_off:
-        #while time.time() < time_out:
-            taskMgr.step()
-            # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                b = datetime.datetime.now()
-                #print 'square should be on'
-                square_off = False
-        c = b - a
-        #print 'c', c.total_seconds()
-        # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
-        # make sure really on, sanity check
-        self.assertTrue(self.w.square.getParent())
-        # make sure timing within 1 place, won't be very accurate.
-        # but close enough to have correct interval
-        # checking move interval, not actually moving, but this is the time
-        # from off to move/on, which we do without the moving part...
-        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
-
-    def test_timing_on_to_fade(self):
+    def test_timing_on_to_fade_if_fixated(self):
+        # once subject fixates, on for fix_interval
         # First get to on
         square_off = True
         while square_off:
@@ -141,12 +118,12 @@ class TestCalibration(unittest.TestCase):
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 1:
                 #print 'square should be on'
+                a = datetime.datetime.now()
                 square_off = False
         # make sure looking at right place
         self.move_eye_to_get_reward()
         # now wait for fade:
         square_on = True
-        a = datetime.datetime.now()
         while square_on:
         #while time.time() < time_out:
             taskMgr.step()
@@ -165,6 +142,45 @@ class TestCalibration(unittest.TestCase):
         # but close enough to have correct interval
         # use fix interval, since fake data will start it right away in fixation window
         self.assertAlmostEqual(c.total_seconds(), self.config['FIX_INTERVAL'], 1)
+
+    def test_timing_stimulus_up_if_not_fixated(self):
+        # if not fixated, will wait for on duration, then reset
+        # First get ready for square on.
+        # make sure looking at right (wrong) place
+        # move eye away from square
+        # if we don't fixate, jumps to 4 without reward
+        # I suppose it is possible that square would move
+        # to the place I moved it to, but this seems unlikely
+        # something to look at if this test fails
+        self.move_eye_to_get_reward('not')
+        square_off = True
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                a = datetime.datetime.now()
+                #print 'square should be on'
+                square_off = False
+        # now wait for reload:
+        square_on = True
+        while square_on:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 4, then we are reloading
+            if self.w.next == 4:
+                square_on = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        # use fix interval, since fake data will start it right away in fixation window
+        self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
     def test_timing_fade_on_to_off(self):
         self.move_eye_to_get_reward()
@@ -261,6 +277,48 @@ class TestCalibration(unittest.TestCase):
         # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
+    def test_timing_for_time_out_if_missed_fixation(self):
+        # if not fixated, will wait for break interval after square turns off
+        # First get ready for square on.
+        # make sure looking at right (wrong) place
+        # move eye away from square
+        # I suppose it is possible that square would move
+        # to the place I moved it to, but this seems unlikely
+        # something to look at if this test fails
+        # after square on, wait for jump to 4 (move), and then
+        # start timing. want to make sure we really miss a fixation
+        self.move_eye_to_get_reward('not')
+        square_off = True
+        task = 1
+        while square_off:
+        #while time.time() < time_out:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then we have just turned on
+            if self.w.next == 1:
+                task = 2
+            elif self.w.next == 4 and task == 2:
+                a = datetime.datetime.now()
+                #print 'square should be on'
+                square_off = False
+        # now wait for square to actually turn back on:
+        square_off = True
+        while square_off:
+            taskMgr.step()
+            # if taskTask.now changes to 1, then square back on
+            if self.w.next == 1:
+                square_off = False
+        b = datetime.datetime.now()
+        c = b - a
+        #print 'c', c.total_seconds()
+        # check that time is close
+        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # make sure really on, sanity check
+        self.assertTrue(self.w.square.getParent())
+        # make sure timing within 1 place, won't be very accurate.
+        # but close enough to have correct interval
+        # use fix interval, since fake data will start it right away in fixation window
+        self.assertAlmostEqual(c.total_seconds(), self.config['BREAK_INTERVAL'], 1)
+
     def test_reward_for_looking(self):
         # First get to square on
         square_off = True
@@ -291,8 +349,10 @@ class TestCalibration(unittest.TestCase):
         # First get ready for square on.
         # make sure looking at right (wrong) place
         # move eye away from square
-        # if we don't fixate, task does not change to 2
-        # instead it resets
+        # if we don't fixate, jumps to 4 without reward
+        # I suppose it is possible that square would move
+        # to the place I moved it to, but this seems unlikely
+        # something to look at if this test fails
         self.move_eye_to_get_reward('not')
         square_off = True
         while square_off:
@@ -303,7 +363,7 @@ class TestCalibration(unittest.TestCase):
                 #print 'square should be on'
                 square_off = False
         # now wait for self.w.next to change again, should be
-        # 4, not 2 or 3
+        # 4, not 2 or 3. Already on one...
         no_change = True
         while no_change:
             taskMgr.step()
@@ -337,6 +397,9 @@ class TestCalibration(unittest.TestCase):
         self.assertNotEqual(self.w.next,2)
         self.assertNotEqual(self.w.next,3)
         self.assertEqual(self.w.next,4)
+
+    def test_repeats_same_square_if_misses_fixation(self):
+        pass
 
     def move_eye_to_get_reward(self, no_reward=[]):
         # find out where the square is...

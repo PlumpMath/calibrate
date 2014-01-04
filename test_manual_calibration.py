@@ -23,7 +23,7 @@ class TestCalibration(unittest.TestCase):
         loadPrcFileData("", "window-type offscreen")
         # all these tests are for manual
         # manual move is mode 1
-        cls.w = World(1)
+        cls.w = World(1, 1)
         #print 'loaded world'
 
     def setUp(self):

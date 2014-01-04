@@ -45,7 +45,7 @@ class TestCalibration(unittest.TestCase):
         loadPrcFileData("", "window-type offscreen")
         #print 'about to load world'
         #print 'boo', cls.manual
-        cls.w = World(cls.manual)
+        cls.w = World(cls.manual, 1)
 
         # remember it was setup already
         cls.ClassIsSetup = True
@@ -162,18 +162,17 @@ class TestCalibration(unittest.TestCase):
         cls.w.close()
         del cls.w
         print 'tore down'
-        #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 
 def suite():
     """Returns a suite with one instance of TestCalibration for each
     method starting with the word test."""
-    return unittest.makeSuite( TestCalibration, 'test' )
+    return unittest.makeSuite(TestCalibration, 'test')
 
 if __name__ == "__main__":
     #unittest.main(verbosity=2)
     #print 'run suite'
     # run twice to cover both conditions
     unittest.TextTestRunner(verbosity=1).run(suite())
-    unittest.TextTestRunner(verbosity=1).run(suite())
+    #unittest.TextTestRunner(verbosity=1).run(suite())
     #unittest.main(verbosity=2)
 

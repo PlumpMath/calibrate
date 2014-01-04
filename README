@@ -1,14 +1,11 @@
 Creating a panda3d task to calibrate eye position for Iscan. 
 
 tests still need:
-checking rewarded during auto calibrate if and only if in fixation window during square on
 
-wait for monkey to fixate, start timer.
-if monkey doesn't fixate in x time, abort and start over
+check that all intervals being tested for manual and random
 
-square turns on, check that eye has entered fixation window, turn on timer
-
-doesn't fixate, waits time out
+I think we should reload same square if misses fixation, and this should not
+affect total number of squares shown.
 
 
 Manual and Random Sequence:
