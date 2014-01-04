@@ -44,8 +44,8 @@ class World(DirectObject):
         self.offset = [0, 0]
         # True for fake data, false for pydaq provides data
         # only need to change this for testing on windows
-        self.test = True
-        #self.test = False
+        #self.test = True
+        self.test = False
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -139,12 +139,12 @@ class World(DirectObject):
             #textNodePath.setPos(-300, 0, 200)
             textNodePath.setPos(0.1, 0, 0.9)
 
-            self.text2 = TextNode('offset')
-            self.text2.setText('Offset: ' + str(self.offset))
-            text2NodePath = aspect2d.attachNewNode(self.text2)
-            text2NodePath.setScale(0.1)
-            #textNodePath.setPos(-300, 0, 200)
-            text2NodePath.setPos(0.1, 0, 0.8)
+            # self.text2 = TextNode('offset')
+            # self.text2.setText('Offset: ' + str(self.offset))
+            # text2NodePath = aspect2d.attachNewNode(self.text2)
+            # text2NodePath.setScale(0.1)
+            # #textNodePath.setPos(-300, 0, 200)
+            # text2NodePath.setPos(0.1, 0, 0.8)
 
             self.text3 = TextNode('iscan')
             self.text3.setText('IScan: ' + '[0, 0]')
@@ -153,12 +153,13 @@ class World(DirectObject):
             #textNodePath.setPos(-300, 0, 200)
             text3NodePath.setPos(0.1, 0, 0.7)
 
-            self.text4 = TextNode('tolerance')
-            self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
-            text3NodePath = aspect2d.attachNewNode(self.text4)
-            text3NodePath.setScale(0.1)
-            #textNodePath.setPos(-300, 0, 200)
-            text3NodePath.setPos(0.1, 0, 0.6)
+            if not self.manual:
+                self.text4 = TextNode('tolerance')
+                self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
+                text3NodePath = aspect2d.attachNewNode(self.text4)
+                text3NodePath.setScale(0.1)
+                #textNodePath.setPos(-300, 0, 200)
+                text3NodePath.setPos(0.1, 0, 0.6)
 
             # eye position is just a smiley painted black
             #self.smiley = self.base.loader.loadModel('smiley')
@@ -266,8 +267,9 @@ class World(DirectObject):
         self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
-        self.accept("alt-arrow_up", self.change_tolerance, [1])
-        self.accept("alt-arrow_down", self.change_tolerance, [-1])
+        if not self.manual:
+            self.accept("alt-arrow_up", self.change_tolerance, [1])
+            self.accept("alt-arrow_down", self.change_tolerance, [-1])
 
         # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
@@ -566,8 +568,8 @@ class World(DirectObject):
                 str(self.gain[1]) + '\n')
         else:
             self.offset[x_or_y] += ch_amount
-            self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
-                               + ', ' + '{0:03.2f}]'.format(self.offset[1]))
+            #self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
+            #                   + ', ' + '{0:03.2f}]'.format(self.offset[1]))
             self.time_data_file.write(
                 str(time()) + ', Change Offset, ' +
                 str(self.offset[0]) + ', ' +
@@ -588,7 +590,7 @@ class World(DirectObject):
         self.time_data_file.write(str(time()) + ', Square on, ' + str(position[0]) + ', '
                                   + str(position[2]) + '\n')\
         #print 'square', self.manual
-        print 'square on, 0'
+        #print 'square on, 0'
         #Pos(Point3(pos.getX(), self.depth, pos.getY()
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         #self.square.reparentTo(camera)
@@ -608,7 +610,7 @@ class World(DirectObject):
         self.fixed = False
 
     def square_fade(self):
-        print 'square fade, 1'
+        # print 'square fade, 1'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
@@ -622,7 +624,7 @@ class World(DirectObject):
         self.fix_time = None
 
     def square_off(self):
-        print 'square off, 2'
+        #print 'square off, 2'
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
@@ -637,7 +639,7 @@ class World(DirectObject):
         #print 'next-on-interval', self.interval
 
     def give_reward(self):
-        print 'reward, 3'
+        #print 'reward, 3'
         #out = sys.stdout
         # only want to check this if on random?
         #if not self.manual:
@@ -654,7 +656,7 @@ class World(DirectObject):
         #        out.write("beep\n")
 
     def square_move(self, position=None):
-        print 'square move, 4'
+        #print 'square move, 4'
         #print 'square position', position
         if not position:
             #print 'trying to get a auto position'
