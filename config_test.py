@@ -5,7 +5,7 @@ SUBJECT = 'test'
 # use 'Test' for testing, so does not try to open second window
 # use this for unit testing
 #WIN_RES = 'Test'
-# use this for mac, not testing
+# use this for mac, not unit testing
 WIN_RES = None
 # use this for windows, not testing
 #WIN_RES = [1024, 768]

@@ -32,24 +32,28 @@ class World(DirectObject):
     def __init__(self, mode=None, test=None):
         #print 'unittest', unittest
         #print 'init'
-        #print manual
-        # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
-        # 100 should be sort of close...
-        self.gain = [100, 100]
-        self.offset = [0, 0]
+        #print 'mode', mode
         #print 'test', test
         if test == '1' or test == 1:
+            # test (either unittest or testing on mac) so use fake eye data and testing configuration.
+            # for testing, always leave gain at one, so eye_data and plot_eye_data are the same
+            self.gain = [1, 1]
             #print 'test'
             self.test = True
             self.daq = False
             import fake_eye_data
             config_file = 'config_test.py'
         else:
+            # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
+            # 100 should be sort of close...
+            self.gain = [100, 100]
             #print 'no test'
             self.test = False
             self.daq = True
             config_file = 'config.py'
 
+        # seems like we can adjust the offset completely in ISCAN
+        self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
         if mode == '1' or mode == 1:
@@ -75,8 +79,15 @@ class World(DirectObject):
             props = WindowProperties()
             #props.setForeground(True)
             props.setCursorHidden(True)
-            self.base.win.requestProperties(props)
-            #print props
+            try:
+                self.base.win.requestProperties(props)
+                #print props
+            except AttributeError:
+                print 'Cannot open second window. To open just one window, ' \
+                      'change the resolution in the config file to Test' \
+                      'or change the resolution to None for default Panda window'
+                # go ahead and give the traceback and exit
+                raise
 
             # Need to get this better. keypress only works with one window.
             # plus looks ugly.
@@ -789,6 +800,8 @@ if __name__ == "__main__":
     # default is manual
     if len(sys.argv) == 1:
         W = World(1)
+    elif len(sys.argv) == 2:
+        W = World(sys.argv[1])
     else:
         W = World(sys.argv[1], sys.argv[2])
     run()

@@ -42,12 +42,16 @@ class TestCalibration(unittest.TestCase):
         old_color = self.w.square.getColor()
         #print 'color', old_color
         square_on = True
+        on = False
+        # need to show the square, and then get to the dim square method
         while square_on:
             taskMgr.step()
-            if self.w.next == 1:
-                # make sure we will fade
+            if self.w.next == 1 and not on:
+                # make sure we will fade, only want to run this once...
+                #print 'move eye data'
                 self.move_eye_to_get_reward()
-            if self.w.next == 2:
+                on = True
+            if self.w.next == 2 and on:
                 #print 'square should be dim'
                 square_on = False
         #print self.w.square.getColor()
@@ -57,14 +61,17 @@ class TestCalibration(unittest.TestCase):
         # get to square on and fixate
         square_off = True
         move = False
+        # need to show the square, and then get to the move square method
         while square_off:
             taskMgr.step()
-            if self.w.next == 1:
+            if self.w.next == 1 and not move:
+                #print 'first square on, move eye'
                 # find out where the square is...
                 square_pos = self.w.square.getPos()
                 self.move_eye_to_get_reward()
                 move = True
-            if self.w.next == 4 and move:
+            if self.w.next == 1 and move:
+                #print 'and exit'
                 square_off = False
         self.assertNotEqual(self.w.square.getPos, square_pos)
 
@@ -299,19 +306,21 @@ class TestCalibration(unittest.TestCase):
     def test_timing_off_to_reward(self):
         # make sure will get reward
         self.move_eye_to_get_reward()
-        # First get to off
-        square_fade = True
-        while square_fade:
+        # First get to on, move eye to get reward, then go to off
+        square_on = True
+        fade = False
+        while square_on:
             #while time.time() < time_out:
             taskMgr.step()
-            if self.w.next == 4 or self.w.next == 1:
+            if self.w.next == 1 and not fade:
                 # if we go on during loop, might not be in correct place
                 self.move_eye_to_get_reward()
-            if self.w.next == 3:
+                fade = True
+            if self.w.next == 3 and fade:
                 # if taskTask.now changes to 3, then we have just turned off
                 #print 'square should be off'
                 a = datetime.datetime.now()
-                square_fade = False
+                square_on = False
                 # now wait for move/on:
         # now wait for reward
         no_reward = True
@@ -492,6 +501,8 @@ class TestCalibration(unittest.TestCase):
             #print 'break'
             # start out at fixation, but move out quickly
             variance = 20
+        #print 'eye start', eye_data
+        #print 'variance', variance
         self.w.fake_data = fake_eye_data.yield_eye_data(eye_data, variance)
 
     @classmethod
