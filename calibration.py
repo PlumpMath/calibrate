@@ -17,18 +17,14 @@ import datetime
 from time import time, sleep
 from math import sqrt, radians, cos, sin
 
-#from pandaepl import ptime
-
 # crazy gymnastics to not load the fake data unless necessary
+# only load pydaq if it's available
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
     #print 'loaded'
 except:
     pass
-
-# IF SWITCHING MACHINES, ALWAYS MAKE SURE CONFIG HAS CORRECT RESOLUTION!!!!
-# NEED TO SAVE STUFF NECESSARY FOR CALIBRATION - RESOLUTION, ETC.
 
 
 class World(DirectObject):
@@ -39,7 +35,6 @@ class World(DirectObject):
         #print manual
         # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
         # 100 should be sort of close...
-        #self.gain = [100, 100]
         self.gain = [100, 100]
         self.offset = [0, 0]
         #print 'test', test
@@ -119,7 +114,7 @@ class World(DirectObject):
 
             camera2 = self.base.camList[1]
             camera2.node().setLens(lens)
-            camera2.reparentTo( render )
+            camera2.reparentTo(render)
 
             self.text = TextNode('gain')
             self.text.setText('Gain: ' + str(self.gain))
@@ -172,7 +167,7 @@ class World(DirectObject):
 
         # if doing manual calibration, always get reward after square turns off,
         # if auto, require fixation. If doing manual, need to initiate Positions
-        # differently than if random
+        # differently than if random, so key presses work properly
         if self.manual:
             #print 'yes, still manual'
             #self.reward = True
@@ -491,15 +486,16 @@ class World(DirectObject):
         self.fix_time = fix_time
         #print 'if not fixated, should be none', self.fix_time
 
+    def eye_data_to_pixel(self, eye_data):
+        return [(eye_data[0] + self.offset[0]) * self.gain[0],
+                (eye_data[1] + self.offset[1]) * self.gain[1]]
+
+    # Key Functions
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
     def set_key(self, key, val):
         self.keys[key] = val
         #print 'set key', self.keys[key]
-
-    def eye_data_to_pixel(self, eye_data):
-        return [(eye_data[0] + self.offset[0]) * self.gain[0],
-                (eye_data[1] + self.offset[1]) * self.gain[1]]
 
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
         if ch_type == 'gain':
@@ -526,6 +522,7 @@ class World(DirectObject):
         #self.eye_window.detachNode()
         self.show_window(self.square.getPos())
 
+    # Square Functions
     def square_on(self):
         position = self.square.getPos()
         #print position
@@ -536,7 +533,7 @@ class World(DirectObject):
         # make sure in correct color
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
-        self.square.reparentTo( render )
+        self.square.reparentTo(render)
         #min, max = self.square.getTightBounds()
         #size = max - min
         #print size[0], size[2]
@@ -657,6 +654,7 @@ class World(DirectObject):
         dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
         return dist
 
+    # Setup Functions
     def create_square(self):
         # setting up square object
         obj = self.base.loader.loadModel("models/plane")
@@ -768,6 +766,7 @@ class World(DirectObject):
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
+    # Closing functions
     def close_files(self):
         self.eye_data_file.close()
         self.time_data_file.close()

@@ -2,13 +2,7 @@ Creating a panda3d task to calibrate eye position for Iscan.
 
 tests still need:
 
-check that all intervals being tested for manual and random
-
-I think we should reload same square if misses fixation, and this should not
-affect total number of squares shown.
-
-test show window
-
+test show window - maybe...
 
 Manual and Random Sequence:
 
