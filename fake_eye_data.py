@@ -21,7 +21,7 @@ def yield_eye_data(origin = [], variance = []):
     if origin:
         (x, y) = origin
     if not variance:
-        variance = 0.03
+        variance = 0.02
     while True:
         yield x, y
         x = random.uniform(x + variance, x - variance)

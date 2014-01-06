@@ -4,9 +4,9 @@ SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
 # use this for unit testing
-WIN_RES = 'Test'
+#WIN_RES = 'Test'
 # use this for mac, not testing
-#WIN_RES = None
+WIN_RES = None
 # use this for windows, not testing
 #WIN_RES = [1024, 768]
 # Screen size
@@ -27,9 +27,9 @@ MAX_DEGREES_Y = 10
 # it is to a new place
 POINT_REPEAT = 1
 # How many points in x direction
-X_POINTS = 10
+X_POINTS = 3
 # How many points in y direction
-Y_POINTS = 10
+Y_POINTS = 3
 
 # How long must fixate before square changes color
 FIX_INTERVAL = 1.0

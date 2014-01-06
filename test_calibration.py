@@ -147,12 +147,6 @@ class TestCalibration(unittest.TestCase):
         else:
             self.assertIn('Square', test)
 
-    def test_eye_plot_erased_after_reward(self):
-        pass
-
-    def test_eye_plot_starts_before_next_on(self):
-        pass
-
     def tearDown(self):
         self.w.close_files()
 

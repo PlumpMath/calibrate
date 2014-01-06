@@ -7,6 +7,8 @@ check that all intervals being tested for manual and random
 I think we should reload same square if misses fixation, and this should not
 affect total number of squares shown.
 
+test show window
+
 
 Manual and Random Sequence:
 
