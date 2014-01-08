@@ -1,14 +1,16 @@
-# This file is only used for unittests and running on the mac,
-# which is still testing, really...
+# This file is only used for unit tests and other testing,
+# change win_res here and not in config,
+# use 'ppython calibration.py x 1', (x is 1 manual, 2 random) while testing,
+# but not running unit tests, change WIN_RES appropriately.
 SUBJECT = 'test'
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
 # use this for unit testing
-#WIN_RES = 'Test'
+WIN_RES = 'Test'
 # use this for mac, not unit testing
 #WIN_RES = None
 # use this for windows, not unit testing
-WIN_RES = [1024, 768]
+#WIN_RES = [1024, 768]
 # Screen size
 # This is obviously wrong if you aren't calibrating with the projector,
 # but shouldn't matter for testing.

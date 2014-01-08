@@ -2,6 +2,8 @@
 SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
+# if using normal panda3d window, visual angle calculations will be off,
+# unless you also change screen and view_dist appropriately
 #WIN_RES = None
 WIN_RES = [1024, 768]
 # Screen size
