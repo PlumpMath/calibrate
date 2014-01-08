@@ -1,16 +1,23 @@
-SUBJECT = 'test'
-#SUBJECT = 'Gus'
+#SUBJECT = 'test'
+SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
-WIN_RES = None
-#WIN_RES = [1024, 768]
+#WIN_RES = None
+WIN_RES = [1024, 768]
 # Screen size
 SCREEN = [1337, 991]
 VIEW_DIST = 1219
 
-# How close to the stimulus does the monkey have to be to get reward in
-# auto mode? distance in pixels
-TOLERANCE = 30
+# square scale in degree of visual angle (scales both length and width)
+SQUARE_SCALE = 0.5
+
+# How close to the stimulus does the eye position have to be to get reward in
+# auto mode? distance in degree of visual angle from center of square, so
+# adding half the square to tolerance. If tolerance is 1 + square_scale/2, and
+# square_scale is 0.5, then the square is half a degree wide, and the tolerance
+# is one degree outside of the square. Tolerance of zero means must be in the
+# square
+TOLERANCE = 1 + SQUARE_SCALE/2
 
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 10

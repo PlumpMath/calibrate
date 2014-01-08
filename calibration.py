@@ -9,7 +9,7 @@ from panda3d.core import WindowProperties, TextNode
 #from panda3d.core import GraphicsWindow
 from panda3d.core import OrthographicLens, LineSegs
 #from direct.task.Task import Task
-from positions import Positions
+from positions import Positions, visual_angle
 import sys
 import random
 import os
@@ -68,6 +68,7 @@ class World(DirectObject):
 
         # start Panda3d
         self.base = ShowBase()
+
         #print base.pipe.getDisplayWidth()
         #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
@@ -84,7 +85,7 @@ class World(DirectObject):
                 #print props
             except AttributeError:
                 print 'Cannot open second window. To open just one window, ' \
-                      'change the resolution in the config file to Test' \
+                      'change the resolution in the config file to Test ' \
                       'or change the resolution to None for default Panda window'
                 # go ahead and give the traceback and exit
                 raise
@@ -106,7 +107,9 @@ class World(DirectObject):
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
                 resolution = [800, 600]  # if no resolution given, assume normal panda window
-
+            # x and y are pretty damn close, so just us x
+            self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
+            print 'deg_per_pixel', self.deg_per_pixel
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
@@ -141,6 +144,14 @@ class World(DirectObject):
             # #textNodePath.setPos(-300, 0, 200)
             # text2NodePath.setPos(0.1, 0, 0.8)
 
+            # borrow text2 for a bit...
+            #self.text2 = TextNode('tolerance2')
+            #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
+            #text2NodePath = aspect2d.attachNewNode(self.text2)
+            #text2NodePath.setScale(0.1)
+            ##textNodePath.setPos(-300, 0, 200)
+            #text2NodePath.setPos(0.1, 0, 0.8)
+
             self.text3 = TextNode('iscan')
             self.text3.setText('IScan: ' + '[0, 0]')
             text3NodePath = aspect2d.attachNewNode(self.text3)
@@ -150,15 +161,21 @@ class World(DirectObject):
 
             if not self.manual:
                 self.text4 = TextNode('tolerance')
-                self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
-                text3NodePath = aspect2d.attachNewNode(self.text4)
-                text3NodePath.setScale(0.1)
+                self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees')
+                text4NodePath = aspect2d.attachNewNode(self.text4)
+                text4NodePath.setScale(0.1)
                 #textNodePath.setPos(-300, 0, 200)
-                text3NodePath.setPos(0.1, 0, 0.6)
+                text4NodePath.setPos(0.1, 0, 0.6)
 
             # set bit mask for eye positions
             camera.node().setCameraMask(BitMask32.bit(0))
             camera2.node().setCameraMask(BitMask32.bit(1))
+
+        else:
+            # resolution in file equal to test, so use the projector screen
+            # value for determining pixels size
+            resolution = [1024, 768]
+            self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
 
         #print 'window loaded'
         self.eyes = []
@@ -174,8 +191,9 @@ class World(DirectObject):
         self.base.disableMouse()
 
         # create square for stimulus
-        self.square = self.create_square()
-
+        # scale 17 is one visual angle, linear so just multiply by 17
+        self.square = self.create_square(config['SQUARE_SCALE']*17)
+        #print 'scale', config['SQUARE_SCALE']*17
         # if doing manual calibration, always get reward after square turns off,
         # if auto, require fixation. If doing manual, need to initiate Positions
         # differently than if random, so key presses work properly
@@ -440,15 +458,19 @@ class World(DirectObject):
             distance = self.distance((plot_eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
             #print 'distance', distance
             #print self.fix_time
+            # change tolerance to pixels, currently in degree of visual angle
+            tolerance = self.tolerance / self.deg_per_pixel
+            #print tolerance
+
             if self.fix_time:
                 #print 'already fixated'
-                if distance > self.tolerance:
+                if distance > tolerance:
                     # abort trial, start again with square in same position
                     #print 'abort'
                     self.restart_task(None)
             else:
                 #print 'waiting for fixation'
-                if distance < self.tolerance:
+                if distance < tolerance:
                     #print 'and fixated!'
                     #print 'square', self.square.getPos()[0], self.square.getPos()[2]
                     #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
@@ -498,6 +520,10 @@ class World(DirectObject):
         #print 'if not fixated, should be none', self.fix_time
 
     def eye_data_to_pixel(self, eye_data):
+        # change the offset and gain as necessary, so eye data looks
+        # right on screen. Actually, most of this is changed in IScan
+        # before it ever makes it to this machine, but found we have to
+        # at least change the gain by a couple of order of magnitudes
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
 
@@ -527,7 +553,8 @@ class World(DirectObject):
 
     def change_tolerance(self, direction):
         self.tolerance += direction
-        self.text4.setText('Tolerance: ' + str(self.tolerance) + ' pixels')
+        self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
+        #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
         for win in self.eye_window:
             win.detachNode()
         #self.eye_window.detachNode()
@@ -634,7 +661,8 @@ class World(DirectObject):
     def show_window(self, square):
         # draw line around target representing how close the subject has to be looking to get reward
         #print 'show window'
-        #self.tolerance =
+        tolerance = self.tolerance / self.deg_per_pixel
+        #print 'tolerance in pixels', tolerance
         #print 'square', square[0], square[2]
         eye_window = LineSegs()
         eye_window.setThickness(2.0)
@@ -642,8 +670,8 @@ class World(DirectObject):
         angleRadians = radians(360)
         for i in range(50):
             a = angleRadians * i /49
-            y = self.tolerance * sin(a)
-            x = self.tolerance * cos(a)
+            y = tolerance * sin(a)
+            x = tolerance * cos(a)
             eye_window.drawTo((x + square[0], 55, y + square[2]))
 
         # draw a radius line
@@ -666,7 +694,7 @@ class World(DirectObject):
         return dist
 
     # Setup Functions
-    def create_square(self):
+    def create_square(self, scale):
         # setting up square object
         obj = self.base.loader.loadModel("models/plane")
         # don't turn on yet
@@ -677,8 +705,7 @@ class World(DirectObject):
         obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
         # need to scale to be correct visual angle
         #obj.setScale(1)
-        # scale 17 is one visual angle in x and y direction
-        obj.setScale(8.5)
+        obj.setScale(scale)
         #obj.setTransparency(1)
         square = self.base.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
@@ -716,8 +743,8 @@ class World(DirectObject):
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
         if not self.manual:
-            self.accept("alt-arrow_up", self.change_tolerance, [5])
-            self.accept("alt-arrow_down", self.change_tolerance, [-1])
+            self.accept("alt-arrow_up", self.change_tolerance, [0.5])
+            self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
 
         # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
