@@ -97,19 +97,26 @@ class World(DirectObject):
             #window2.setClearColor((1, 0, 0, 1))
             #props.setCursorHidden(True)
             #props.setOrigin(0, 0)
+            # resolution of window for actual calibration
             resolution = config['WIN_RES']
+            resolution_eye = config['EYE_RES']
             # if resolution given, set the appropriate resolution
             # otherwise assume want small windows
             if resolution is not None:
                 self.set_resolution(resolution)
                 props.setOrigin(0, 0)
-                props.setSize(1024, 768)
+                # resolution for second window, one for plotting eye data
+                #props.setSize(1024, 768)
+                props.setSize(resolution_eye)
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
                 resolution = [800, 600]  # if no resolution given, assume normal panda window
             # x and y are pretty damn close, so just us x
+            # degree per pixel is important only for determining where to plot squares, no effect
+            # on eye position plotting, so use projector resolution, screen size, etc
             self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
             print 'deg_per_pixel', self.deg_per_pixel
+            # set the properties for eye data window
             window2.requestProperties(props)
             #print window2.getRequestedProperties()
 
@@ -173,7 +180,8 @@ class World(DirectObject):
 
         else:
             # resolution in file equal to test, so use the projector screen
-            # value for determining pixels size
+            # value for determining pixels size. In this case, accuracy is not
+            # important, because never actually calibrating with this setup.
             resolution = [1024, 768]
             self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
 
@@ -447,8 +455,11 @@ class World(DirectObject):
             #self.eyes += [eye]
             #self.text3.setText('IScan: ' + '[0, 0]')
             self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) + ', ' + str(round(eye_data[1], 3)) + ']')
+        # write eye data to file
+        # self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
+        # write both eye data and plot position
+        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + ', ' + str(plot_eye_data).strip('()') + '\n')
 
-        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
         #print eye_data
         # check if in window for auto-calibrate - only update time if was none
         if self.check_fixation:
@@ -764,11 +775,12 @@ class World(DirectObject):
         self.accept("9", self.set_key, ["switch", 9])
 
     def set_resolution(self, res):
+        # sets the resolution for the main window (projector)
         wp = WindowProperties()
-        #print res
-        #wp.setSize(int(res[0]), int(res[1]))
+        print 'calibration window', res
+        wp.setSize(int(res[0]), int(res[1]))
         #wp.setFullscreen(True)
-        wp.setSize(1600, 900)
+        #wp.setSize(1600, 900)
         wp.setOrigin(-1600, 0)
         wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
