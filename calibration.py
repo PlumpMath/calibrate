@@ -1,14 +1,10 @@
 from __future__ import division
-#import direct.showbase.ShowBase
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32, getModelPath
 from panda3d.core import WindowProperties, TextNode
-#from pandac.PandaModules import ClockObject
-#from panda3d.core import GraphicsWindow
 from panda3d.core import OrthographicLens, LineSegs
-#from direct.task.Task import Task
 from positions import Positions, visual_angle
 import sys
 import random
@@ -24,7 +20,7 @@ try:
     import pydaq
     #print 'loaded'
 except:
-    pass
+    print 'Not using PyDaq'
 
 
 class World(DirectObject):
@@ -44,8 +40,8 @@ class World(DirectObject):
             import fake_eye_data
             config_file = 'config_test.py'
         else:
-            # on the assumption that the voltage from the eye tracker runs from about 0 to 6 volts,
-            # 100 should be sort of close...
+            # the voltage from the eye tracker runs from about 5 to -5 volts,
+            # so 100 should be sort of close...
             self.gain = [100, 100]
             #print 'no test'
             self.test = False
@@ -99,15 +95,18 @@ class World(DirectObject):
             #props.setOrigin(0, 0)
             # resolution of window for actual calibration
             resolution = config['WIN_RES']
-            resolution_eye = config['EYE_RES']
+            res_eye = config['EYE_RES']
             # if resolution given, set the appropriate resolution
             # otherwise assume want small windows
             if resolution is not None:
+                # resolution for main window
                 self.set_resolution(resolution)
-                props.setOrigin(0, 0)
+                # properties for second window
+                props.setOrigin(-int(res_eye[0]), 0)
+                #props.setOrigin(0, 0)
                 # resolution for second window, one for plotting eye data
                 #props.setSize(1024, 768)
-                props.setSize(resolution_eye)
+                props.setSize(int(res_eye[0]), int(res_eye[1]))
             else:
                 props.setOrigin(600, 200)  # make it so windows aren't on top of each other
                 resolution = [800, 600]  # if no resolution given, assume normal panda window
@@ -131,7 +130,7 @@ class World(DirectObject):
 
             camera = self.base.camList[0]
             camera.node().setLens(lens)
-            camera.reparentTo( render )
+            camera.reparentTo(render)
 
             camera2 = self.base.camList[1]
             camera2.node().setLens(lens)
@@ -139,44 +138,46 @@ class World(DirectObject):
 
             self.text = TextNode('gain')
             self.text.setText('Gain: ' + str(self.gain))
-            textNodePath = aspect2d.attachNewNode(self.text)
-            textNodePath.setScale(0.1)
+            #textNodePath = aspect2d.attachNewNode(self.text)
+            textNodePath = render.attachNewNode(self.text)
+            textNodePath.setScale(30)
+            #textNodePath.setScale(0.1)
             #textNodePath.setPos(-300, 0, 200)
-            textNodePath.setPos(0.1, 0, 0.9)
+            textNodePath.setPos(100, 0, 300)
+            textNodePath.show(BitMask32.bit(0))
+            textNodePath.hide(BitMask32.bit(1))
 
+            # not using offset for our purposes presently
+            # if decide to use it again, need to move IScan text down
             # self.text2 = TextNode('offset')
             # self.text2.setText('Offset: ' + str(self.offset))
-            # text2NodePath = aspect2d.attachNewNode(self.text2)
-            # text2NodePath.setScale(0.1)
-            # #textNodePath.setPos(-300, 0, 200)
-            # text2NodePath.setPos(0.1, 0, 0.8)
+            # text2NodePath = render.attachNewNode(self.text2)
+            # text2NodePath.setScale(30)
+            # text2NodePath.setPos(500, 0, 250)
+            # text2NodePath.show(BitMask32.bit(0))
+            # text2NodePath.hide(BitMask32.bit(1))
 
-            # borrow text2 for a bit...
-            #self.text2 = TextNode('tolerance2')
-            #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
-            #text2NodePath = aspect2d.attachNewNode(self.text2)
-            #text2NodePath.setScale(0.1)
-            ##textNodePath.setPos(-300, 0, 200)
-            #text2NodePath.setPos(0.1, 0, 0.8)
-
-            self.text3 = TextNode('iscan')
+            self.text3 = TextNode('IScan')
             self.text3.setText('IScan: ' + '[0, 0]')
-            text3NodePath = aspect2d.attachNewNode(self.text3)
-            text3NodePath.setScale(0.1)
-            #textNodePath.setPos(-300, 0, 200)
-            text3NodePath.setPos(0.1, 0, 0.7)
+            text3NodePath = render.attachNewNode(self.text3)
+            text3NodePath.setScale(30)
+            text3NodePath.setPos(100, 0, 250)
+            text3NodePath.show(BitMask32.bit(0))
+            text3NodePath.hide(BitMask32.bit(1))
 
             if not self.manual:
                 self.text4 = TextNode('tolerance')
                 self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees')
-                text4NodePath = aspect2d.attachNewNode(self.text4)
+                text4NodePath = camera.attachNewNode(self.text4)
                 text4NodePath.setScale(0.1)
                 #textNodePath.setPos(-300, 0, 200)
                 text4NodePath.setPos(0.1, 0, 0.6)
+                text4NodePath.show(BitMask32.bit(0))
+                text4NodePath.hide(BitMask32.bit(1))
 
             # set bit mask for eye positions
-            camera.node().setCameraMask(BitMask32.bit(0))
-            camera2.node().setCameraMask(BitMask32.bit(1))
+            camera.node().setCameraMask(BitMask32.bit(1))
+            camera2.node().setCameraMask(BitMask32.bit(0))
 
         else:
             # resolution in file equal to test, so use the projector screen
@@ -454,11 +455,14 @@ class World(DirectObject):
             #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             #self.eyes += [eye]
             #self.text3.setText('IScan: ' + '[0, 0]')
-            self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) + ', ' + str(round(eye_data[1], 3)) + ']')
-        # write eye data to file
-        # self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + '\n')
-        # write both eye data and plot position
-        self.eye_data_file.write(str(time()) + ', ' + str(eye_data).strip('()') + ', ' + str(plot_eye_data).strip('()') + '\n')
+            self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+                               ', ' + str(round(eye_data[1], 3)) + ']')
+        # write eye data and timestamp to file
+        self.eye_data_file.write(str(time()) + ', ' +
+                                 str(eye_data).strip('()') + '\n')
+        # when searching for a particular eye data
+        # sometimes useful to not print timestamp
+        # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
 
         #print eye_data
         # check if in window for auto-calibrate - only update time if was none
@@ -781,8 +785,10 @@ class World(DirectObject):
         wp.setSize(int(res[0]), int(res[1]))
         #wp.setFullscreen(True)
         #wp.setSize(1600, 900)
-        wp.setOrigin(-1600, 0)
-        wp.setUndecorated(True)
+        #wp.setOrigin(-1600, 0)
+        wp.setOrigin(0, 0)
+        #wp.setOrigin(-int(res[0]), 0)
+        #wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
 
     def open_files(self, config):

@@ -1,5 +1,5 @@
-#SUBJECT = 'test'
-SUBJECT = 'Gus'
+SUBJECT = 'test'
+#SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -7,14 +7,14 @@ SUBJECT = 'Gus'
 # WIN_RES is the resolution for the window that we are using for the actual calibration,
 # the one used for determining visual angle. Resolution for the second window, set below
 #WIN_RES = None
-WIN_RES = [1600, 900]
+WIN_RES = [1024, 768]
 # Screen size, again for actual calibration, so size of image on projector screen
 SCREEN = [1337, 991]
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-EYE_RES = [1024, 768]
-
+#EYE_RES = [1024, 768]
+EYE_RES = [1600, 900]
 # square scale in degree of visual angle (scales both length and width)
 SQUARE_SCALE = 0.5
 
