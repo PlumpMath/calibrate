@@ -24,7 +24,7 @@ SQUARE_SCALE = 0.5
 # square_scale is 0.5, then the square is half a degree wide, and the tolerance
 # is one degree outside of the square. Tolerance of zero means must be in the
 # square
-TOLERANCE = 1 + SQUARE_SCALE/2
+TOLERANCE = 5 + SQUARE_SCALE/2
 
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 10

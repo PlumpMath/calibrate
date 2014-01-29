@@ -16,6 +16,9 @@ WIN_RES = 'Test'
 # but shouldn't matter for testing.
 SCREEN = [1337, 991]
 VIEW_DIST = 1219
+# resolution for screen presenting eye data, not used for most testing
+#EYE_RES = [1024, 768]
+EYE_RES = [1600, 900]
 
 # square scale in degree of visual angle (scales both length and width)
 SQUARE_SCALE = 0.5

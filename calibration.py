@@ -33,6 +33,8 @@ class World(DirectObject):
         if test == '1' or test == 1:
             # test (either unittest or testing on mac) so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and plot_eye_data are the same
+            # if want fake data on windows, change WIN_RES in config_test to an actual resolution to
+            # get second window
             self.gain = [1, 1]
             #print 'test'
             self.test = True
@@ -73,6 +75,7 @@ class World(DirectObject):
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
+            print 'second window'
             props = WindowProperties()
             #props.setForeground(True)
             props.setCursorHidden(True)
@@ -458,8 +461,10 @@ class World(DirectObject):
             self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
                                ', ' + str(round(eye_data[1], 3)) + ']')
         # write eye data and timestamp to file
+        #print eye_data
         self.eye_data_file.write(str(time()) + ', ' +
-                                 str(eye_data).strip('()') + '\n')
+                                 str(eye_data[0]) + ', ' +
+                                 str(eye_data[1]) + '\n')
         # when searching for a particular eye data
         # sometimes useful to not print timestamp
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
