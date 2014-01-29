@@ -15,16 +15,23 @@ VIEW_DIST = 1219
 # resolution for screen presenting eye data
 #EYE_RES = [1024, 768]
 EYE_RES = [1600, 900]
-# square scale in degree of visual angle (scales both length and width)
+
+# size of square, scale is in degree of visual angle
+# (scales both length and width)
 SQUARE_SCALE = 0.5
 
 # How close to the stimulus does the eye position have to be to get reward in
-# auto mode? distance in degree of visual angle from center of square, so
-# adding half the square to tolerance. If tolerance is 1 + square_scale/2, and
+# auto mode? Use number of degrees of visual angle from outside border of square,
+# so 0 means has to be in square, 5 is 5 degrees outside of square
+degree_out_square = 5
+
+# Tolerance is the distance in degree of visual angle from center of square,
+# so add half the square size to tolerance. If tolerance is 1 + square_scale/2, and
 # square_scale is 0.5, then the square is half a degree wide, and the tolerance
 # is one degree outside of the square. Tolerance of zero means must be in the
 # square
-TOLERANCE = 5 + SQUARE_SCALE/2
+
+TOLERANCE = degree_out_square + SQUARE_SCALE/2
 
 # How far out in visual angle degrees do you want the outer targets?
 MAX_DEGREES_X = 10
