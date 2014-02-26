@@ -54,6 +54,7 @@ class World(DirectObject):
         self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
+        # setup square positions
         if mode == '1' or mode == 1:
             self.manual = True
         else:
@@ -71,117 +72,10 @@ class World(DirectObject):
         #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
         # so can't open second window.
-        # Should be better way to deal with this, but haven't found it yet.
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
-            print 'second window'
-            props = WindowProperties()
-            #props.setForeground(True)
-            props.setCursorHidden(True)
-            try:
-                self.base.win.requestProperties(props)
-                #print props
-            except AttributeError:
-                print 'Cannot open second window. To open just one window, ' \
-                      'change the resolution in the config file to Test ' \
-                      'or change the resolution to None for default Panda window'
-                # go ahead and give the traceback and exit
-                raise
-
-            # Need to get this better. keypress only works with one window.
-            # plus looks ugly.
-            window2 = self.base.openWindow()
-            window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
-            #window2.setClearColor((1, 0, 0, 1))
-            #props.setCursorHidden(True)
-            #props.setOrigin(0, 0)
-            # resolution of window for actual calibration
-            resolution = config['WIN_RES']
-            res_eye = config['EYE_RES']
-            # if resolution given, set the appropriate resolution
-            # otherwise assume want small windows
-            if resolution is not None:
-                # resolution for main window
-                self.set_resolution(resolution)
-                # properties for second window
-                props.setOrigin(-int(res_eye[0]), 0)
-                #props.setOrigin(0, 0)
-                # resolution for second window, one for plotting eye data
-                #props.setSize(1024, 768)
-                props.setSize(int(res_eye[0]), int(res_eye[1]))
-            else:
-                props.setOrigin(600, 200)  # make it so windows aren't on top of each other
-                resolution = [800, 600]  # if no resolution given, assume normal panda window
-            # x and y are pretty damn close, so just us x
-            # degree per pixel is important only for determining where to plot squares, no effect
-            # on eye position plotting, so use projector resolution, screen size, etc
-            self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
-            print 'deg_per_pixel', self.deg_per_pixel
-            # set the properties for eye data window
-            window2.requestProperties(props)
-            #print window2.getRequestedProperties()
-
-            # orthographic lens means 2d, then we can set size to resolution
-            # so coordinate system is in pixels
-            lens = OrthographicLens()
-            lens.setFilmSize(int(resolution[0]),int(resolution[1]))
-            #lens.setFilmSize(800, 600)
-            # this allows us to layer, as long as we use between -100
-            # and 100 for z. (eye position on top of squares)
-            lens.setNearFar(-100,100)
-
-            camera = self.base.camList[0]
-            camera.node().setLens(lens)
-            camera.reparentTo(render)
-
-            camera2 = self.base.camList[1]
-            camera2.node().setLens(lens)
-            camera2.reparentTo(render)
-
-            self.text = TextNode('gain')
-            self.text.setText('Gain: ' + str(self.gain))
-            #textNodePath = aspect2d.attachNewNode(self.text)
-            textNodePath = render.attachNewNode(self.text)
-            textNodePath.setScale(30)
-            #textNodePath.setScale(0.1)
-            #textNodePath.setPos(-300, 0, 200)
-            textNodePath.setPos(100, 0, 300)
-            textNodePath.show(BitMask32.bit(0))
-            textNodePath.hide(BitMask32.bit(1))
-
-            # not using offset for our purposes presently
-            # if decide to use it again, need to move IScan text down
-            # self.text2 = TextNode('offset')
-            # self.text2.setText('Offset: ' + str(self.offset))
-            # text2NodePath = render.attachNewNode(self.text2)
-            # text2NodePath.setScale(30)
-            # text2NodePath.setPos(500, 0, 250)
-            # text2NodePath.show(BitMask32.bit(0))
-            # text2NodePath.hide(BitMask32.bit(1))
-
-            self.text3 = TextNode('IScan')
-            self.text3.setText('IScan: ' + '[0, 0]')
-            text3NodePath = render.attachNewNode(self.text3)
-            text3NodePath.setScale(30)
-            text3NodePath.setPos(100, 0, 250)
-            text3NodePath.show(BitMask32.bit(0))
-            text3NodePath.hide(BitMask32.bit(1))
-
-            if not self.manual:
-                self.text4 = TextNode('tolerance')
-                self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees')
-                text4NodePath = camera.attachNewNode(self.text4)
-                text4NodePath.setScale(0.1)
-                #textNodePath.setPos(-300, 0, 200)
-                text4NodePath.setPos(0.1, 0, 0.6)
-                text4NodePath.show(BitMask32.bit(0))
-                text4NodePath.hide(BitMask32.bit(1))
-
-            # set bit mask for eye positions
-            camera.node().setCameraMask(BitMask32.bit(1))
-            camera2.node().setCameraMask(BitMask32.bit(0))
-
+            self.setup_window2(config)
         else:
             # resolution in file equal to test, so use the projector screen
             # value for determining pixels size. In this case, accuracy is not
@@ -206,17 +100,9 @@ class World(DirectObject):
         # scale 17 is one visual angle, linear so just multiply by 17
         self.square = self.create_square(config['SQUARE_SCALE']*17)
         #print 'scale', config['SQUARE_SCALE']*17
-        # if doing manual calibration, always get reward after square turns off,
-        # if auto, require fixation. If doing manual, need to initiate Positions
-        # differently than if random, so key presses work properly
-        if self.manual:
-            #print 'yes, still manual'
-            #self.reward = True
-            self.pos = Positions(config)
-        else:
-            #print 'manual is false'
-            #self.reward = False
-            self.pos = Positions(config).get_position(self.depth, True)
+
+        # set up square positions
+        self.setup_positions(config)
 
         # Eye Data and reward
         self.eye_data = []
@@ -321,7 +207,7 @@ class World(DirectObject):
                 #print 'fixation?', self.fix_time
                 if self.check_fixation and not self.fix_time:
                     #print 'no fixation, start over'
-                    self.restart_task(None)
+                    self.redraw_square(None)
                     return task.cont
                 elif self.check_fixation:
                     # if we are done with our interval, and haven't restarted
@@ -487,7 +373,7 @@ class World(DirectObject):
                 if distance > tolerance:
                     # abort trial, start again with square in same position
                     #print 'abort'
-                    self.restart_task(None)
+                    self.redraw_square(None)
             else:
                 #print 'waiting for fixation'
                 if distance < tolerance:
@@ -496,7 +382,7 @@ class World(DirectObject):
                     #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
                     #print 'tolerance', self.tolerance
                     #print eye_data
-                    self.restart_task(self.frameTask.time)
+                    self.redraw_square(self.frameTask.time)
                     #self.fix_time = self.frameTask.time
                     #print 'time fixated', self.fix_time
                     #print 'self.next', self.next
@@ -508,8 +394,8 @@ class World(DirectObject):
         #size = max - min
         #print size[0], size[2]
 
-    def restart_task(self, fix_time):
-        #print 'restarting'
+    def redraw_square(self, fix_time):
+        #print 'redraw square'
         # if fix_time is none, then restarting because fixation was broken, or never fixated,
         # immediately turn off square and start over.
         if not fix_time:
@@ -547,13 +433,6 @@ class World(DirectObject):
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
 
-    # Key Functions
-    #As described earlier, this simply sets a key in the self.keys dictionary to
-    #the given value
-    def set_key(self, key, val):
-        self.keys[key] = val
-        #print 'set key', self.keys[key]
-
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
         if ch_type == 'gain':
             self.gain[x_or_y] += ch_amount
@@ -579,6 +458,24 @@ class World(DirectObject):
             win.detachNode()
         #self.eye_window.detachNode()
         self.show_window(self.square.getPos())
+
+    def change_tasks(self, override=None):
+        #print(override)
+        if override is not None:
+            self.manual = override
+            #print('override, manual now', self.manual)
+        else:
+            # change from manual to auto-calibrate or vise-versa
+            self.manual = not self.manual
+            #print('switch, manual now', self.manual)
+        #print 'task', self.manual
+        # get configurations from config file
+        config = {}
+        execfile('config.py', config)
+        # reset stuff
+        self.setup_text()
+        del self.pos
+        self.setup_positions(config)
 
     # Square Functions
     def square_on(self):
@@ -635,20 +532,12 @@ class World(DirectObject):
 
     def give_reward(self):
         #print 'reward, 3'
-        #out = sys.stdout
-        # only want to check this if on random?
-        #if not self.manual:
-            #print 'random?, check reward'
-            #self.reward = self.check_fixation()
-        #print 'reward', self.reward
-        #if self.reward:
+        # only give reward if pydaq is setup
         for i in range(self.num_beeps):
             if self.reward_task:
                 self.reward_task.pumpOut()
                 sleep(.2)
-                print 'beep'
-        #    else:
-        #        out.write("beep\n")
+            print 'beep'
 
     def square_move(self, position=None):
         #print 'square move, 4'
@@ -714,6 +603,46 @@ class World(DirectObject):
         return dist
 
     # Setup Functions
+
+    def setup_text(self):
+        self.text = TextNode('gain')
+        self.text.setText('Gain: ' + str(self.gain))
+        #textNodePath = aspect2d.attachNewNode(self.text)
+        textNodePath = render.attachNewNode(self.text)
+        textNodePath.setScale(30)
+        #textNodePath.setScale(0.1)
+        #textNodePath.setPos(-300, 0, 200)
+        textNodePath.setPos(100, 0, 300)
+        textNodePath.show(BitMask32.bit(0))
+        textNodePath.hide(BitMask32.bit(1))
+
+        # not using offset for our purposes presently
+        # if decide to use it again, need to move IScan text down
+        # self.text2 = TextNode('offset')
+        # self.text2.setText('Offset: ' + str(self.offset))
+        # text2NodePath = render.attachNewNode(self.text2)
+        # text2NodePath.setScale(30)
+        # text2NodePath.setPos(500, 0, 250)
+        # text2NodePath.show(BitMask32.bit(0))
+        # text2NodePath.hide(BitMask32.bit(1))
+
+        self.text3 = TextNode('IScan')
+        self.text3.setText('IScan: ' + '[0, 0]')
+        text3NodePath = render.attachNewNode(self.text3)
+        text3NodePath.setScale(30)
+        text3NodePath.setPos(100, 0, 250)
+        text3NodePath.show(BitMask32.bit(0))
+        text3NodePath.hide(BitMask32.bit(1))
+
+        if not self.manual:
+            self.text4 = TextNode('tolerance')
+            self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees, alt-arrow to adjust')
+            text4NodePath = camera.attachNewNode(self.text4)
+            text4NodePath.setScale(30)
+            text4NodePath.setPos(100, 0, 200)
+            text4NodePath.show(BitMask32.bit(0))
+            text4NodePath.hide(BitMask32.bit(1))
+
     def create_square(self, scale):
         # setting up square object
         obj = self.base.loader.loadModel("models/plane")
@@ -733,11 +662,30 @@ class World(DirectObject):
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         return obj
 
+    def setup_positions(self, config):
+        # If doing manual, need to initiate Positions differently than if random,
+        # so key presses work properly
+        if self.manual:
+            #print 'manual'
+            self.pos = Positions(config)
+        else:
+            #print 'manual is false, auto'
+            self.pos = Positions(config).get_position(self.depth, True)
+
+    # Key Functions
+    #As described earlier, this simply sets a key in the self.keys dictionary to
+    #the given value
+    def set_key(self, key, val):
+        self.keys[key] = val
+        #print 'set key', self.keys[key]
+
+    # this actually assigns keys to methods
     def setup_keys(self):
         self.accept("escape", self.close)  # escape
         # starts turning square on
         self.accept("space", self.start)  # default is the program waits 2 min
 
+        self.accept("m", self.change_tasks)  # switches from manual to auto-calibrate
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
@@ -762,11 +710,9 @@ class World(DirectObject):
         self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
-        if not self.manual:
-            self.accept("alt-arrow_up", self.change_tolerance, [0.5])
-            self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
+        self.accept("alt-arrow_up", self.change_tolerance, [0.5])
+        self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
 
-        # minutes and then starts, spacebar will start the program right away
         # this really doesn't need to be a dictionary now,
         # but may want to use more keys eventually
         # keys will update the list, and loop will query it
@@ -782,6 +728,78 @@ class World(DirectObject):
         self.accept("7", self.set_key, ["switch", 7])
         self.accept("8", self.set_key, ["switch", 8])
         self.accept("9", self.set_key, ["switch", 9])
+
+    def setup_window2(self, config):
+        #print 'second window'
+        props = WindowProperties()
+        #props.setForeground(True)
+        props.setCursorHidden(True)
+        try:
+            self.base.win.requestProperties(props)
+            #print props
+        except AttributeError:
+            print 'Cannot open second window. To open just one window, ' \
+                  'change the resolution in the config file to Test ' \
+                  'or change the resolution to None for default Panda window'
+            # go ahead and give the traceback and exit
+            raise
+
+        # Need to get this better. keypress only works with one window.
+        # plus looks ugly.
+        window2 = self.base.openWindow()
+        window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
+        #window2.setClearColor((1, 0, 0, 1))
+        #props.setCursorHidden(True)
+        #props.setOrigin(0, 0)
+        # resolution of window for actual calibration
+        resolution = config['WIN_RES']
+        res_eye = config['EYE_RES']
+        # if resolution given, set the appropriate resolution
+        # otherwise assume want small windows
+        if resolution is not None:
+            # resolution for main window
+            self.set_resolution(resolution)
+            # properties for second window
+            props.setOrigin(-int(res_eye[0]), 0)
+            #props.setOrigin(0, 0)
+            # resolution for second window, one for plotting eye data
+            #props.setSize(1024, 768)
+            props.setSize(int(res_eye[0]), int(res_eye[1]))
+        else:
+            props.setOrigin(600, 200)  # make it so windows aren't on top of each other
+            resolution = [800, 600]  # if no resolution given, assume normal panda window
+            # x and y are pretty damn close, so just us x
+        # degree per pixel is important only for determining where to plot squares, no effect
+        # on eye position plotting, so use projector resolution, screen size, etc
+        self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
+        print 'deg_per_pixel', self.deg_per_pixel
+        # set the properties for eye data window
+        window2.requestProperties(props)
+        #print window2.getRequestedProperties()
+
+        # orthographic lens means 2d, then we can set size to resolution
+        # so coordinate system is in pixels
+        lens = OrthographicLens()
+        lens.setFilmSize(int(resolution[0]),int(resolution[1]))
+        #lens.setFilmSize(800, 600)
+        # this allows us to layer, as long as we use between -100
+        # and 100 for z. (eye position on top of squares)
+        lens.setNearFar(-100,100)
+
+        camera = self.base.camList[0]
+        camera.node().setLens(lens)
+        camera.reparentTo(render)
+
+        camera2 = self.base.camList[1]
+        camera2.node().setLens(lens)
+        camera2.reparentTo(render)
+
+        # set bit mask for eye positions
+        camera.node().setCameraMask(BitMask32.bit(1))
+        camera2.node().setCameraMask(BitMask32.bit(0))
+
+        # text only happens on second window
+        self.setup_text()
 
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
