@@ -97,6 +97,9 @@ class World(DirectObject):
         self.base.disableMouse()
 
         # create square for stimulus
+        # self.depth needs to be more than zero for stuff to show up,
+        # otherwise arbitrary. This is used for positioning squares (Z)
+        self.depth = 55
         # scale 17 is one visual angle, linear so just multiply by 17
         self.square = self.create_square(config['SQUARE_SCALE']*17)
         #print 'scale', config['SQUARE_SCALE']*17
@@ -116,12 +119,8 @@ class World(DirectObject):
         # set up daq for eye and reward, if on windows and not testing
         # testing random mode depends on being able to control eye position
         if self.daq and not self.test:
-            #self.gain = 0
-            #self.offset = 0
-            self.eye_task = pydaq.EOGTask()
-            self.eye_task.SetCallback(self.get_eye_data)
-            self.eye_task.StartTask()
-            self.reward_task = pydaq.GiveReward()
+            # start pydaq stuff
+            self.setup_pydaq()
         else:
             #self.fake_data = fake_eye_data.yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
             self.fake_data = fake_eye_data.yield_eye_data((0.0, 0.0))
@@ -194,7 +193,6 @@ class World(DirectObject):
         # are we waiting for a manual move?
         #print task.move
         if not task.move:
-
             #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
@@ -293,8 +291,117 @@ class World(DirectObject):
         return task.cont  # Since every return is Task.cont, the task will
         #continue indefinitely
 
+    # Square Functions
+    def square_on(self):
+        position = self.square.getPos()
+        #print position
+        self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) + ', '
+                              + str(position[2]) + '\n') \
+        #print 'square', self.manual
+        #print 'square on, 0'
+        # make sure in correct color
+        self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
+        # and render
+        self.square.reparentTo(render)
+        #min, max = self.square.getTightBounds()
+        #size = max - min
+        #print size[0], size[2]
+        #print self.square.getPos()
+        #print 'square is now on'
+        # show window for tolerance
+        # and make sure checking for fixation
+        if not self.manual:
+            self.show_window(position)
+            self.check_fixation = True
+        self.fixed = False
+
+    def square_fade(self):
+        # print 'square fade, 1'
+        #heading = self.square.getPos() + (0.05, 0, 0)
+        #self.square.setPos(heading)
+        #self.square.setColor(175/255, 175/255, 130/255, 1.0)
+        self.square.setColor(0.9, 0.9, 0.6, 1.0)
+        # next interval is fade off to on, at which time we move
+        # if manual move is set, after off we just wait for move, so we
+        # won't actually check this interval
+        #self.interval = random.uniform(*MOVE_INTERVAL)
+        self.check_fixation = False
+        # if square has faded, then we can reset fixation time
+        self.fix_time = None
+
+    def square_off(self):
+        #print 'square off, 2'
+        #print 'parent 1', self.square.getParent()
+        self.square.clearColor()
+        self.square.detachNode()
+        for win in self.eye_window:
+            win.detachNode()
+        self.remove_eyes = True
+        #print 'erase eye window'
+        #self.eye_window.detachNode()
+        #print 'parent 2', self.square.getParent()
+        # next interval is on to fade on
+        #self.interval = random.uniform(*ON_INTERVAL)
+        #print 'next-on-interval', self.interval
+
+    def give_reward(self):
+        #print 'reward, 3'
+        # only give reward if pydaq is setup
+        for i in range(self.num_beeps):
+            if self.reward_task:
+                self.reward_task.pumpOut()
+                sleep(.2)
+            print 'beep'
+
+    def square_move(self, position=None):
+        #print 'square move, 4'
+        #print 'square position', position
+        if not position:
+            #print 'trying to get a auto position'
+            try:
+                position = self.pos.next()
+            except StopIteration:
+                self.close()
+
+        self.square.setPos(Point3(position))
+        #print 'square', position[0], position[2]
+        # go directly to on
+        self.square_on()
+
+    def redraw_square(self, fix_time):
+        #print 'redraw square'
+        # if fix_time is none, then restarting because fixation was broken, or never fixated,
+        # immediately turn off square and start over.
+        if not fix_time:
+            # if fix_time is none, will continue as none...
+            #print 'restart, did not fixate'
+            #print 'no reward!'
+            self.time_data_file.write(str(time()) + ', ' + 'no fixation or broken, restart' + '\n')
+            # turn off target immediately, and write that to file
+            self.square_off()
+            self.time_data_file.write(str(time()) + ', ' + 'Square off\n')
+            # next time through, don't want to move, just show same target
+            self.next = 0
+            # and interval before turns on will be break interval
+            interval = self.all_intervals[5]
+            # when new target shows up, this will change back to true
+            self.check_fixation = False
+        else:
+            # timer starts out as interval for how long the subject has to fixate,
+            # once fixated, need to reset the timer so fixation is held right amount of time.
+            # So, keep interval as 1, but set the interval to fixation interval
+            #print 'restarting timer for holding fixation'
+            self.next = 1
+            interval = self.all_intervals[4]
+
+        # new interval always starts with now
+        self.frameTask.interval = self.frameTask.time + interval
+        self.fix_time = fix_time
+        #print 'if not fixated, should be none', self.fix_time
+
     def start(self):
-        # starts the experiment early (normal start time is 2 minutes)
+        # starts the experiment (otherwise start time is 2 minutes after
+        # world is created)
         self.frameTask.interval = 0
 
     def get_eye_data(self, eye_data):
@@ -394,37 +501,6 @@ class World(DirectObject):
         #size = max - min
         #print size[0], size[2]
 
-    def redraw_square(self, fix_time):
-        #print 'redraw square'
-        # if fix_time is none, then restarting because fixation was broken, or never fixated,
-        # immediately turn off square and start over.
-        if not fix_time:
-            # if fix_time is none, will continue as none...
-            #print 'restart, did not fixate'
-            #print 'no reward!'
-            self.time_data_file.write(str(time()) + ', ' + 'no fixation or broken, restart' + '\n')
-            # turn off target immediately, and write that to file
-            self.square_off()
-            self.time_data_file.write(str(time()) + ', ' + 'Square off\n')
-            # next time through, don't want to move, just show same target
-            self.next = 0
-            # and interval before turns on will be break interval
-            interval = self.all_intervals[5]
-            # when new target shows up, this will change back to true
-            self.check_fixation = False
-        else:
-            # timer starts out as interval for how long the subject has to fixate,
-            # once fixated, need to reset the timer so fixation is held right amount of time.
-            # So, keep interval as 1, but set the interval to fixation interval
-            #print 'restarting timer for holding fixation'
-            self.next = 1
-            interval = self.all_intervals[4]
-
-        # new interval always starts with now
-        self.frameTask.interval = self.frameTask.time + interval
-        self.fix_time = fix_time
-        #print 'if not fixated, should be none', self.fix_time
-
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
         # right on screen. Actually, most of this is changed in IScan
@@ -468,91 +544,25 @@ class World(DirectObject):
             # change from manual to auto-calibrate or vise-versa
             self.manual = not self.manual
             #print('switch, manual now', self.manual)
+        # close stuff
+        if self.daq:
+            # have to stop tasks before closing files
+            self.eye_task.StopTask()
+            self.eye_task.ClearTask()
+        self.close_files()
+        del self.pos
         #print 'task', self.manual
         # get configurations from config file
         config = {}
         execfile('config.py', config)
         # reset stuff
+        self.frameTask.move = False
+        self.next = 0
         self.setup_text()
-        del self.pos
         self.setup_positions(config)
-
-    # Square Functions
-    def square_on(self):
-        position = self.square.getPos()
-        #print position
-        self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) + ', '
-                                  + str(position[2]) + '\n')\
-        #print 'square', self.manual
-        #print 'square on, 0'
-        # make sure in correct color
-        self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-        # and render
-        self.square.reparentTo(render)
-        #min, max = self.square.getTightBounds()
-        #size = max - min
-        #print size[0], size[2]
-        #print self.square.getPos()
-        #print 'square is now on'
-        # show window for tolerance
-        # and make sure checking for fixation
-        if not self.manual:
-            self.show_window(position)
-            self.check_fixation = True
-        self.fixed = False
-
-    def square_fade(self):
-        # print 'square fade, 1'
-        #heading = self.square.getPos() + (0.05, 0, 0)
-        #self.square.setPos(heading)
-        #self.square.setColor(175/255, 175/255, 130/255, 1.0)
-        self.square.setColor(0.9, 0.9, 0.6, 1.0)
-        # next interval is fade off to on, at which time we move
-        # if manual move is set, after off we just wait for move, so we
-        # won't actually check this interval
-        #self.interval = random.uniform(*MOVE_INTERVAL)
-        self.check_fixation = False
-        # if square has faded, then we can reset fixation time
-        self.fix_time = None
-
-    def square_off(self):
-        #print 'square off, 2'
-        #print 'parent 1', self.square.getParent()
-        self.square.clearColor()
-        self.square.detachNode()
-        for win in self.eye_window:
-            win.detachNode()
-        self.remove_eyes = True
-        #print 'erase eye window'
-        #self.eye_window.detachNode()
-        #print 'parent 2', self.square.getParent()
-        # next interval is on to fade on
-        #self.interval = random.uniform(*ON_INTERVAL)
-        #print 'next-on-interval', self.interval
-
-    def give_reward(self):
-        #print 'reward, 3'
-        # only give reward if pydaq is setup
-        for i in range(self.num_beeps):
-            if self.reward_task:
-                self.reward_task.pumpOut()
-                sleep(.2)
-            print 'beep'
-
-    def square_move(self, position=None):
-        #print 'square move, 4'
-        #print 'square position', position
-        if not position:
-            #print 'trying to get a auto position'
-            try:
-                position = self.pos.next()
-            except StopIteration:
-                self.close()
-
-        self.square.setPos(Point3(position))
-        #print 'square', position[0], position[2]
-        # go directly to on
-        self.square_on()
+        self.open_files(config)
+        if self.daq:
+            self.setup_pydaq()
 
     def clear_eyes(self):
         # We can now stop plotting eye positions,
@@ -612,7 +622,7 @@ class World(DirectObject):
         textNodePath.setScale(30)
         #textNodePath.setScale(0.1)
         #textNodePath.setPos(-300, 0, 200)
-        textNodePath.setPos(100, 0, 300)
+        textNodePath.setPos(0, 0, 300)
         textNodePath.show(BitMask32.bit(0))
         textNodePath.hide(BitMask32.bit(1))
 
@@ -630,7 +640,7 @@ class World(DirectObject):
         self.text3.setText('IScan: ' + '[0, 0]')
         text3NodePath = render.attachNewNode(self.text3)
         text3NodePath.setScale(30)
-        text3NodePath.setPos(100, 0, 250)
+        text3NodePath.setPos(0, 0, 250)
         text3NodePath.show(BitMask32.bit(0))
         text3NodePath.hide(BitMask32.bit(1))
 
@@ -639,7 +649,7 @@ class World(DirectObject):
             self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees, alt-arrow to adjust')
             text4NodePath = camera.attachNewNode(self.text4)
             text4NodePath.setScale(30)
-            text4NodePath.setPos(100, 0, 200)
+            text4NodePath.setPos(0, 0, 200)
             text4NodePath.show(BitMask32.bit(0))
             text4NodePath.hide(BitMask32.bit(1))
 
@@ -650,7 +660,6 @@ class World(DirectObject):
         # make depth greater than eye positions so eye positions are on top of squares
         # initial position of Square
         pos = Point2(0, 0)
-        self.depth = 55
         obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
         # need to scale to be correct visual angle
         #obj.setScale(1)
@@ -671,6 +680,12 @@ class World(DirectObject):
         else:
             #print 'manual is false, auto'
             self.pos = Positions(config).get_position(self.depth, True)
+
+    def setup_pydaq(self):
+        self.eye_task = pydaq.EOGTask()
+        self.eye_task.SetCallback(self.get_eye_data)
+        self.eye_task.StartTask()
+        self.reward_task = pydaq.GiveReward()
 
     # Key Functions
     #As described earlier, this simply sets a key in the self.keys dictionary to
@@ -814,6 +829,7 @@ class World(DirectObject):
         #wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
 
+    # File methods
     def open_files(self, config):
         # open file for recording eye data
         subject = config['SUBJECT']
@@ -852,7 +868,7 @@ class World(DirectObject):
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
-    # Closing functions
+    # Closing methods
     def close_files(self):
         self.eye_data_file.close()
         self.time_data_file.close()
