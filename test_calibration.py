@@ -5,6 +5,7 @@ from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 from time import time
+import types
 
 # Tests run fine one at a time, but on Windows, isn't destroying
 # the ShowBase instance between suites, for some crazy reason. Meh.
@@ -35,6 +36,12 @@ class TestCalibration(unittest.TestCase):
         execfile('config_test.py', self.config)
         self.w.open_files(self.config)
         self.depth = 0
+        # make sure we are still in correct mode
+        if self.manual == 1:
+            self.w.change_tasks(True)
+        else:
+            self.w.change_tasks(False)
+        #print('setup done')
 
     @classmethod
     def setUpClass(cls):
@@ -111,6 +118,7 @@ class TestCalibration(unittest.TestCase):
             if self.w.next == 1:
                 #print 'square should be on'
                 square_off = False
+                test = time()
         eye_data = self.w.eye_data[0]
         #print eye_data
         # need to stop task, so file is closed
@@ -120,7 +128,6 @@ class TestCalibration(unittest.TestCase):
         #print(f.readline())
         self.assertIn('timestamp', f.readline())
         self.assertIn(str(eye_data[0]), f.readline())
-        test = time()
         # time is a floating point in seconds, so if we just
         # check to see if the digits from the 10s place on up
         # are there, we know we have a time stamp from the last
@@ -161,6 +168,33 @@ class TestCalibration(unittest.TestCase):
         else:
             self.assertIn('Square', test)
 
+    def test_change_from_manual_to_auto_or_vise_versa(self):
+        before = self.w.manual
+        self.w.change_tasks()
+        after = self.w.manual
+        # need to change it back, ugh, this is not so cool...
+        #self.w.change_tasks()
+        self.assertNotEqual(before, after)
+
+    def test_change_tasks_and_positions_change(self):
+        #print('manual is', self.w.manual)
+        #print('type', type(self.w.pos))
+        self.w.change_tasks()
+        #print('manual is', self.w.manual)
+        #print('type', type(self.w.pos))
+        if self.w.manual:
+            #print('manual is instance')
+            self.assertIsInstance(self.w.pos, types.InstanceType)
+            #new_pos = self.w.pos.get_key_position(self.w.depth, 5)
+        else:
+            #print('not manual, auto is generator')
+            self.assertIsInstance(self.w.pos, types.GeneratorType)
+            #new_pos = self.w.pos.next()
+        #print new_pos
+        #switch back - not really the 'correct' way, I know...
+        #self.w.change_tasks()
+        #print self.w.manual
+
     def tearDown(self):
         self.w.close_files()
 
@@ -177,10 +211,10 @@ def suite():
     return unittest.makeSuite(TestCalibration, 'test')
 
 if __name__ == "__main__":
-    #unittest.main(verbosity=2)
     #print 'run suite'
     # run twice to cover both conditions
     unittest.TextTestRunner(verbosity=2).run(suite())
     unittest.TextTestRunner(verbosity=2).run(suite())
+    # when you just want to run one test...
     #unittest.main(verbosity=2)
 
