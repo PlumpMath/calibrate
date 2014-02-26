@@ -125,11 +125,11 @@ class World(DirectObject):
             # orthographic lens means 2d, then we can set size to resolution
             # so coordinate system is in pixels
             lens = OrthographicLens()
-            lens.setFilmSize(int(resolution[0]),int(resolution[1]))
+            lens.setFilmSize(int(resolution[0]), int(resolution[1]))
             #lens.setFilmSize(800, 600)
             # this allows us to layer, as long as we use between -100
             # and 100 for z. (eye position on top of squares)
-            lens.setNearFar(-100,100)
+            lens.setNearFar(-100, 100)
 
             camera = self.base.camList[0]
             camera.node().setLens(lens)
@@ -798,14 +798,21 @@ class World(DirectObject):
 
     def open_files(self, config):
         # open file for recording eye data
+        subject = config['SUBJECT']
         data_dir = 'data/' + config['SUBJECT']
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
-        self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        if self.manual:
+            self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+            self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        else:
+            self.eye_file_name = data_dir + '/eye_cal2_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+            self.time_file_name = data_dir + '/time_cal2_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+
+        # open file for recording eye positions
         self.eye_data_file = open(self.eye_file_name, 'w')
         self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
         # open file for recording event times
-        self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
         self.time_data_file = open(self.time_file_name, 'w')
         self.time_data_file.write('timestamp, task' + '\n')
         # When we first open the file, we will write a line for time started calibration

@@ -1,5 +1,5 @@
-SUBJECT = 'test'
-#SUBJECT = 'Gus'
+#SUBJECT = 'test'
+SUBJECT = 'Gus'
 
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -10,11 +10,12 @@ SUBJECT = 'test'
 WIN_RES = [1024, 768]
 # Screen size, again for actual calibration, so size of image on projector screen
 SCREEN = [1337, 991]
+# mm distance from subject to screen
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-#EYE_RES = [1024, 768]
-EYE_RES = [1600, 900]
+EYE_RES = [1024, 768]
+#EYE_RES = [1600, 900]
 
 # size of square, scale is in degree of visual angle
 # (scales both length and width)
@@ -23,7 +24,7 @@ SQUARE_SCALE = 0.5
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? Use number of degrees of visual angle from outside border of square,
 # so 0 means has to be in square, 5 is 5 degrees outside of square
-degree_out_square = 5
+degree_out_square = 6
 
 # Tolerance is the distance in degree of visual angle from center of square,
 # so add half the square size to tolerance. If tolerance is 1 + square_scale/2, and
@@ -38,7 +39,7 @@ MAX_DEGREES_X = 10
 MAX_DEGREES_Y = 10
 
 # how many times to repeat each point when in random mode
-POINT_REPEAT = 2
+POINT_REPEAT = 5
 # How many points in x direction
 X_POINTS = 5
 # How many points in y direction
