@@ -36,11 +36,6 @@ class TestCalibration(unittest.TestCase):
         execfile('config_test.py', self.config)
         self.w.open_files(self.config)
         self.depth = 0
-        # make sure we are still in correct mode
-        if self.manual == 1:
-            self.w.change_tasks(True)
-        else:
-            self.w.change_tasks(False)
         #print('setup done')
 
     @classmethod
@@ -55,7 +50,6 @@ class TestCalibration(unittest.TestCase):
         #print 'about to load world'
         #print 'boo', cls.manual
         cls.w = World(cls.manual, 1)
-
         # remember it was setup already
         cls.ClassIsSetup = True
 
@@ -73,7 +67,8 @@ class TestCalibration(unittest.TestCase):
             square_on = True
             while square_on:
                 taskMgr.step()
-                if self.w.next == 3 or self.w.next == 0:
+                #if self.w.next == 3  or self.w.next == 0:
+                if self.w.next == 0:
                     square_on = False
         self.assertFalse(self.w.square.getParent())
 
@@ -108,26 +103,38 @@ class TestCalibration(unittest.TestCase):
 
     def test_eye_data_written_to_file(self):
         # make sure data is written to file.
-        # run the trial for a while, since fake data doesn't start
-        # collecting until trial starts
-        square_off = True
-        while square_off:
-        #while time.time() < time_out:
+        # this is a little tricky, since we don't know where the data is going to be
+        # in the file, depends on where we were when we opened the file. Assume that
+        # the data file was opened within the first ten time stamps
+        #print('manual is', self.w.manual)
+        last = self.w.next
+        no_change = True
+        while no_change:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
-                square_off = False
+            if self.w.next != last:
+                #print 'we did something'
+                no_change = False
                 test = time()
-        eye_data = self.w.eye_data[0]
-        #print eye_data
+
+        eye_data = self.w.eye_data[:10]
+        #print self.w.eye_data[:10]
         # need to stop task, so file is closed
         self.w.close()
+        #print(self.w.eye_file_name)
         # since we are using fake data, know that first point is (0,0)
         f = open(self.w.eye_file_name, 'r')
         #print(f.readline())
         self.assertIn('timestamp', f.readline())
-        self.assertIn(str(eye_data[0]), f.readline())
+        #print('what is actually in file after timestamp line')
+        my_line = f.readline()
+        check_data = None
+        for eye in eye_data:
+            #print(eye[0])
+            if str(eye[0]) in my_line:
+                check_data = str(eye[0])
+                break
+        self.assertIn(check_data, my_line)
         # time is a floating point in seconds, so if we just
         # check to see if the digits from the 10s place on up
         # are there, we know we have a time stamp from the last
@@ -160,7 +167,7 @@ class TestCalibration(unittest.TestCase):
         test = f.readline()
         # it is possible reward is the next line, since we don't always start
         # from the beginning. If on random, won't fixate
-        print self.manual
+        #print self.manual
         if start_task == 3:
             self.assertIn('Reward', test)
         elif start_task == 1 and self.manual != 1:
@@ -169,18 +176,45 @@ class TestCalibration(unittest.TestCase):
             self.assertIn('Square', test)
 
     def test_change_from_manual_to_auto_or_vise_versa(self):
+        # I think it shouldn't matter if we don't switch back,
+        # since everything should work either way, and we change
+        # into the opposite direction the next time through
         before = self.w.manual
-        self.w.change_tasks()
+        self.w.switch_task = True
+        # run the task long enough to switch
+        square_on = True
+        # if we are on zero, need to do two loops
+        #if self.w.next == 0:
+        #    loop = 2
+        #else:
+        #    loop = 1
+        last = self.w.next
+        #print self.w.next
+        while square_on:
+            taskMgr.step()
+            if self.w.next != last:
+                last = self.w.next
+            if last == 3 or last == 0:
+                square_on = False
+
         after = self.w.manual
-        # need to change it back, ugh, this is not so cool...
-        #self.w.change_tasks()
         self.assertNotEqual(before, after)
 
     def test_change_tasks_and_positions_change(self):
         #print('manual is', self.w.manual)
         #print('type', type(self.w.pos))
-        self.w.change_tasks()
-        #print('manual is', self.w.manual)
+        self.w.switch_task = True
+        # run the task long enough to switch
+        last = self.w.next
+        #print self.w.next
+        square_on = True
+        while square_on:
+            taskMgr.step()
+            if self.w.next != last:
+                last = self.w.next
+            if last == 3 or last == 0:
+                square_on = False
+            #print('manual is', self.w.manual)
         #print('type', type(self.w.pos))
         if self.w.manual:
             #print('manual is instance')
@@ -190,12 +224,13 @@ class TestCalibration(unittest.TestCase):
             #print('not manual, auto is generator')
             self.assertIsInstance(self.w.pos, types.GeneratorType)
             #new_pos = self.w.pos.next()
-        #print new_pos
-        #switch back - not really the 'correct' way, I know...
-        #self.w.change_tasks()
-        #print self.w.manual
+            #print new_pos
+            #switch back - not really the 'correct' way, I know...
+            #self.w.change_tasks()
+            #print self.w.manual
 
     def tearDown(self):
+        self.w.clear_eyes()
         self.w.close_files()
 
     @classmethod

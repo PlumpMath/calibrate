@@ -19,12 +19,21 @@ class TestCalibration(unittest.TestCase):
 #            3: self.square_move}
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClassAlt(cls):
         loadPrcFileData("", "window-type offscreen")
         # all these tests are for manual
         # manual move is mode 1
         cls.w = World(1, 1)
         #print 'loaded world'
+
+    # @classmethod
+    # def setUpClass(cls):
+    #     loadPrcFileData("", "window-type offscreen")
+    #     # all these tests are for manual
+    #     # manual move is mode 1
+    #     cls.w = World(2, 1)
+    #     #print 'loaded world'
+    #     cls.w.switch_task = True
 
     def setUp(self):
         self.config = {}

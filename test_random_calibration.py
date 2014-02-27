@@ -374,17 +374,38 @@ class TestCalibration(unittest.TestCase):
         # if not fixated, will wait for break interval after square turns off
         # move eye way outside
         self.move_eye_to_get_reward('not')
+        # need timing from square off to back on, after a missed fixation
         # wait for square to turn off
+        # if square is currently on, need to wait for it to go off,
+        # come back on, and then go back off again, so we are sure we missed fixation,
+        # since we can't guarantee there wasn't a fixation before we moved the eye
+        last = self.w.next
+        #print('next', last)
+        if last > 0:
+            loop = 2
+        else:
+            loop = 1
         square_on = True
+        #print('first loop', loop)
         while square_on:
-        #while time.time() < time_out:
             taskMgr.step()
-            # if taskTask.now changes to 0, then end of trial,
-            # and we have just turned off
-            if self.w.next == 0:
-                a = datetime.datetime.now()
-                #print 'square should be on'
-                square_on = False
+            if self.w.next != last:
+                # if starts at zero, won't get here unless
+                # it changes to something else first
+                last = self.w.next
+                #print('last', last)
+                #print('loop', loop)
+                # if taskTask.now changes to 0, then end of trial,
+                # and we have just turned off
+                if last == 0:
+                    if loop == 2:
+                        #print('decrement')
+                        loop -= 1
+                    else:
+                        a = datetime.datetime.now()
+                        #print 'square should be back off'
+                        square_on = False
+
         # now wait for square to turn back on
         #print 'next loop'
         square_off = True
@@ -392,6 +413,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             # if taskTask.now changes to 1, then square back on
             if self.w.next == 1:
+                #print('square should be back on')
                 b = datetime.datetime.now()
                 square_off = False
         c = b - a
