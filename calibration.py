@@ -729,7 +729,7 @@ class World(DirectObject):
         #self.accept("m", self.change_tasks)
         # switches from manual to auto-calibrate, but only at end of current loop
         # (after reward)
-        self.accept("m", self.set_manual, [True])
+        self.accept("s", self.set_manual, [True])
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
