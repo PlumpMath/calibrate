@@ -17,23 +17,38 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
+    # Want to make sure starting in auto and switching to manual works as well
+    # as just starting in auto. Probably won't really use this functionality, but
+    # easy to test, and it is available...
+    class_switch = False
+    #class_switch = True
 
     @classmethod
-    def setUpClassAlt(cls):
+    def setUpClass(cls):
         loadPrcFileData("", "window-type offscreen")
         # all these tests are for manual
         # manual move is mode 1
-        cls.w = World(1, 1)
+        if cls.class_switch:
+            print 'class has been run for starting in manual, try starting in auto and switching'
+            cls.w = World(2, 1)
+            # run through a full loop
+            square_off = True
+            last = 0
+            while square_off:
+                taskMgr.step()
+                if cls.w.next == last:
+                    pass
+                elif cls.w.next == 0:
+                    #print 'square is on!'
+                    square_off = False
+                else:
+                    last = cls.w.next
+            cls.w.switch_task = True
+        else:
+            print 'first time through, run in manual'
+            cls.w = World(1, 1)
+            cls.class_switch = True
         #print 'loaded world'
-
-    # @classmethod
-    # def setUpClass(cls):
-    #     loadPrcFileData("", "window-type offscreen")
-    #     # all these tests are for manual
-    #     # manual move is mode 1
-    #     cls.w = World(2, 1)
-    #     #print 'loaded world'
-    #     cls.w.switch_task = True
 
     def setUp(self):
         self.config = {}
@@ -419,6 +434,14 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+def suite():
+    """Returns a suite with one instance of TestCalibration for each
+    method starting with the word test."""
+    return unittest.makeSuite(TestCalibration, 'test')
 
+if __name__ == "__main__":
+    # run twice to cover both conditions
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    # when you just want to run one test...
+    #unittest.main(verbosity=2)

@@ -227,7 +227,9 @@ class World(DirectObject):
                 #print 'in frame loop', self.next
                 #print 'old interval', task.interval
                 task.switch[self.next]()
+                # prints name of task just did
                 #print task.file[self.next]
+                # prints number of task just did
                 #print 'just did task', self.next
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next])
@@ -295,6 +297,7 @@ class World(DirectObject):
             self.get_eye_data(self.fake_data.next())
 
         # check if we should switch from manual to auto or vise-versa
+        # do it here before we return so no weirdness in finishing the frame loop
         if self.switch_task:
             #print('yes, switch')
             self.change_tasks()

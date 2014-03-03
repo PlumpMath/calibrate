@@ -10,7 +10,7 @@ import types
 # Tests run fine one at a time, but on Windows, isn't destroying
 # the ShowBase instance between suites, for some crazy reason. Meh.
 # So, to run in Windows, have to comment out one suite, run once,
-# change ClassIsSetup to True, run again. Switch everything back.
+# change class_switch to True, run again. Switch everything back.
 
 
 class TestCalibration(unittest.TestCase):
@@ -23,24 +23,12 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
-    ClassIsSetup = False
-    #ClassIsSetup = True
-
-    def setUp(self):
-        print 'setup'
-        #if not self.ClassIsSetup:
-        #    print "initialize"
-        #    self.setupClass()
-
-        self.config = {}
-        execfile('config_test.py', self.config)
-        self.w.open_files(self.config)
-        self.depth = 0
-        #print('setup done')
+    class_switch = False
+    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
-        if cls.ClassIsSetup:
+        if cls.class_switch:
             print 'class has been run for manual, switch to random'
             cls.manual = 2
         else:
@@ -51,7 +39,19 @@ class TestCalibration(unittest.TestCase):
         #print 'boo', cls.manual
         cls.w = World(cls.manual, 1)
         # remember it was setup already
-        cls.ClassIsSetup = True
+        cls.class_switch = True
+
+    def setUp(self):
+        print 'setup'
+        #if not self.class_switch:
+        #    print "initialize"
+        #    self.setupClass()
+
+        self.config = {}
+        execfile('config_test.py', self.config)
+        self.w.open_files(self.config)
+        self.depth = 0
+        #print('setup done')
 
     def test_no_square(self):
         """
@@ -240,6 +240,7 @@ class TestCalibration(unittest.TestCase):
         del cls.w
         print 'tore down'
 
+
 def suite():
     """Returns a suite with one instance of TestCalibration for each
     method starting with the word test."""
@@ -252,4 +253,3 @@ if __name__ == "__main__":
     unittest.TextTestRunner(verbosity=2).run(suite())
     # when you just want to run one test...
     #unittest.main(verbosity=2)
-

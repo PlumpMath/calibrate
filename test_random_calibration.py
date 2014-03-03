@@ -11,6 +11,7 @@ import datetime
 # not testing stuff that is exactly the same as manual move (iow, before
 # mode even kicks in.
 
+
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
 # Need to make these tests faster. Since we are testing the logic
@@ -21,6 +22,10 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
+    # Want to make sure starting in manual and switching to auto works as well
+    # as just starting in auto.
+    class_switch = False
+    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
@@ -28,7 +33,27 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
         # 2 is random mode
-        cls.w = World(2, 1)
+        if cls.class_switch:
+            print 'class has been run for starting in auto, try starting in manual and switching'
+            cls.w = World(1, 1)
+            # run through a full loop
+            square_off = True
+            last = 0
+            while square_off:
+                taskMgr.step()
+                if cls.w.next == last:
+                    pass
+                elif cls.w.next == 0:
+                    #print 'square is on!'
+                    square_off = False
+                else:
+                    last = cls.w.next
+            cls.w.switch_task = True
+        else:
+            print 'first time through, run in auto'
+            cls.w = World(2, 1)
+            cls.class_switch = True
+
         #print 'loaded world'
 
     def setUp(self):
@@ -536,6 +561,14 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+def suite():
+    """Returns a suite with one instance of TestCalibration for each
+    method starting with the word test."""
+    return unittest.makeSuite(TestCalibration, 'test')
 
+if __name__ == "__main__":
+    # run twice to cover both conditions
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    # when you just want to run one test...
+    #unittest.main(verbosity=2)
