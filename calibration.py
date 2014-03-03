@@ -63,6 +63,7 @@ class World(DirectObject):
         # get configurations from config file
         config = {}
         execfile(config_file, config)
+        print 'Subject is', config['SUBJECT']
         self.tolerance = config['TOLERANCE']
 
         # start Panda3d
@@ -640,10 +641,10 @@ class World(DirectObject):
         self.text.setText('Gain: ' + str(self.gain))
         #textNodePath = aspect2d.attachNewNode(self.text)
         textNodePath = render.attachNewNode(self.text)
-        textNodePath.setScale(30)
+        textNodePath.setScale(25)
         #textNodePath.setScale(0.1)
         #textNodePath.setPos(-300, 0, 200)
-        textNodePath.setPos(0, 0, 300)
+        textNodePath.setPos(0, 0, 350)
         textNodePath.show(BitMask32.bit(0))
         textNodePath.hide(BitMask32.bit(1))
 
@@ -660,17 +661,18 @@ class World(DirectObject):
         self.text3 = TextNode('IScan')
         self.text3.setText('IScan: ' + '[0, 0]')
         text3NodePath = render.attachNewNode(self.text3)
-        text3NodePath.setScale(30)
-        text3NodePath.setPos(0, 0, 250)
+        text3NodePath.setScale(25)
+        text3NodePath.setPos(0, 0, 310)
         text3NodePath.show(BitMask32.bit(0))
         text3NodePath.hide(BitMask32.bit(1))
 
         if not self.manual:
             self.text4 = TextNode('tolerance')
-            self.text4.setText('Tolerance: ' + str(self.tolerance) + 'degrees, alt-arrow to adjust')
+            degree = unichr(176).encode('utf-8')
+            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
             text4NodePath = camera.attachNewNode(self.text4)
-            text4NodePath.setScale(30)
-            text4NodePath.setPos(0, 0, 200)
+            text4NodePath.setScale(25)
+            text4NodePath.setPos(0, 0, 270)
             text4NodePath.show(BitMask32.bit(0))
             text4NodePath.hide(BitMask32.bit(1))
 
