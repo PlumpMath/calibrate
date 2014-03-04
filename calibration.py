@@ -572,6 +572,9 @@ class World(DirectObject):
         self.close_files()
         del self.pos
         #self.clear_eyes()
+        # clear text from IScan, rest should be okay, since not
+        # updated frequently
+        # self.text3.removeNode()
         #print 'task', self.manual
         # get configurations from config file
         config = {}
@@ -580,7 +583,9 @@ class World(DirectObject):
         self.switch_task = False
         self.frameTask.move = False
         self.next = 0
-        self.setup_text()
+        if not unittest:
+            # text4 is the only thing that changes
+            self.set_text4()
         self.setup_positions(config)
         self.open_files(config)
         if self.daq:
@@ -637,6 +642,7 @@ class World(DirectObject):
     # Setup Functions
 
     def setup_text(self):
+        #print 'make text'
         self.text = TextNode('gain')
         self.text.setText('Gain: ' + str(self.gain))
         #textNodePath = aspect2d.attachNewNode(self.text)
@@ -666,15 +672,29 @@ class World(DirectObject):
         text3NodePath.show(BitMask32.bit(0))
         text3NodePath.hide(BitMask32.bit(1))
 
+        self.set_text4()
+
+    def set_text4(self):
+        # only thing different with text between manual and auto mode is text4.
+        # if not manual, and it hasn't been set up yet, set up text, otherwise
+        # just re-set the text
         if not self.manual:
-            self.text4 = TextNode('tolerance')
             degree = unichr(176).encode('utf-8')
-            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-            text4NodePath = camera.attachNewNode(self.text4)
-            text4NodePath.setScale(25)
-            text4NodePath.setPos(0, 0, 270)
-            text4NodePath.show(BitMask32.bit(0))
-            text4NodePath.hide(BitMask32.bit(1))
+            if not self.text4:
+                self.text4 = TextNode('tolerance')
+                self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
+                text4NodePath = camera.attachNewNode(self.text4)
+                text4NodePath.setScale(25)
+                text4NodePath.setPos(0, 0, 270)
+                text4NodePath.show(BitMask32.bit(0))
+                text4NodePath.hide(BitMask32.bit(1))
+            else:
+                # otherwise we are switching from manual, and need to re-set the text
+                self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
+        else:
+            # if manual and it has been set up, clear it
+            if self.text4:
+                self.text4.setText('')
 
     def create_square(self, scale):
         # setting up square object
@@ -843,6 +863,11 @@ class World(DirectObject):
         camera2.node().setCameraMask(BitMask32.bit(0))
 
         # text only happens on second window
+        # initialize text
+        self.text = None
+        self.text3 = None
+        self.text4 = None
+        # and configure it
         self.setup_text()
 
     def set_resolution(self, res):
@@ -875,10 +900,10 @@ class World(DirectObject):
         #print('open', self.eye_file_name)
         # open file for recording eye positions
         self.eye_data_file = open(self.eye_file_name, 'w')
-        self.eye_data_file.write('timestamp, x_position, y_position' + '\n')
+        self.eye_data_file.write('timestamp, x_position, y_position, for subject: ' + subject + '\n')
         # open file for recording event times
         self.time_data_file = open(self.time_file_name, 'w')
-        self.time_data_file.write('timestamp, task' + '\n')
+        self.time_data_file.write('timestamp, task, for subject: ' + subject + '\n')
         # When we first open the file, we will write a line for time started calibration
         self.first = True
 
