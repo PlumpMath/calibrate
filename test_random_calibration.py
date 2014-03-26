@@ -1,7 +1,7 @@
 import unittest
-from panda3d.core import ConfigVariableString
+# from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
-from panda3d.core import VBase4
+# from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import fake_eye_data
