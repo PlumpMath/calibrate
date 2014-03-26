@@ -181,7 +181,7 @@ class World(DirectObject):
             1: 'Square dims \n',
             2: 'Square off \n',
             3: 'Reward \n',
-            4: 'Square moved and on \n'
+            4: 'Square moved \n'
         }
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
@@ -197,6 +197,7 @@ class World(DirectObject):
         # no, then check if we are past the current interval
         #print task.move
         if not task.move:
+            # either not time to move, or moving automatically
             #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
@@ -265,6 +266,7 @@ class World(DirectObject):
                 task.interval = task.time + interval
                 #print 'update task number', self.next
         else:
+            # Manual moving keys
             #print "check for key"
             #print self.keys["switch"]
             # check to see if we should move the target
@@ -402,7 +404,7 @@ class World(DirectObject):
         else:
             # timer starts out as interval for how long the subject has to start fixation,
             # once fixated, need to reset the timer so fixation is held right amount of time.
-            # So, keep the next period as 1, but set the interval to fixation interval
+            # So, keep the next period as 1 (square on), but set the interval to fixation interval
             #print 'restarting timer for holding fixation'
             #print('next is now', self.next)
             self.next = 1
