@@ -12,20 +12,24 @@ import os
 import datetime
 from time import time, sleep
 from math import sqrt, radians, cos, sin
+# don't always use fake_eye_data, but this just loads the function,
+# not the actual data, so no biggie.
+from fake_eye_data import yield_eye_data
 
-# crazy gymnastics to not load the fake data unless necessary
-# only load pydaq if it's available
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
-    #print 'loaded'
-except:
+    print 'pydaq loaded'
+    LOADED_PYDAQ = True
+except ImportError:
     print 'Not using PyDaq'
-
+    LOADED_PYDAQ = False
 
 class World(DirectObject):
 
     def __init__(self, mode=None, test=None):
+        # mode sets whether starts at manual or auto, default is manual, auto is 1
+        # test sets whether using fake eye data and test_config for config, set to 1 for testing
         #print 'unittest', unittest
         #print 'init'
         #print 'mode', mode
@@ -33,13 +37,12 @@ class World(DirectObject):
         if test == '1' or test == 1:
             # test (either unittest or testing on mac) so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and plot_eye_data are the same
-            # if want fake data on windows, change WIN_RES in config_test to an actual resolution to
+            # if using fake data on windows, also change WIN_RES in config_test to an actual resolution to
             # get second window
             self.gain = [1, 1]
             #print 'test'
             self.test = True
-            self.daq = False
-            import fake_eye_data
+            self.use_pydaq = False
             config_file = 'config_test.py'
         else:
             # the voltage from the eye tracker runs from about 5 to -5 volts,
@@ -47,7 +50,11 @@ class World(DirectObject):
             self.gain = [100, 100]
             #print 'no test'
             self.test = False
-            self.daq = True
+            # in case we are not testing, but didn't load pydaq
+            if not LOADED_PYDAQ:
+                self.use_pydaq = False
+            else:
+                self.use_pydaq = True
             config_file = 'config.py'
 
         # seems like we can adjust the offset completely in ISCAN
@@ -122,12 +129,12 @@ class World(DirectObject):
 
         # set up daq for eye and reward, if on windows and not testing
         # testing random mode depends on being able to control eye position
-        if self.daq and not self.test:
+        if self.use_pydaq and not self.test:
             # start pydaq stuff
             self.setup_pydaq()
         else:
-            #self.fake_data = fake_eye_data.yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
-            self.fake_data = fake_eye_data.yield_eye_data((0.0, 0.0))
+            #self.fake_data = yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
+            self.fake_data = yield_eye_data((0.0, 0.0))
             self.reward_task = None
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
@@ -156,8 +163,8 @@ class World(DirectObject):
 
         # The task object is a good place to put variables that should stay
         # persistent for the task function from frame to frame
-        # first interval will be the move interval (off to move/on - won't
-        # actually move)
+        # first interval will be the move interval (time from off to move/on)
+        #
         # if not testing, first square will turn on 1 minute after experiment started,
         #  or when the spacebar is pressed to start it early
         # hmmm, 40 seconds is the limit after which windows decides python isn't responding
@@ -182,7 +189,7 @@ class World(DirectObject):
             1: 'Square dims \n',
             2: 'Square off \n',
             3: 'Reward \n',
-            4: 'Square moved and on \n'
+            4: 'Square moved \n'
         }
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
@@ -198,6 +205,7 @@ class World(DirectObject):
         # no, then check if we are past the current interval
         #print task.move
         if not task.move:
+            # either not time to move, or moving automatically
             #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
@@ -266,6 +274,7 @@ class World(DirectObject):
                 task.interval = task.time + interval
                 #print 'update task number', self.next
         else:
+            # Manual moving keys
             #print "check for key"
             #print self.keys["switch"]
             # check to see if we should move the target
@@ -403,7 +412,7 @@ class World(DirectObject):
         else:
             # timer starts out as interval for how long the subject has to start fixation,
             # once fixated, need to reset the timer so fixation is held right amount of time.
-            # So, keep the next period as 1, but set the interval to fixation interval
+            # So, keep the next period as 1 (square on), but set the interval to fixation interval
             #print 'restarting timer for holding fixation'
             #print('next is now', self.next)
             self.next = 1
@@ -468,7 +477,7 @@ class World(DirectObject):
             #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
             #self.eyes += [eye]
             #self.text3.setText('IScan: ' + '[0, 0]')
-            if self.daq:
+            if self.use_pydaq:
                 self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
         # write eye data and timestamp to file
@@ -565,7 +574,7 @@ class World(DirectObject):
         # do not finish whatever loop you were in
         # not sure how to do this
         # close stuff
-        if self.daq:
+        if self.use_pydaq:
             # have to stop tasks before closing files
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
@@ -588,7 +597,7 @@ class World(DirectObject):
             self.set_text4()
         self.setup_positions(config)
         self.open_files(config)
-        if self.daq:
+        if self.use_pydaq:
             self.setup_pydaq()
 
     def clear_eyes(self):
@@ -931,7 +940,7 @@ class World(DirectObject):
 
     def close(self):
         #print 'close'
-        if self.daq:
+        if self.use_pydaq:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
         self.close_files()
