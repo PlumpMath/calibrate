@@ -25,6 +25,7 @@ except ImportError:
     print 'Not using PyDaq'
     LOADED_PYDAQ = False
 
+
 class World(DirectObject):
 
     def __init__(self, mode=None, test=None):
@@ -43,7 +44,7 @@ class World(DirectObject):
             #print 'test'
             self.test = True
             self.use_pydaq = False
-            config_file = 'config_test.py'
+            self.config_file = 'config_test.py'
         else:
             # the voltage from the eye tracker runs from about 5 to -5 volts,
             # so 100 should be sort of close...
@@ -55,7 +56,7 @@ class World(DirectObject):
                 self.use_pydaq = False
             else:
                 self.use_pydaq = True
-            config_file = 'config.py'
+            self.config_file = 'config.py'
 
         # seems like we can adjust the offset completely in ISCAN
         self.offset = [0, 0]
@@ -69,9 +70,10 @@ class World(DirectObject):
 
         # get configurations from config file
         config = {}
-        execfile(config_file, config)
+        execfile(self.config_file, config)
         print 'Subject is', config['SUBJECT']
         self.tolerance = config['TOLERANCE']
+        #print 'repeat ', config['POINT_REPEAT']
 
         # start Panda3d
         self.base = ShowBase()
@@ -165,14 +167,15 @@ class World(DirectObject):
         # persistent for the task function from frame to frame
         # first interval will be the move interval (time from off to move/on)
         #
-        # if not testing, first square will turn on 1 minute after experiment started,
-        #  or when the spacebar is pressed to start it early
-        # hmmm, 40 seconds is the limit after which windows decides python isn't responding
-        # what do I have to do inside the loop so it doesn't think this?
+        # if not testing, first square will wait until spacebar is hit to start
+        # if you wait too long, may go into lala land (although I hope this is
+        # fixed...).
         if self.test:
+            self.pause = False
             self.frameTask.interval = random.uniform(*self.all_intervals[3])
         else:
-            self.frameTask.interval = 40
+            self.pause = True
+
         #print 'first interval', self.frameTask.interval
 
         # Main work horse: index with self.next to choose appropriate method
@@ -203,13 +206,16 @@ class World(DirectObject):
         #task.last = task.time
         # are we waiting for a manual move?
         # no, then check if we are past the current interval
-        #print task.move
+        # print task.move
+        if self.pause:
+            #print('pause')
+            return task.cont
         if not task.move:
             # either not time to move, or moving automatically
             #print 'new loop', task.time
             #print 'frame', task.frame
             if task.time > task.interval:
-                #print 'actual time interval was over: ', task.interval
+                #print 'actual time interval was:', task.interval
                 # for auto-random task, we may be checking for fixation
                 # (this happens when square is on, but not yet faded)
                 #print 'fix?', self.check_fixation
@@ -221,6 +227,8 @@ class World(DirectObject):
                 # not manage to fixate in time allotted. If we are checking fixation,
                 # and fix_time has a time, then we made it, and need to wait
                 # fixation is checked as eye data is collected.
+                #print('check fixation', self.check_fixation)
+                #print('fix_time', self.fix_time)
                 if self.check_fixation and not self.fix_time:
                     #print 'no fixation, start over'
                     self.restart_timer(None)
@@ -242,7 +250,7 @@ class World(DirectObject):
                 #print 'just did task', self.next
                 #self.time_data_file.write('test' + '\n')
                 self.time_data_file.write(str(time()) + ', ' + task.file[self.next])
-                # if we are turning off the square, next is moving.
+                # if we just gave reward (3), next is moving.
                 # check to see if we are moving manually
                 # we will set self.next correctly for the next task
                 # when we do the manual move
@@ -382,8 +390,15 @@ class World(DirectObject):
             #print 'trying to get a auto position'
             try:
                 position = self.pos.next()
+                #print position
             except StopIteration:
-                self.close()
+                #print('stop iterating!')
+                # Switch to manual and wait
+                self.switch_task = True
+                self.pause = True
+                # need to set a position
+                position = Point3(0, 0, 0)
+                #self.close()
 
         self.square.setPos(Point3(position))
         #print 'square', position[0], position[2]
@@ -429,6 +444,7 @@ class World(DirectObject):
         # starts the experiment (otherwise start time is 2 minutes after
         # world is created)
         self.frameTask.interval = 0
+        self.pause = False
 
     def get_eye_data(self, eye_data):
         # We want to change gain on data being plotted,
@@ -564,12 +580,14 @@ class World(DirectObject):
 
     def change_tasks(self, override=None):
         #print(override)
+        #print('manual now', self.manual)
         if override is not None:
             self.manual = override
             #print('override, manual now', self.manual)
         else:
             # change from manual to auto-calibrate or vise-versa
             self.manual = not self.manual
+        #print('switched manual?', self.manual)
             #print('switch, manual now', self.manual)
         # do not finish whatever loop you were in
         # not sure how to do this
@@ -587,7 +605,7 @@ class World(DirectObject):
         #print 'task', self.manual
         # get configurations from config file
         config = {}
-        execfile('config.py', config)
+        execfile(self.config_file, config)
         # reset stuff
         self.switch_task = False
         self.frameTask.move = False
@@ -622,9 +640,9 @@ class World(DirectObject):
         eye_window = LineSegs()
         eye_window.setThickness(2.0)
         eye_window.setColor(1, 0, 0, 1)
-        angleRadians = radians(360)
+        angle_radians = radians(360)
         for i in range(50):
-            a = angleRadians * i /49
+            a = angle_radians * i /49
             y = tolerance * sin(a)
             x = tolerance * cos(a)
             eye_window.drawTo((x + square[0], 55, y + square[2]))

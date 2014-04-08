@@ -2,6 +2,8 @@ import random
 import datetime, threading, time
 
 next_call = time.time()
+
+
 # create some fake eye data
 def create_eye_data(size):
     eye_data = []
@@ -15,7 +17,7 @@ def create_eye_data(size):
     return eye_data
 
 
-def yield_eye_data(origin = [], variance = []):
+def yield_eye_data(origin=[], variance=[]):
     global next_call
     #(x, y) = (0, 0)
     # testing always sends in an origin and variance, so changing defaults will not affect tests
@@ -31,7 +33,7 @@ def yield_eye_data(origin = [], variance = []):
         x = random.uniform(x + variance, x - variance)
         y = random.uniform(y + variance, y - variance)
     # will continue sending data every x seconds until calling function quits
-    next_call = next_call + 0.1
-    threading.Timer( next_call - time.time(), yield_eye_data ).start()
+    next_call += 0.1
+    threading.Timer(next_call - time.time(), yield_eye_data).start()
 
 yield_eye_data()

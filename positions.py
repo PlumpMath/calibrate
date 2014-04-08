@@ -12,17 +12,18 @@ import numpy as np
 # normal panda window resolution (size)
 # 800 x 600
 
+
 class Positions:
-    def __init__(self, CONFIG=None):
-        if not CONFIG:
-            CONFIG = {}
-            execfile('config.py', CONFIG)
+    def __init__(self, config=None):
+        if not config:
+            config = {}
+            execfile('config.py', config)
         # normal panda3d coordinates
         #self.small_set = [(-10, -10), (0, -10), (10, -10), (-10, 0), (0, 0), (10, 0), (-10, 10), (0, 10), (10, 10), ]
         # pixels, top left is 0,0, bottom right is 1024, -768, for projector
-        self.res = CONFIG['WIN_RES']
-        self.screen = CONFIG['SCREEN']
-        self.v_dist = CONFIG['VIEW_DIST']
+        self.res = config['WIN_RES']
+        self.screen = config['SCREEN']
+        self.v_dist = config['VIEW_DIST']
         if not self.res or self.res == 'Test':
             #print 'test'
             # assume testing, small window
@@ -30,8 +31,8 @@ class Positions:
 
         # limits are in pixels so max degree * pixels per degree
         # determine max in pixels, visual_angle returns deg_per_pix
-        x = CONFIG['MAX_DEGREES_X'] / visual_angle(self.screen, self.res, self.v_dist)[0]
-        y = CONFIG['MAX_DEGREES_Y'] / visual_angle(self.screen, self.res, self.v_dist)[1]
+        x = config['MAX_DEGREES_X'] / visual_angle(self.screen, self.res, self.v_dist)[0]
+        y = config['MAX_DEGREES_Y'] / visual_angle(self.screen, self.res, self.v_dist)[1]
         #print x
         #print y
 
@@ -41,12 +42,13 @@ class Positions:
         self.small_set = [(i, j) for j in y_range for i in x_range]
         self.small_set.reverse()
 
-        x_range = np.linspace(x, -x, CONFIG['X_POINTS'])
-        y_range = np.linspace(y, -y, CONFIG['Y_POINTS'])
+        x_range = np.linspace(x, -x, config['X_POINTS'])
+        y_range = np.linspace(y, -y, config['Y_POINTS'])
         self.large_set = [(i, j) for i in x_range for j in y_range]
         #print self.large_set
 
-        self.repeat = CONFIG['POINT_REPEAT']
+        self.repeat = config['POINT_REPEAT']
+        #print('positions repeat', self.repeat)
 
     def get_key_position(self, depth, key=None):
         #print 'get key position', key
