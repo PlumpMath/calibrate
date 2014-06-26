@@ -153,6 +153,16 @@ class World(DirectObject):
         # initialize signal to switch tasks (manual - auto)
         self.switch_task = False
 
+        # if not testing, first square will wait until spacebar is hit to start
+        # if you wait too long, may go into lala land (although I hope this is
+        # fixed...).
+        if self.test:
+            self.pause = False
+            first_interval = random.uniform(*self.all_intervals[3])
+        else:
+            first_interval = 0
+            self.pause = True
+
         # set up daq for eye and reward, if on windows and not testing
         # testing random mode depends on being able to control eye position
         if self.use_pydaq and not self.test:
@@ -189,15 +199,7 @@ class World(DirectObject):
         #            next square on, if missed or broke fixation
         self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
                               config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
-        # if not testing, first square will wait until spacebar is hit to start
-        # if you wait too long, may go into lala land (although I hope this is
-        # fixed...).
-        if self.test:
-            self.pause = False
-            first_interval = random.uniform(*self.all_intervals[3])
-        else:
-            first_interval = 0
-            self.pause = True
+
         #Now we create the task. taskMgr is the task manager that actually calls
         #The function each frame. The add method creates a new task. The first
         #argument is the function to be called, and the second argument is the name
@@ -482,25 +484,32 @@ class World(DirectObject):
         self.pause = False
 
     def get_eye_data(self, eye_data):
-        # We want to change gain on data being plotted,
-        # but write to file the data as received from eye tracker.
-        # get last eye position
-        #print self.eye_data
-        last_eye = self.eye_data_to_pixel(self.eye_data[-1])
-        #print 'first eye', self.eye_data_to_pixel(self.eye_data[0])
-        #print 'last', last_eye
-        plot_eye_data = (self.eye_data_to_pixel(eye_data))
-        #print 'now', plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
-        self.eye_data.append((eye_data[0], eye_data[1]))
-        #print 'size eye data', len(self.eye_data)
-        #print eye_data
-        #for x in [-3.0, 0.0, 3.0]:
+        # write eye data (as is, no adjustments) and timestamp to file
         if self.first:
             #print 'first?', eye_data[0], eye_data[1]
             self.time_data_file.write(str(time()) + ', start collecting eye data\n')
             self.first = False
+        self.eye_data_file.write(str(time()) + ', ' +
+                                 str(eye_data[0]) + ', ' +
+                                 str(eye_data[1]) + '\n')
+        if not self.pause:
+            print 'not paused'
+            # convert to pixels for plotting, need the eye position
+            # from the last run for the starting position, and the
+            # current eye position for ending position
+            last_eye = self.eye_data_to_pixel(self.eye_data[-1])
+            plot_eye_data = self.eye_data_to_pixel(eye_data)
+            # save current data, so can erase plot later
+            self.eye_data.append((eye_data[0], eye_data[1]))
+            #print 'size eye data', len(self.eye_data)
+
+            # any reason we can't get rid of the the previous self.eye_data here,
+            # instead of when we clear the screen? Pop from the beginning?
+
+    def get_eye_data_orig(self, eye_data):
+
         if not unittest:
             #print 'last eye', last_eye
             #print 'show eye', plot_eye_data
