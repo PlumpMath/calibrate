@@ -867,12 +867,16 @@ class World(DirectObject):
         #window2.setClearColor((1, 0, 0, 1))
         #props.setCursorHidden(True)
         #props.setOrigin(0, 0)
-        # resolution of window for actual calibration
+        # resolution of window for actual calibration (subject's)
         resolution = config['WIN_RES']
+        # resolution of window with eye position information
         res_eye = config['EYE_RES']
         # if resolution given, set the appropriate resolution
         # otherwise assume want small windows
         if resolution is not None:
+            # origin of windows is going to depend on which one is considered the 'main' (1) window by the
+            # operating system
+            # main window is at (0,0), and other window is at (-x, 0)
             # resolution for main window
             self.set_resolution(resolution)
             # properties for second window
