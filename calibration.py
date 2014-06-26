@@ -2,7 +2,7 @@ from __future__ import division
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point2, Point3
-from panda3d.core import BitMask32, getModelPath
+from panda3d.core import BitMask32
 from panda3d.core import WindowProperties, TextNode
 from panda3d.core import OrthographicLens, LineSegs
 from positions import Positions, visual_angle
@@ -16,19 +16,32 @@ from math import sqrt, radians, cos, sin
 # not the actual data, so no biggie.
 from fake_eye_data import yield_eye_data
 
+LOADED_PYDAQ = True
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
     print 'pydaq loaded'
-    LOADED_PYDAQ = True
 except ImportError:
+    pydaq = None
     print 'Not using PyDaq'
     LOADED_PYDAQ = False
+
+
+def get_distance(p0, p1):
+    """
+    (tuple, tuple) -> float
+    Returns the distance between 2 points. p0 is a tuple with (x, y)
+    and p1 is a tuple with (x1, y1)
+    :rtype : tuple
+    """
+    dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
+    return dist
 
 
 class World(DirectObject):
 
     def __init__(self, mode=None, test=None):
+        DirectObject.__init__(self)
         # mode sets whether starts at manual or auto, default is manual, auto is 1
         # test sets whether using fake eye data and test_config for config, set to 1 for testing
         #print 'unittest', unittest
@@ -95,7 +108,13 @@ class World(DirectObject):
 
         #print 'window loaded'
         self.eyes = []
-
+        # When we first open the file, we will write a line for time started calibration
+        self.first = True
+        # open the files
+        self.eye_file_name = ''
+        self.time_file_name = ''
+        self.eye_data_file = None
+        self.time_data_file = None
         self.open_files(config)
 
         # starts out not fixated, so no fixation time, and not checking for fixation (will
@@ -115,6 +134,11 @@ class World(DirectObject):
         #print 'scale', config['SQUARE_SCALE']*17
 
         # set up square positions
+        # first initialize. Best practices says we initialize everything in itit
+        # I'm finding this awkward, since it means I end up repeating code. Haven't
+        # come up with a good solution for this yet. In this case, I'm not necessarily
+        # initializing to the correct object, but that is done in setup_positions
+        self.pos = Positions(config)
         self.setup_positions(config)
 
         # Eye Data
@@ -133,6 +157,7 @@ class World(DirectObject):
         # testing random mode depends on being able to control eye position
         if self.use_pydaq and not self.test:
             # start pydaq stuff
+            self.eye_task = pydaq.EOGTask()
             self.setup_pydaq()
         else:
             #self.fake_data = yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
@@ -143,7 +168,16 @@ class World(DirectObject):
         self.next = 0
 
         # Keyboard stuff:
+        self.keys = dict()
         self.setup_keys()
+
+        # initialize text
+        # text only happens on second window
+        # text2 not used anymore, but could be re-implemented,
+        # if one was interested in displaying the offset
+        self.text = None
+        self.text3 = None
+        self.text4 = None
 
         # Our intervals
         # on_interval - time from on to fade
@@ -155,6 +189,15 @@ class World(DirectObject):
         #            next square on, if missed or broke fixation
         self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
                               config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
+        # if not testing, first square will wait until spacebar is hit to start
+        # if you wait too long, may go into lala land (although I hope this is
+        # fixed...).
+        if self.test:
+            self.pause = False
+            first_interval = random.uniform(*self.all_intervals[3])
+        else:
+            first_interval = 0
+            self.pause = True
         #Now we create the task. taskMgr is the task manager that actually calls
         #The function each frame. The add method creates a new task. The first
         #argument is the function to be called, and the second argument is the name
@@ -167,15 +210,7 @@ class World(DirectObject):
         # persistent for the task function from frame to frame
         # first interval will be the move interval (time from off to move/on)
         #
-        # if not testing, first square will wait until spacebar is hit to start
-        # if you wait too long, may go into lala land (although I hope this is
-        # fixed...).
-        if self.test:
-            self.pause = False
-            self.frameTask.interval = random.uniform(*self.all_intervals[3])
-        else:
-            self.pause = True
-
+        self.frameTask.interval = first_interval
         #print 'first interval', self.frameTask.interval
 
         # Main work horse: index with self.next to choose appropriate method
@@ -329,11 +364,11 @@ class World(DirectObject):
         #print 'square on, 0'
         #print position
         self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) + ', '
-                              + str(position[2]) + '\n') \
+                                  + str(position[2]) + '\n')
         # make sure in correct color
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
-        self.square.reparentTo(render)
+        self.square.reparentTo(self.base.render)
         #min, max = self.square.getTightBounds()
         #size = max - min
         #print size[0], size[2]
@@ -389,7 +424,7 @@ class World(DirectObject):
         if not position:
             #print 'trying to get a auto position'
             try:
-                position = self.pos.next()
+                position = next(self.pos)
                 #print position
             except StopIteration:
                 #print('stop iterating!')
@@ -454,7 +489,7 @@ class World(DirectObject):
         last_eye = self.eye_data_to_pixel(self.eye_data[-1])
         #print 'first eye', self.eye_data_to_pixel(self.eye_data[0])
         #print 'last', last_eye
-        plot_eye_data = self.eye_data_to_pixel(eye_data)
+        plot_eye_data = (self.eye_data_to_pixel(eye_data))
         #print 'now', plot_eye_data
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
@@ -482,7 +517,7 @@ class World(DirectObject):
             #print 'now', plot_eye_data
             eye.moveTo(last_eye[0], 55, last_eye[1])
             eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
-            node = render.attachNewNode(eye.create())
+            node = self.base.render.attachNewNode(eye.create(True))
             node.show(BitMask32.bit(0))
             node.hide(BitMask32.bit(1))
             self.eyes.append(node)
@@ -511,7 +546,7 @@ class World(DirectObject):
             #print 'check fixation', self.check_fixation
             # if already fixated, make sure hasn't left
             #print 'tolerance', self.tolerance
-            distance = self.distance((plot_eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
+            distance = get_distance(plot_eye_data, (self.square.getPos()[0], self.square.getPos()[2]))
             #print 'distance', distance
             # self.fix_time is how long subject has been fixating
             #print 'fix_time', self.fix_time
@@ -642,7 +677,7 @@ class World(DirectObject):
         eye_window.setColor(1, 0, 0, 1)
         angle_radians = radians(360)
         for i in range(50):
-            a = angle_radians * i /49
+            a = angle_radians * i / 49
             y = tolerance * sin(a)
             x = tolerance * cos(a)
             eye_window.drawTo((x + square[0], 55, y + square[2]))
@@ -651,20 +686,11 @@ class World(DirectObject):
         #eye_window.moveTo(square[0], 55, square[2])
         #eye_window.drawTo(square[0], 55, square[2] + self.tolerance)
         #print 'distance drawn', self.distance((square[0], square[2]), (square[0], square[2] + self.tolerance))
-        node = render.attachNewNode(eye_window.create())
+        node = self.base.render.attachNewNode(eye_window.create(True))
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
         self.eye_window.append(node)
         #print 'eye window', self.eye_window
-
-    def distance(self, p0, p1):
-        """
-        (tuple, tuple) -> float
-        Returns the distance between 2 points. p0 is a tuple with (x, y)
-        and p1 is a tuple with (x1, y1)
-        """
-        dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
-        return dist
 
     # Setup Functions
 
@@ -672,32 +698,32 @@ class World(DirectObject):
         #print 'make text'
         self.text = TextNode('gain')
         self.text.setText('Gain: ' + str(self.gain))
-        #textNodePath = aspect2d.attachNewNode(self.text)
-        textNodePath = render.attachNewNode(self.text)
-        textNodePath.setScale(25)
-        #textNodePath.setScale(0.1)
-        #textNodePath.setPos(-300, 0, 200)
-        textNodePath.setPos(0, 0, 350)
-        textNodePath.show(BitMask32.bit(0))
-        textNodePath.hide(BitMask32.bit(1))
+        #text_node_path = aspect2d.attachNewNode(self.text)
+        text_node_path = self.base.render.attachNewNode(self.text)
+        text_node_path.setScale(25)
+        #text_node_path.setScale(0.1)
+        #text_node_path.setPos(-300, 0, 200)
+        text_node_path.setPos(0, 0, 350)
+        text_node_path.show(BitMask32.bit(0))
+        text_node_path.hide(BitMask32.bit(1))
 
         # not using offset for our purposes presently
         # if decide to use it again, need to move IScan text down
         # self.text2 = TextNode('offset')
         # self.text2.setText('Offset: ' + str(self.offset))
-        # text2NodePath = render.attachNewNode(self.text2)
-        # text2NodePath.setScale(30)
-        # text2NodePath.setPos(500, 0, 250)
-        # text2NodePath.show(BitMask32.bit(0))
-        # text2NodePath.hide(BitMask32.bit(1))
+        # text2_node_path = render.attachNewNode(self.text2)
+        # text2_node_path.setScale(30)
+        # text2_node_path.setPos(500, 0, 250)
+        # text2_node_path.show(BitMask32.bit(0))
+        # text2_node_path.hide(BitMask32.bit(1))
 
         self.text3 = TextNode('IScan')
         self.text3.setText('IScan: ' + '[0, 0]')
-        text3NodePath = render.attachNewNode(self.text3)
-        text3NodePath.setScale(25)
-        text3NodePath.setPos(0, 0, 310)
-        text3NodePath.show(BitMask32.bit(0))
-        text3NodePath.hide(BitMask32.bit(1))
+        text3_node_path = self.base.render.attachNewNode(self.text3)
+        text3_node_path.setScale(25)
+        text3_node_path.setPos(0, 0, 310)
+        text3_node_path.show(BitMask32.bit(0))
+        text3_node_path.hide(BitMask32.bit(1))
 
         self.set_text4()
 
@@ -710,11 +736,11 @@ class World(DirectObject):
             if not self.text4:
                 self.text4 = TextNode('tolerance')
                 self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-                text4NodePath = camera.attachNewNode(self.text4)
-                text4NodePath.setScale(25)
-                text4NodePath.setPos(0, 0, 270)
-                text4NodePath.show(BitMask32.bit(0))
-                text4NodePath.hide(BitMask32.bit(1))
+                text4_node_path = self.base.camera.attachNewNode(self.text4)
+                text4_node_path.setScale(25)
+                text4_node_path.setPos(0, 0, 270)
+                text4_node_path.show(BitMask32.bit(0))
+                text4_node_path.hide(BitMask32.bit(1))
             else:
                 # otherwise we are switching from manual, and need to re-set the text
                 self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
@@ -752,7 +778,6 @@ class World(DirectObject):
             self.pos = Positions(config).get_position(self.depth, True)
 
     def setup_pydaq(self):
-        self.eye_task = pydaq.EOGTask()
         self.eye_task.SetCallback(self.get_eye_data)
         self.eye_task.StartTask()
         self.reward_task = pydaq.GiveReward()
@@ -871,19 +896,19 @@ class World(DirectObject):
         # orthographic lens means 2d, then we can set size to resolution
         # so coordinate system is in pixels
         lens = OrthographicLens()
-        lens.setFilmSize(int(resolution[0]),int(resolution[1]))
+        lens.setFilmSize(int(resolution[0]), int(resolution[1]))
         #lens.setFilmSize(800, 600)
         # this allows us to layer, as long as we use between -100
         # and 100 for z. (eye position on top of squares)
-        lens.setNearFar(-100,100)
+        lens.setNearFar(-100, 100)
 
         camera = self.base.camList[0]
         camera.node().setLens(lens)
-        camera.reparentTo(render)
+        camera.reparentTo(self.base.render)
 
         camera2 = self.base.camList[1]
         camera2.node().setLens(lens)
-        camera2.reparentTo(render)
+        camera2.reparentTo(self.base.render)
 
         # set bit mask for eye positions
         camera.node().setCameraMask(BitMask32.bit(1))
@@ -931,6 +956,7 @@ class World(DirectObject):
         # open file for recording event times
         self.time_data_file = open(self.time_file_name, 'w')
         self.time_data_file.write('timestamp, task, for subject: ' + subject + '\n')
+
         # When we first open the file, we will write a line for time started calibration
         self.first = True
 
@@ -978,7 +1004,7 @@ if __name__ == "__main__":
         W = World(sys.argv[1])
     else:
         W = World(sys.argv[1], sys.argv[2])
-    run()
+    W.base.run()
 
 else:
     #print 'test'
