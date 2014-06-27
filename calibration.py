@@ -44,7 +44,6 @@ class World(DirectObject):
         DirectObject.__init__(self)
         # mode sets whether starts at manual or auto, default is manual, auto is 1
         # test sets whether using fake eye data and test_config for config, set to 1 for testing
-        #print 'unittest', unittest
         #print 'init'
         #print 'mode', mode
         #print 'test', test
@@ -55,20 +54,24 @@ class World(DirectObject):
             # get second window
             self.gain = [1, 1]
             #print 'test'
-            self.test = True
+            self.unittest = True
+            self.use_daq_data = False
+            self.use_reward_daq = False
             self.use_pydaq = False
             self.config_file = 'config_test.py'
         else:
             # the voltage from the eye tracker runs from about 5 to -5 volts,
             # so 100 should be sort of close...
             self.gain = [100, 100]
-            #print 'no test'
-            self.test = False
-            # in case we are not testing, but didn't load pydaq
+            self.unittest = False
+            self.use_pydaq = True
+            self.use_daq_data = False
+            #self.use_daq_data = True
+            self.use_daq_reward = True
+            # in case we are not unittesting, but didn't load pydaq
             if not LOADED_PYDAQ:
                 self.use_pydaq = False
-            else:
-                self.use_pydaq = True
+                self.use_daq_reward = False
             self.config_file = 'config.py'
 
         # seems like we can adjust the offset completely in ISCAN
@@ -91,6 +94,14 @@ class World(DirectObject):
         # start Panda3d
         self.base = ShowBase()
 
+        # initialize text before setting up second window.
+        # text will be overridden there.
+        # text only happens on second window
+        # text2 not used anymore, but could be re-implemented,
+        # if one was interested in displaying the offset
+        self.text = None
+        self.text3 = None
+        self.text4 = None
         #print base.pipe.getDisplayWidth()
         #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
@@ -99,6 +110,8 @@ class World(DirectObject):
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
             self.setup_window2(config)
+            # text only happens on second window
+            self.setup_text()
         else:
             # resolution in file equal to test, so use the projector screen
             # value for determining pixels size. In this case, accuracy is not
@@ -156,7 +169,7 @@ class World(DirectObject):
         # if not testing, first square will wait until spacebar is hit to start
         # if you wait too long, may go into lala land (although I hope this is
         # fixed...).
-        if self.test:
+        if self.unittest:
             self.pause = False
             first_interval = random.uniform(*self.all_intervals[3])
         else:
@@ -165,14 +178,18 @@ class World(DirectObject):
 
         # set up daq for eye and reward, if on windows and not testing
         # testing random mode depends on being able to control eye position
-        if self.use_pydaq and not self.test:
-            # start pydaq stuff
+
+        if self.use_daq_data:
             self.eye_task = pydaq.EOGTask()
-            self.setup_pydaq()
         else:
-            #self.fake_data = yield_eye_data((base.win.getXSize()/2, -base.win.getYSize()/2))
             self.fake_data = yield_eye_data((0.0, 0.0))
+        if not self.use_daq_reward:
             self.reward_task = None
+        if self.use_pydaq:
+            # start pydaq stuff
+            self.setup_pydaq()
+
+
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
         self.next = 0
@@ -180,14 +197,6 @@ class World(DirectObject):
         # Keyboard stuff:
         self.keys = dict()
         self.setup_keys()
-
-        # initialize text
-        # text only happens on second window
-        # text2 not used anymore, but could be re-implemented,
-        # if one was interested in displaying the offset
-        self.text = None
-        self.text3 = None
-        self.text4 = None
 
         # Our intervals
         # on_interval - time from on to fade
@@ -348,7 +357,7 @@ class World(DirectObject):
                 #print 'back to regularly scheduled program'
 
         # if using fake data, plot
-        if self.test:
+        if not self.use_daq_data:
             self.get_eye_data(self.fake_data.next())
 
         # check if we should switch from manual to auto or vise-versa
@@ -494,8 +503,12 @@ class World(DirectObject):
         self.eye_data_file.write(str(time()) + ', ' +
                                  str(eye_data[0]) + ', ' +
                                  str(eye_data[1]) + '\n')
+        # when searching for a particular eye data
+        # sometimes useful to not print timestamp
+        # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
+
         if not self.pause:
-            print 'not paused'
+            #print 'not paused'
             # convert to pixels for plotting, need the eye position
             # from the last run for the starting position, and the
             # current eye position for ending position
@@ -505,88 +518,70 @@ class World(DirectObject):
             self.eye_data.append((eye_data[0], eye_data[1]))
             #print 'size eye data', len(self.eye_data)
 
-            # any reason we can't get rid of the the previous self.eye_data here,
-            # instead of when we clear the screen? Pop from the beginning?
+            # unittesting is the only time there is no second screen, so
+            # impossible to do eye positions
+            if not self.unittest:
+                # any reason we can't get rid of the the previous self.eye_data here,
+                # instead of when we clear the screen? Pop from the beginning?
+                if self.remove_eyes:
+                    #print 'clear eyes'
+                    # get rid of any eye positions left on screen
+                    self.clear_eyes()
+                    self.remove_eyes = False
+                # plot new eye segment
+                eye = LineSegs()
+                #eye.setThickness(2.0)
+                eye.setThickness(2.0)
+                #print 'last', last_eye
+                #print 'now', plot_eye_data
+                eye.moveTo(last_eye[0], 55, last_eye[1])
+                eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
+                #print('plotted eye', plot_eye_data)
+                #min, max = eye.getTightBounds()
+                #size = max - min
+                #print size[0], size[2]
+                node = self.base.render.attachNewNode(eye.create(True))
+                node.show(BitMask32.bit(0))
+                node.hide(BitMask32.bit(1))
+                self.eyes.append(node)
+                if self.use_daq_data:
+                    self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+                                       ', ' + str(round(eye_data[1], 3)) + ']')
+                else:
+                    self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
+                                       ', ' + str(round(eye_data[1], 3)) + ']')
+            # check if in window for auto-calibrate - only update time if was none previously
+            if self.check_fixation:
+                #print 'check fixation', self.check_fixation
+                # if already fixated, make sure hasn't left
+                #print 'tolerance', self.tolerance
+                distance = get_distance(plot_eye_data, (self.square.getPos()[0], self.square.getPos()[2]))
+                #print 'distance', distance
+                # self.fix_time is how long subject has been fixating
+                #print 'fix_time', self.fix_time
+                # change tolerance to pixels, currently in degree of visual angle
+                tolerance = self.tolerance / self.deg_per_pixel
+                #print tolerance
 
-    def get_eye_data_orig(self, eye_data):
-
-        if not unittest:
-            #print 'last eye', last_eye
-            #print 'show eye', plot_eye_data
-            if self.remove_eyes:
-                #print 'clear eyes'
-                # get rid of any eye positions left on screen
-                self.clear_eyes()
-                self.remove_eyes = False
-
-            eye = LineSegs()
-            #eye.setThickness(2.0)
-            eye.setThickness(2.0)
-            #print 'last', last_eye
-            #print 'now', plot_eye_data
-            eye.moveTo(last_eye[0], 55, last_eye[1])
-            eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
-            node = self.base.render.attachNewNode(eye.create(True))
-            node.show(BitMask32.bit(0))
-            node.hide(BitMask32.bit(1))
-            self.eyes.append(node)
-            #print eye.getVertices()
-            #print 'eyes', self.eyes
-            #eye = self.smiley.copyTo(self.root)
-            #print eye_data[0], eye_data[1]
-            #eye.setPos(plot_eye_data[0], 55, plot_eye_data[1], )
-            #self.eyes += [eye]
-            #self.text3.setText('IScan: ' + '[0, 0]')
-            if self.use_pydaq:
-                self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                                   ', ' + str(round(eye_data[1], 3)) + ']')
-        # write eye data and timestamp to file
-        #print eye_data
-        self.eye_data_file.write(str(time()) + ', ' +
-                                 str(eye_data[0]) + ', ' +
-                                 str(eye_data[1]) + '\n')
-        # when searching for a particular eye data
-        # sometimes useful to not print timestamp
-        # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
-
-        #print eye_data
-        # check if in window for auto-calibrate - only update time if was none
-        if self.check_fixation:
-            #print 'check fixation', self.check_fixation
-            # if already fixated, make sure hasn't left
-            #print 'tolerance', self.tolerance
-            distance = get_distance(plot_eye_data, (self.square.getPos()[0], self.square.getPos()[2]))
-            #print 'distance', distance
-            # self.fix_time is how long subject has been fixating
-            #print 'fix_time', self.fix_time
-            # change tolerance to pixels, currently in degree of visual angle
-            tolerance = self.tolerance / self.deg_per_pixel
-            #print tolerance
-
-            if self.fix_time:
-                #print 'already fixated'
-                # if already fixated, make sure doesn't break fixation
-                if distance > tolerance:
-                    # abort trial, start again with square in same position
-                    #print 'abort'
-                    self.restart_timer(None)
-            else:
-                #print 'waiting for fixation'
-                if distance < tolerance:
-                    #print 'and fixated!'
-                    #print 'square', self.square.getPos()[0], self.square.getPos()[2]
-                    #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
-                    #print 'tolerance', self.tolerance
-                    #print eye_data
-                    # restart timer, started fixating now
-                    self.restart_timer(self.frameTask.time)
-                    #print 'time fixated', self.fix_time
-                    #print 'self.next', self.next
-
-        #print eye.getPos()
-        #min, max = eye.getTightBounds()
-        #size = max - min
-        #print size[0], size[2]
+                if self.fix_time:
+                    #print 'already fixated'
+                    # if already fixated, make sure doesn't break fixation
+                    if distance > tolerance:
+                        # abort trial, start again with square in same position
+                        #print 'abort'
+                        self.restart_timer(None)
+                else:
+                    #print 'waiting for fixation'
+                    if distance < tolerance:
+                        #print 'and fixated!'
+                        #print 'square', self.square.getPos()[0], self.square.getPos()[2]
+                        #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
+                        #print 'tolerance', self.tolerance
+                        #print eye_data
+                        # restart timer, started fixating now
+                        self.restart_timer(self.frameTask.time)
+                        #print 'time fixated', self.fix_time
+                        #print 'self.next', self.next
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -636,7 +631,7 @@ class World(DirectObject):
         # do not finish whatever loop you were in
         # not sure how to do this
         # close stuff
-        if self.use_pydaq:
+        if self.use_daq_data:
             # have to stop tasks before closing files
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
@@ -654,7 +649,7 @@ class World(DirectObject):
         self.switch_task = False
         self.frameTask.move = False
         self.next = 0
-        if not unittest:
+        if not self.unittest:
             # text4 is the only thing that changes
             self.set_text4()
         self.setup_positions(config)
@@ -673,7 +668,7 @@ class World(DirectObject):
         last_eye = self.eye_data[-1]
         self.eye_data = []
         self.eye_data.append(last_eye)
-        #print 'eye data clear, should be just one position', self.eye_data
+        print 'eye data clear, should be just one position', self.eye_data
 
     def show_window(self, square):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -787,9 +782,13 @@ class World(DirectObject):
             self.pos = Positions(config).get_position(self.depth, True)
 
     def setup_pydaq(self):
-        self.eye_task.SetCallback(self.get_eye_data)
-        self.eye_task.StartTask()
-        self.reward_task = pydaq.GiveReward()
+        print 'setup pydaq'
+        if self.use_daq_data:
+            self.eye_task.SetCallback(self.get_eye_data)
+            self.eye_task.StartTask()
+        if self.use_daq_reward:
+            print 'setup reward'
+            self.reward_task = pydaq.GiveReward()
 
     # Key Functions
     #As described earlier, this simply sets a key in the self.keys dictionary to
@@ -927,14 +926,6 @@ class World(DirectObject):
         camera.node().setCameraMask(BitMask32.bit(1))
         camera2.node().setCameraMask(BitMask32.bit(0))
 
-        # text only happens on second window
-        # initialize text
-        self.text = None
-        self.text3 = None
-        self.text4 = None
-        # and configure it
-        self.setup_text()
-
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
         wp = WindowProperties()
@@ -997,18 +988,17 @@ class World(DirectObject):
 
     def close(self):
         #print 'close'
-        if self.use_pydaq:
+        if self.use_daq_data:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
         self.close_files()
-        if unittest:
+        if self.unittest:
             self.ignoreAll()  # ignore everything, so nothing weird happens after deleting it.
         else:
             sys.exit()
 
 if __name__ == "__main__":
     #print 'run as module'
-    unittest = False
     #print 'main'
     # default is manual
     if len(sys.argv) == 1:
@@ -1018,10 +1008,3 @@ if __name__ == "__main__":
     else:
         W = World(sys.argv[1], sys.argv[2])
     W.base.run()
-
-else:
-    #print 'test'
-    # some things we truly only want to do while unit testing
-    unittest = True
-    # file was imported
-    # only happens during testing...
