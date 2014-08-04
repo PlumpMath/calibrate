@@ -1,10 +1,11 @@
 import unittest
+# from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
+# from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import fake_eye_data
 import datetime
-import sys
 
 # This test suite is for calibration when in auto (random) mode, and
 # not testing stuff that is exactly the same as manual move (iow, before
@@ -23,6 +24,8 @@ class TestCalibration(unittest.TestCase):
 #            3: self.square_move}
     # Want to make sure starting in manual and switching to auto works as well
     # as just starting in auto.
+    class_switch = False
+    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
@@ -30,7 +33,7 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
         # 2 is random mode
-        if class_switch:
+        if cls.class_switch:
             print 'class has been run for starting in auto, try starting in manual and switching'
             cls.w = World(1, 1)
             # run through a full loop
@@ -83,7 +86,6 @@ class TestCalibration(unittest.TestCase):
         # get to square on and fixate
         square_off = True
         move = False
-        square_pos = 0
         # need to show the square, and then get to the move square method
         while square_off:
             taskMgr.step()
@@ -558,24 +560,15 @@ class TestCalibration(unittest.TestCase):
         print 'tore down'
         #ConfigVariableString("window-type","onscreen").setValue("onscreen")
 
+
+def suite():
+    """Returns a suite with one instance of TestCalibration for each
+    method starting with the word test."""
+    return unittest.makeSuite(TestCalibration, 'test')
+
 if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCalibration)
-    class_switch = False
-    if len(sys.argv) == 2:
-        print 'yup'
-        if sys.argv[1] == 'True':
-            print 'true'
-            class_switch = True
-            print 'go'
-        elif sys.argv[1] == 'Mac':
-            class_switch = True
-            # run twice to cover both conditions
-            unittest.TextTestRunner().run(suite)
-        print 'test'
-        unittest.TextTestRunner().run(suite)
-    else:
-        # when you just want to the suite from the command line
-        # without a sys.argv, in this case, if you want class_switch
-        # to be True, must uncomment. gives you more verbosity
-        #class_switch = True
-        unittest.main(verbosity=2)
+    # run twice to cover both conditions
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    # when you just want to run one test...
+    #unittest.main(verbosity=2)

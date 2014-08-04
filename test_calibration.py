@@ -1,10 +1,11 @@
 import unittest
+from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
+from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 from time import time
 import types
-import sys
 
 # Tests run fine one at a time, but on Windows, isn't destroying
 # the ShowBase instance between suites, for some crazy reason. Meh.
@@ -22,11 +23,12 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
+    class_switch = False
+    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
-        print 'setup class'
-        if class_switch:
+        if cls.class_switch:
             print 'class has been run for manual, switch to random'
             cls.manual = 2
         else:
@@ -36,9 +38,15 @@ class TestCalibration(unittest.TestCase):
         #print 'about to load world'
         #print 'boo', cls.manual
         cls.w = World(cls.manual, 1)
+        # remember it was setup already
+        cls.class_switch = True
 
     def setUp(self):
         print 'setup'
+        #if not self.class_switch:
+        #    print "initialize"
+        #    self.setupClass()
+
         self.config = {}
         execfile('config_test.py', self.config)
         self.w.open_files(self.config)
@@ -101,14 +109,13 @@ class TestCalibration(unittest.TestCase):
         #print('manual is', self.w.manual)
         last = self.w.next
         no_change = True
-        test = 0
         while no_change:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next != last:
                 #print 'we did something'
-                test = time()
                 no_change = False
+                test = time()
 
         eye_data = self.w.eye_data[:10]
         #print self.w.eye_data[:10]
@@ -134,16 +141,7 @@ class TestCalibration(unittest.TestCase):
         # 10 seconds in the file, and that is good enough, we
         # know there is a time stamp, and it is unlikely that
         # one of the eye positions had these exact numbers
-        # Ack, so the time stamp we get is sometimes off by a fraction
-        # of a second from the one that is in the file, which means
-        # that anytime the test time stamp is right at the cusp of a
-        # change in the tens place, at say, 1403723090.4, and the original
-        # stamp is 1403723089.42, we won't get a match if looking at the
-        # tens place. We have enough digits, let's match to the 100s, which
-        # still has the same problem, but is a much rarer problem.
-        #
-        #print test
-        time_check = int(test - (test % 100)) / 100
+        time_check = int(test - (test % 10)) / 10
         self.assertIn(str(time_check), f.readline())
         f.close()
 
@@ -242,24 +240,16 @@ class TestCalibration(unittest.TestCase):
         del cls.w
         print 'tore down'
 
+
+def suite():
+    """Returns a suite with one instance of TestCalibration for each
+    method starting with the word test."""
+    return unittest.makeSuite(TestCalibration, 'test')
+
 if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCalibration)
-    class_switch = False
-    if len(sys.argv) == 2:
-        print 'yup'
-        if sys.argv[1] == 'True':
-            print 'true'
-            class_switch = True
-            print 'go'
-        elif sys.argv[1] == 'Mac':
-            class_switch = True
-            # run twice to cover both conditions
-            unittest.TextTestRunner().run(suite)
-        print 'test'
-        unittest.TextTestRunner().run(suite)
-    else:
-        # when you just want to the suite from the command line
-        # without a sys.argv, in this case, if you want class_switch
-        # to be True, must uncomment. gives you more verbosity
-        #class_switch = True
-        unittest.main(verbosity=2)
+    #print 'run suite'
+    # run twice to cover both conditions
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    unittest.TextTestRunner(verbosity=2).run(suite())
+    # when you just want to run one test...
+    #unittest.main(verbosity=2)
