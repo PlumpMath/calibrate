@@ -162,7 +162,6 @@ class TestCalibration(unittest.TestCase):
         #print self.w.time_file_name
         f = open(self.w.time_file_name, 'r')
         self.assertIn('timestamp', f.readline())
-        self.assertIn('start collecting', f.readline())
         test = f.readline()
         # it is possible reward is the next line, since we don't always start
         # from the beginning. If on random, won't fixate

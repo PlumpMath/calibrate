@@ -20,11 +20,10 @@ def create_eye_data(size):
 def yield_eye_data(origin=[], variance=[]):
     global next_call
     #(x, y) = (0, 0)
-    # testing always sends in an origin and variance, so changing defaults will not affect tests
     if origin:
         (x, y) = origin
     if not variance:
-        variance = 2
+        variance = 0.05
     while True:
         #print 'x', x
         #print 'y', y
