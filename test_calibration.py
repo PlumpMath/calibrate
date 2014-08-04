@@ -1,16 +1,23 @@
 import unittest
-from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
-from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 from time import time
 import types
+import sys
 
 # Tests run fine one at a time, but on Windows, isn't destroying
 # the ShowBase instance between suites, for some crazy reason. Meh.
 # So, to run in Windows, have to comment out one suite, run once,
 # change class_switch to True, run again. Switch everything back.
+
+
+def is_int_string(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
 
 
 class TestCalibration(unittest.TestCase):
@@ -23,30 +30,22 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
-    class_switch = False
-    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
-        if cls.class_switch:
-            print 'class has been run for manual, switch to random'
+        if manual:
+            print 'running tests using manual'
             cls.manual = 2
         else:
-            print 'first time through, run for manual'
+            print 'running tests using random'
             cls.manual = 1
         loadPrcFileData("", "window-type offscreen")
         #print 'about to load world'
         #print 'boo', cls.manual
         cls.w = World(cls.manual, 1)
-        # remember it was setup already
-        cls.class_switch = True
 
     def setUp(self):
-        print 'setup'
-        #if not self.class_switch:
-        #    print "initialize"
-        #    self.setupClass()
-
+        #print 'setup'
         self.config = {}
         execfile('config_test.py', self.config)
         self.w.open_files(self.config)
@@ -109,6 +108,7 @@ class TestCalibration(unittest.TestCase):
         #print('manual is', self.w.manual)
         last = self.w.next
         no_change = True
+        test = 0
         while no_change:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
@@ -124,7 +124,6 @@ class TestCalibration(unittest.TestCase):
         #print(self.w.eye_file_name)
         # since we are using fake data, know that first point is (0,0)
         f = open(self.w.eye_file_name, 'r')
-        #print(f.readline())
         self.assertIn('timestamp', f.readline())
         #print('what is actually in file after timestamp line')
         my_line = f.readline()
@@ -138,10 +137,10 @@ class TestCalibration(unittest.TestCase):
         # time is a floating point in seconds, so if we just
         # check to see if the digits from the 10s place on up
         # are there, we know we have a time stamp from the last
-        # 10 seconds in the file, and that is good enough, we
+        # 100 seconds in the file, and that is good enough, we
         # know there is a time stamp, and it is unlikely that
         # one of the eye positions had these exact numbers
-        time_check = int(test - (test % 10)) / 10
+        time_check = int(test - (test % 100)) / 100
         self.assertIn(str(time_check), f.readline())
         f.close()
 
@@ -233,13 +232,6 @@ class TestCalibration(unittest.TestCase):
         self.w.clear_eyes()
         self.w.close_files()
 
-    @classmethod
-    def tearDownClass(cls):
-        taskMgr.remove(cls.w.frameTask)
-        cls.w.close()
-        del cls.w
-        print 'tore down'
-
 
 def suite():
     """Returns a suite with one instance of TestCalibration for each
@@ -249,7 +241,12 @@ def suite():
 if __name__ == "__main__":
     #print 'run suite'
     # run twice to cover both conditions
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    # when you just want to run one test...
-    #unittest.main(verbosity=2)
+    if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
+        manual = False
+        if int(sys.argv[1]) == 0:
+            manual = True
+        result = unittest.TextTestRunner(verbosity=2).run(suite())
+        if not result.wasSuccessful():
+            sys.exit(1)
+    else:
+        unittest.main(verbosity=2)

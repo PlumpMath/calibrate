@@ -1,15 +1,22 @@
 import unittest
-from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
-from panda3d.core import VBase4, Point3
+from panda3d.core import Point3
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
-from StringIO import StringIO
 import sys
 import datetime
 
 # Tests run fine one at a time, but isn't destroying the ShowBase
-# instance between tests, for some crazy reason. It use to! Meh.
+# instance between tests. Panda3d peeps are working on this.
+
+
+def is_int_string(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
 
 class TestCalibration(unittest.TestCase):
 # task.time is not very accurate when running off-screen
@@ -17,19 +24,18 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
-    # Want to make sure starting in auto and switching to manual works as well
-    # as just starting in auto. Probably won't really use this functionality, but
-    # easy to test, and it is available...
-    class_switch = False
-    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
         loadPrcFileData("", "window-type offscreen")
         # all these tests are for manual
         # manual move is mode 1
-        if cls.class_switch:
-            print 'class has been run for starting in manual, try starting in auto and switching'
+        if manual:
+            print 'running tests in manual mode'
+            cls.w = World(1, 1)
+            cls.class_switch = True
+        else:
+            print 'start in auto mode, switch to manual'
             cls.w = World(2, 1)
             # run through a full loop
             square_off = True
@@ -44,10 +50,6 @@ class TestCalibration(unittest.TestCase):
                 else:
                     last = cls.w.next
             cls.w.switch_task = True
-        else:
-            print 'first time through, run in manual'
-            cls.w = World(1, 1)
-            cls.class_switch = True
         #print 'loaded world'
 
     def setUp(self):
@@ -76,10 +78,10 @@ class TestCalibration(unittest.TestCase):
         self.w.keys["switch"] = 7
         no_start = True
         while no_start:
-             taskMgr.step()
-             #print self.w.next
-             if self.w.next == 1:
-                 no_start = False
+            taskMgr.step()
+            #print self.w.next
+            if self.w.next == 1:
+                no_start = False
         # now wait for it to change twice, once for fade, once for reward.
         wait_change_twice = True
         count = 2
@@ -197,6 +199,7 @@ class TestCalibration(unittest.TestCase):
         # First get to on
         square_off = True
         #print 'time on to fade'
+        a = 0
         while square_off:
         #while time.time() < time_out:
             taskMgr.step()
@@ -207,6 +210,7 @@ class TestCalibration(unittest.TestCase):
                 square_off = False
         # now wait for fade:
         square_on = True
+        b = 0
         while square_on:
         #while time.time() < time_out:
             taskMgr.step()
@@ -229,8 +233,6 @@ class TestCalibration(unittest.TestCase):
         # We turn on at the same time we move, so check the
         # interval between turning on and fading, which will
         # be when self.w.next switches to 2.
-        old_position = self.w.square.getPos()
-        #print old_position
         signal = False
         while not signal:
             taskMgr.step()
@@ -239,7 +241,8 @@ class TestCalibration(unittest.TestCase):
         # and move
         self.w.keys["switch"] = 3
         #print 'check time'
-
+        b = 0
+        a = 0
         # we have set move,
         # we wait until it comes back on
         square_off = True
@@ -331,6 +334,8 @@ class TestCalibration(unittest.TestCase):
         # this is when not pressing a key
         print 'timing off to on'
         square_on = True
+        a = 0
+        b = 0
         while square_on:
             taskMgr.step()
             if self.w.next == 3:
@@ -364,6 +369,8 @@ class TestCalibration(unittest.TestCase):
         # until time square is on is the same as reward to square on, a bit redundant now, really
         no_reward = True
         self.w.keys["switch"] = 7
+        a = 0
+        b = 0
         while no_reward:
             #while time.time() < time_out:
             taskMgr.step()
@@ -400,6 +407,8 @@ class TestCalibration(unittest.TestCase):
         # be when self.w.next switches to 1.
         #old_position = self.w.square.getPos()
         #print old_position
+        a = 0
+        b = 0
         signal = False
         while not signal:
             taskMgr.step()
@@ -425,14 +434,6 @@ class TestCalibration(unittest.TestCase):
         # make sure timing within 2 places
         self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
 
-    @classmethod
-    def tearDownClass(cls):
-        taskMgr.remove(cls.w.frameTask)
-        cls.w.close()
-        del cls.w
-        print 'tore down'
-        #ConfigVariableString("window-type","onscreen").setValue("onscreen")
-
 
 def suite():
     """Returns a suite with one instance of TestCalibration for each
@@ -440,8 +441,12 @@ def suite():
     return unittest.makeSuite(TestCalibration, 'test')
 
 if __name__ == "__main__":
-    # run twice to cover both conditions
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    # when you just want to run one test...
-    #unittest.main(verbosity=2)
+    if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
+        manual = False
+        if int(sys.argv[1]) == 0:
+            manual = True
+        result = unittest.TextTestRunner(verbosity=2).run(suite())
+        if not result.wasSuccessful():
+            sys.exit(1)
+    else:
+        unittest.main(verbosity=2)

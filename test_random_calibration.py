@@ -1,15 +1,22 @@
 import unittest
-# from panda3d.core import ConfigVariableString
 from panda3d.core import loadPrcFileData
-# from panda3d.core import VBase4
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 import fake_eye_data
 import datetime
+import sys
 
 # This test suite is for calibration when in auto (random) mode, and
 # not testing stuff that is exactly the same as manual move (iow, before
 # mode even kicks in.
+
+
+def is_int_string(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
 
 
 class TestCalibration(unittest.TestCase):
@@ -22,10 +29,6 @@ class TestCalibration(unittest.TestCase):
 #            1: self.square_fade,
 #            2: self.square_off,
 #            3: self.square_move}
-    # Want to make sure starting in manual and switching to auto works as well
-    # as just starting in auto.
-    class_switch = False
-    #class_switch = True
 
     @classmethod
     def setUpClass(cls):
@@ -33,8 +36,12 @@ class TestCalibration(unittest.TestCase):
         #ConfigVariableString("window-type","offscreen").setValue("offscreen")
         #print 'about to load world'
         # 2 is random mode
-        if cls.class_switch:
-            print 'class has been run for starting in auto, try starting in manual and switching'
+        if not manual:
+            print 'run in auto mode'
+            cls.w = World(2, 1)
+            cls.class_switch = True
+        else:
+            print 'start in manual and switch to auto'
             cls.w = World(1, 1)
             # run through a full loop
             square_off = True
@@ -49,12 +56,6 @@ class TestCalibration(unittest.TestCase):
                 else:
                     last = cls.w.next
             cls.w.switch_task = True
-        else:
-            print 'first time through, run in auto'
-            cls.w = World(2, 1)
-            cls.class_switch = True
-
-        #print 'loaded world'
 
     def setUp(self):
         self.config = {}
@@ -86,6 +87,7 @@ class TestCalibration(unittest.TestCase):
         # get to square on and fixate
         square_off = True
         move = False
+        square_pos = 0
         # need to show the square, and then get to the move square method
         while square_off:
             taskMgr.step()
@@ -125,9 +127,6 @@ class TestCalibration(unittest.TestCase):
     def test_square_turns_off_after_missed_fixation(self):
        # First get to square on
         square_off = True
-        # find out where the square is...
-        square_pos = self.w.square.getPos()
-        #print 'not looking at ', square_pos
         # make sure looking at right place (not fixation)
         self.move_eye_to_get_reward('not')
         while square_off:
@@ -230,6 +229,7 @@ class TestCalibration(unittest.TestCase):
         # once subject fixates, on for fix_interval
         # First get to on
         square_off = True
+        a = 0
         while square_off:
         #while time.time() < time_out:
             taskMgr.step()
@@ -267,6 +267,7 @@ class TestCalibration(unittest.TestCase):
         # make sure looking at right (wrong) place
         self.move_eye_to_get_reward('not')
         square_off = True
+        a = 0
         while square_off:
         #while time.time() < time_out:
             taskMgr.step()
@@ -334,6 +335,7 @@ class TestCalibration(unittest.TestCase):
         # First get to on, move eye to get reward, then go to off
         square_on = True
         fade = False
+        a = 0
         while square_on:
             #while time.time() < time_out:
             taskMgr.step()
@@ -412,6 +414,8 @@ class TestCalibration(unittest.TestCase):
             loop = 1
         square_on = True
         #print('first loop', loop)
+        a = 0
+        b = 0
         while square_on:
             taskMgr.step()
             if self.w.next != last:
@@ -504,9 +508,9 @@ class TestCalibration(unittest.TestCase):
                 no_change = False
         # next step should not be reward or square dims, should be
         # square turns on (without moving)
-        self.assertNotEqual(self.w.next,2)
-        self.assertNotEqual(self.w.next,3)
-        self.assertEqual(self.w.next,0)
+        self.assertNotEqual(self.w.next, 2)
+        self.assertNotEqual(self.w.next, 3)
+        self.assertEqual(self.w.next, 0)
 
     def test_no_reward_if_look_but_break_fixation(self):
         # First get to square on
@@ -529,11 +533,11 @@ class TestCalibration(unittest.TestCase):
                 no_change = False
         # next step should not be reward or square dims, should be
         # square turns on (without moving)
-        self.assertNotEqual(self.w.next,2)
-        self.assertNotEqual(self.w.next,3)
-        self.assertEqual(self.w.next,0)
+        self.assertNotEqual(self.w.next, 2)
+        self.assertNotEqual(self.w.next, 3)
+        self.assertEqual(self.w.next, 0)
 
-    def move_eye_to_get_reward(self, no_reward=[]):
+    def move_eye_to_get_reward(self, no_reward=None):
         # find out where the square is...
         square_pos = self.w.square.getPos()
         #print square_pos
@@ -552,14 +556,6 @@ class TestCalibration(unittest.TestCase):
         #print 'variance', variance
         self.w.fake_data = fake_eye_data.yield_eye_data(eye_data, variance)
 
-    @classmethod
-    def tearDownClass(cls):
-        taskMgr.remove(cls.w.frameTask)
-        cls.w.close()
-        del cls.w
-        print 'tore down'
-        #ConfigVariableString("window-type","onscreen").setValue("onscreen")
-
 
 def suite():
     """Returns a suite with one instance of TestCalibration for each
@@ -568,7 +564,12 @@ def suite():
 
 if __name__ == "__main__":
     # run twice to cover both conditions
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    unittest.TextTestRunner(verbosity=2).run(suite())
-    # when you just want to run one test...
-    #unittest.main(verbosity=2)
+    if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
+        manual = False
+        if int(sys.argv[1]) == 0:
+            manual = True
+        result = unittest.TextTestRunner(verbosity=2).run(suite())
+        if not result.wasSuccessful():
+            sys.exit(1)
+    else:
+        unittest.main(verbosity=2)
