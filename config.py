@@ -1,5 +1,6 @@
 #SUBJECT = 'test'
-SUBJECT = 'JN'
+SUBJECT = 'Maria'
+#SUBJECT = 'JN'
 
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,

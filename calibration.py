@@ -41,9 +41,11 @@ def get_distance(p0, p1):
 class World(DirectObject):
 
     def __init__(self, mode=None, test=None):
+        print mode
         DirectObject.__init__(self)
-        # mode sets whether starts at manual or auto, default is manual, auto is 1
-        # test sets whether using fake eye data and test_config for config, set to 1 for testing
+        # mode sets whether starts at manual or auto, default is manual, auto is 0
+        # test sets whether using fake eye data and test_config for config,
+        # set to 1 for testing/using fake eye data
         #print 'init'
         #print 'mode', mode
         #print 'test', test
@@ -179,17 +181,15 @@ class World(DirectObject):
 
         # set up daq for eye and reward, if on windows and not testing
         # testing random mode depends on being able to control eye position
-
+        self.eye_task = None
+        self.reward_task = None
         if self.use_daq_data:
-            self.eye_task = pydaq.EOGTask()
+            self.fake_data = None
         else:
             self.fake_data = yield_eye_data((0.0, 0.0))
-        if not self.use_daq_reward:
-            self.reward_task = None
         if self.use_pydaq:
             # start pydaq stuff
             self.setup_pydaq()
-
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
         self.next = 0
@@ -636,6 +636,7 @@ class World(DirectObject):
         # not sure how to do this
         # close stuff
         if self.use_daq_data:
+            #print 'stopping daq tasks'
             # have to stop tasks before closing files
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
@@ -799,6 +800,7 @@ class World(DirectObject):
     def setup_pydaq(self):
         print 'setup pydaq'
         if self.use_daq_data:
+            self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
         if self.use_daq_reward:

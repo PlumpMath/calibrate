@@ -1,5 +1,5 @@
 from __future__ import division
-from panda3d.core import Point2, Point3
+from panda3d.core import Point2
 import random
 import numpy as np
 # generate positions
@@ -94,9 +94,10 @@ class Positions:
                 x = [pixels[0], -pixels[0], 0, 0]
                 y = [0, 0, pixels[1], -pixels[1]]
                 for i in range(4):
-                    pos = Point2(x[i],y[i])
+                    pos = Point2(x[i], y[i])
                     yield (pos.getX(), depth, pos.getY())
             degree += 5
+
 
 def visual_angle(screen, res, v_dist):
     #print self.res

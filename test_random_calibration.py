@@ -480,7 +480,7 @@ class TestCalibration(unittest.TestCase):
                 else:
                     count += 1
         # if next step is reward, then we got a reward...
-        self.assertEqual(self.w.next,3)
+        self.assertEqual(self.w.next, 3)
 
     def test_no_reward_if_not_looking(self):
         # First get ready for square on.

@@ -1,8 +1,8 @@
 from __future__ import division
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
-from panda3d.core import Point2, Point3, NodePath, LineSegs
-from panda3d.core import OrthographicLens, Camera
+from panda3d.core import Point3, NodePath, LineSegs
+from panda3d.core import OrthographicLens
 from positions import Positions
 from panda3d.core import WindowProperties
 from positions import visual_angle
@@ -12,7 +12,9 @@ import sys
 
 class World(DirectObject):
     def __init__(self):
-
+        # Program just to demonstrate where we are putting the positions for calibration
+        # Unlike the actual calibration routine, can see all of the squares at once
+        DirectObject.__init__(self)
         #ShowBase.__init__(self)
         self.base = ShowBase()
         #print self.base.win.getRejectedProperties()
@@ -23,7 +25,7 @@ class World(DirectObject):
             #print 'test'
             # assume testing, small window
             resolution = (800, 600)
-        #print resolution
+        print resolution
         wp = WindowProperties()
         wp.setSize(int(resolution[0]), int(resolution[1]))
         wp.setOrigin(0, 0)
@@ -38,11 +40,11 @@ class World(DirectObject):
         lens = OrthographicLens()
         #print 'xwin', self.base.win.getProperties().getXSize()
 
-        lens.setFilmSize(int(resolution[0]),int(resolution[1]))
-        lens.setNearFar(-100,100)
+        lens.setFilmSize(int(resolution[0]), int(resolution[1]))
+        lens.setNearFar(-100, 100)
         camera.node().setLens(lens)
         # reparent it to pixel2d, so renders in pixel coordinates
-        camera.reparentTo(render)
+        camera.reparentTo(self.base.render)
         #print 'xwin2', self.base.win.getXSize()
         #print self.base.win.getYSize()
         #print camera.ls()
@@ -56,9 +58,6 @@ class World(DirectObject):
         self.pos = []
         #self.root = self.base.render.attachNewNode("Root")
         self.make_circle()
-
-
-        #circle.reparentTo(render)
 
     def next(self):
         #print 'xwin', self.base.win.getProperties().getXSize()
@@ -76,8 +75,9 @@ class World(DirectObject):
         #print square.getColor()
 
     def all(self):
+        pos = None
         if self.mode == 0:
-            circle_node = self.make_circle()
+            self.make_circle()
             pos = Positions(self.config).get_position(self.depth)
             self.mode = 1
         b = 0
@@ -92,15 +92,16 @@ class World(DirectObject):
             square.setPos(Point3(j))
             #print square.getPos()
             #print square.getTightBounds()
-            min, max = square.getTightBounds()
-            size = max - min
+            #sq_min, sq_max = square.getTightBounds()
+            #size = sq_max - sq_min
             #print size[0], size[2]
 
     def change_square_size(self):
+        pos = None
         if self.mode == 0:
             self.config['MAX_DEGREES_X'] = 20
             self.config['MAX_DEGREES_Y'] = 20
-            circle_node = self.make_circle()
+            self.make_circle()
             pos = Positions(self.config).get_position(self.depth)
             self.mode = 1
         res = [1024, 768]
@@ -122,8 +123,8 @@ class World(DirectObject):
             square.setPos(Point3(j))
             #print square.getPos()
             #print square.getTightBounds()
-            min, max = square.getTightBounds()
-            size = max - min
+            sq_min, sq_max = square.getTightBounds()
+            size = sq_max - sq_min
             #print size[0], size[2]
             deg_per_pixel = visual_angle(screen, res, v_dist)
             #print deg_per_pixel
@@ -153,9 +154,9 @@ class World(DirectObject):
             except StopIteration:
                 print 'done'
 
-    def make_square(self, scale = []):
+    def make_square(self, scale=None):
         square = self.base.loader.loadModel("models/plane")
-        square.reparentTo( render )
+        square.reparentTo(self.base.render)
         #square.ls()
         #square.setScale(0.05)
         if scale:
@@ -172,14 +173,14 @@ class World(DirectObject):
         square.setColor(0.9, 0.9, 0.6, 1.0)
         #print square.getX()
         #print square.getY()
-        min, max = square.getTightBounds()
-        size = max - min
+        #sq_min, sq_max = square.getTightBounds()
+        #size = sq_max - sq_min
         #print size[0], size[2]
         return square
 
-    def make_circle(self, angle_deg = 360):
+    def make_circle(self, angle_deg=360):
         ls = LineSegs()
-        angleRadians = np.deg2rad(angle_deg)
+        angle_radians = np.deg2rad(angle_deg)
         # assume visual angle is approximately the same for x and y,
         # which probably is not true, maybe need to change
         #radius = 1 * Positions().visual_angle()[0]
@@ -196,19 +197,19 @@ class World(DirectObject):
         x_radius = angle * 1 / deg_per_pixel[0]
         y_radius = angle * 1 / deg_per_pixel[0]
         for i in range(50):
-            a = angleRadians * i / 49
+            a = angle_radians * i / 49
             y = y_radius * np.sin(a)
             #print y
             x = x_radius * np.cos(a)
             #print x
             ls.drawTo(x, self.depth, y)
         #node = ls.create()
-        node = render.attachNewNode(ls.create())
+        node = self.base.render.attachNewNode(ls.create(True))
         return NodePath(node)
 
 if __name__ == "__main__":
     print 'auto-running'
     W = World()
-    run()
+    W.base.run()
 else:
     print 'not auto-running'

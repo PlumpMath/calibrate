@@ -1,5 +1,5 @@
 import random
-import datetime, threading, time
+import threading, time
 
 next_call = time.time()
 
@@ -17,9 +17,9 @@ def create_eye_data(size):
     return eye_data
 
 
-def yield_eye_data(origin=[], variance=[]):
+def yield_eye_data(origin=None, variance=None):
     global next_call
-    #(x, y) = (0, 0)
+    x, y = 0, 0
     if origin:
         (x, y) = origin
     if not variance:

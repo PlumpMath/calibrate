@@ -17,8 +17,8 @@ WIN_RES = 'Test'
 SCREEN = [1337, 991]
 VIEW_DIST = 1219
 # resolution for screen presenting eye data, not used for most testing
-#EYE_RES = [1024, 768]
-EYE_RES = [1600, 900]
+EYE_RES = [1024, 768]
+#EYE_RES = [1600, 900]
 
 # square scale in degree of visual angle (scales both length and width)
 SQUARE_SCALE = 0.5
@@ -52,9 +52,9 @@ BREAK_INTERVAL = 1.0
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.
 ON_INTERVAL = (0.75, 0.75)  # Time on
-FADE_INTERVAL = (0.50, 0.50) # Time faded
-REWARD_INTERVAL = (0.0, 0.0) # Time from off to reward
-MOVE_INTERVAL = (1.0, 1.0) # Time from fading off until on in new place
+FADE_INTERVAL = (0.50, 0.50)  # Time faded
+REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward
+MOVE_INTERVAL = (1.0, 1.0)  # Time from fading off until on in new place
 
 # how many rewards per trial
 NUM_BEEPS = 3

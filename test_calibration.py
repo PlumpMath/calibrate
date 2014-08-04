@@ -162,16 +162,16 @@ class TestCalibration(unittest.TestCase):
         #print self.w.time_file_name
         f = open(self.w.time_file_name, 'r')
         self.assertIn('timestamp', f.readline())
-        test = f.readline()
+        test_line = f.readline()
         # it is possible reward is the next line, since we don't always start
         # from the beginning. If on random, won't fixate
         #print self.manual
         if start_task == 3:
-            self.assertIn('Reward', test)
+            self.assertIn('Reward', test_line)
         elif start_task == 1 and self.manual != 1:
-            self.assertIn('no fixation', test)
+            self.assertIn('no fixation', test_line)
         else:
-            self.assertIn('Square', test)
+            self.assertIn('Square', test_line)
 
     def test_change_from_manual_to_auto_or_vise_versa(self):
         # I think it shouldn't matter if we don't switch back,
