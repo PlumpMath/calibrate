@@ -1,6 +1,6 @@
 #SUBJECT = 'test'
-SUBJECT = 'Maria'
-#SUBJECT = 'JN'
+#SUBJECT = 'Maria'
+SUBJECT = 'JN'
 
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -8,15 +8,23 @@ SUBJECT = 'Maria'
 # WIN_RES is the resolution for the window that we are using for the actual calibration,
 # the one used for determining visual angle. Resolution for the second window, set below
 #WIN_RES = None
-WIN_RES = [1024, 768]
-# Screen size, again for actual calibration, so size of image on projector screen
-SCREEN = [1337, 991]
+#WIN_RES = [1024, 768]
+WIN_RES = [1280, 800]
+# Screen size, again for actual calibration, so size of image on projector screen (mm)
+SCREEN = [1467, 902]
+#SCREEN = [1337, 991]
 # mm distance from subject to screen
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-EYE_RES = [1024, 768]
+EYE_RES = [1280, 800]
 #EYE_RES = [1600, 900]
+
+# the voltage from the eye tracker runs from about 5 to -5 volts,
+# so total 10 variance, with 1280, 800 as resolution, use gain of
+# 150 for x, and 100 for y, for total (1500, 1000), which will cover
+# the screen
+GAIN = [150, 100]
 
 # size of square, scale is in degree of visual angle
 # (scales both length and width)

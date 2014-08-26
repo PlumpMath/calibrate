@@ -105,6 +105,7 @@ def visual_angle(screen, res, v_dist):
     #print self.v_dist
     pixel = [0, 0]
     deg_per_pix = [0, 0]
+    # calculate the size of a pixel
     pixel[0] = screen[0]/res[0]
     pixel[1] = screen[1]/res[1]
     #print self.pixel

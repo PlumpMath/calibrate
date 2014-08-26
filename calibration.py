@@ -62,9 +62,6 @@ class World(DirectObject):
             self.use_pydaq = False
             self.config_file = 'config_test.py'
         else:
-            # the voltage from the eye tracker runs from about 5 to -5 volts,
-            # so 100 should be sort of close...
-            self.gain = [100, 100]
             self.unittest = False
             self.use_pydaq = True
             self.use_daq_data = True
@@ -75,7 +72,8 @@ class World(DirectObject):
                 self.use_daq_reward = False
             self.config_file = 'config.py'
 
-        # seems like we can adjust the offset completely in ISCAN
+        # seems like we can adjust the offset completely in ISCAN,
+        # so for now just set it here to zero.
         self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
@@ -91,6 +89,7 @@ class World(DirectObject):
         print 'Subject is', config['SUBJECT']
         if config['SUBJECT'] == 'test':
             self.use_daq_data = False
+
         self.tolerance = config['TOLERANCE']
         #print 'repeat ', config['POINT_REPEAT']
 
@@ -112,6 +111,7 @@ class World(DirectObject):
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
         if config['WIN_RES'] != 'Test':
+            self.gain = config['GAIN']
             self.setup_window2(config)
             # text only happens on second window
             self.setup_text()
@@ -122,6 +122,7 @@ class World(DirectObject):
             resolution = [1024, 768]
             self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
 
+        print('gain', self.gain)
         #print 'window loaded'
         self.eyes = []
 
@@ -798,13 +799,13 @@ class World(DirectObject):
             self.pos = Positions(config).get_position(self.depth, True)
 
     def setup_pydaq(self):
-        print 'setup pydaq'
+        #print 'setup pydaq'
         if self.use_daq_data:
             self.eye_task = pydaq.EOGTask()
             self.eye_task.SetCallback(self.get_eye_data)
             self.eye_task.StartTask()
         if self.use_daq_reward:
-            print 'setup reward'
+            #print 'setup reward'
             self.reward_task = pydaq.GiveReward()
 
     # Key Functions

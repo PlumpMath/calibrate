@@ -45,12 +45,21 @@ class TestPositions(unittest.TestCase):
     def test_visual_angle(self):
         # visual angle returns deg_per_pix,
         # check with projector parameters
-        screen_size = [1337, 991]
-        resolution = [1024, 768]
+        # screen_size = [1337, 991]
+        # resolution = [1024, 768]
+        screen_size = [1467, 902]
+        resolution = [1280, 800]
         view_dist = 1219
         deg_per_pix = visual_angle(screen_size, resolution, view_dist)
-        self.assertAlmostEqual(deg_per_pix[0], 0.061369, 6)
-        self.assertAlmostEqual(deg_per_pix[1], 0.06065, 6)
+        print deg_per_pix
+        print 1/deg_per_pix[0]
+        print 1/deg_per_pix[1]
+        # used Fine's tutorial in Matlab to come up with the
+        # numbers for testing
+        #self.assertAlmostEqual(deg_per_pix[0], 0.061369, 6)
+        #self.assertAlmostEqual(deg_per_pix[1], 0.06065, 6)
+        self.assertAlmostEqual(deg_per_pix[0], 0.0539, 4)
+        self.assertAlmostEqual(deg_per_pix[1], 0.0530, 4)
 
     def test_visual_angle_positions(self):
         # make sure furthest out positions are plotted are at the correct visual angle
