@@ -104,33 +104,39 @@ class World(DirectObject):
         self.text = None
         self.text3 = None
         self.text4 = None
+        self.text5 = None
+
         #print base.pipe.getDisplayWidth()
         #print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
         # so can't open second window.
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
+
         if config['WIN_RES'] != 'Test':
             self.gain = config['GAIN']
-            self.setup_window2(config)
+            eye_res = self.setup_window2(config)
             # text only happens on second window
-            self.setup_text()
+            self.setup_text(eye_res)
         else:
             # resolution in file equal to test, so use the projector screen
             # value for determining pixels size. In this case, accuracy is not
             # important, because never actually calibrating with this setup.
-            resolution = [1024, 768]
+            resolution = [1280, 800]
             self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
 
         print('gain', self.gain)
+
+        # initialize variable for square positions
+        self.pos = None
         #print 'window loaded'
         self.eyes = []
 
+        # initialize file variables
         self.eye_file_name = ''
         self.time_file_name = ''
         self.eye_data_file = None
         self.time_data_file = None
-        self.open_files(config)
         # When we first open the file, we will write a line for time started calibration
         self.first = True
 
@@ -150,14 +156,6 @@ class World(DirectObject):
         self.square = self.create_square(config['SQUARE_SCALE']*17)
         #print 'scale', config['SQUARE_SCALE']*17
 
-        # set up square positions
-        if self.manual:
-            #print 'manual'
-            self.pos = Positions(config)
-        else:
-            #print 'manual is false, auto'
-            self.pos = Positions(config).get_position(self.depth, True)
-
         # Eye Data
         self.eye_data = []
         # why do I do this?
@@ -168,7 +166,7 @@ class World(DirectObject):
         self.eye_window = []
 
         # initialize signal to switch tasks (manual - auto)
-        self.switch_task = False
+        self.flag_task_switch = False
 
         # if not testing, first square will wait until spacebar is hit to start
         # if you wait too long, may go into lala land (although I hope this is
@@ -184,13 +182,9 @@ class World(DirectObject):
         # testing random mode depends on being able to control eye position
         self.eye_task = None
         self.reward_task = None
-        if self.use_daq_data:
-            self.fake_data = None
-        else:
-            self.fake_data = yield_eye_data((0.0, 0.0))
-        if self.use_pydaq:
-            # start pydaq stuff
-            self.setup_pydaq()
+        self.fake_data = None
+
+
         self.num_beeps = config['NUM_BEEPS']
         # first task is square_on
         self.next = 0
@@ -198,7 +192,6 @@ class World(DirectObject):
         # Keyboard stuff:
         # initiate
         self.keys = {"switch": 0}
-        self.setup_keys()
 
         # Our intervals
         # on_interval - time from on to fade
@@ -363,7 +356,7 @@ class World(DirectObject):
 
         # check if we should switch from manual to auto or vise-versa
         # do it here before we return so no weirdness in finishing the frame loop
-        if self.switch_task:
+        if self.flag_task_switch:
             #print('yes, switch')
             self.change_tasks()
 
@@ -441,7 +434,7 @@ class World(DirectObject):
             except StopIteration:
                 #print('stop iterating!')
                 # Switch to manual and wait
-                self.switch_task = True
+                self.flag_task_switch = True
                 self.pause = True
                 # need to set a position
                 position = Point3(0, 0, 0)
@@ -615,30 +608,25 @@ class World(DirectObject):
 
     def change_tolerance(self, direction):
         self.tolerance += direction
-        self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
+        self.set_text4()
+        #self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
         #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
         for win in self.eye_window:
             win.detachNode()
         #self.eye_window.detachNode()
         self.show_window(self.square.getPos())
 
-    def change_tasks(self, override=None):
-        #print(override)
-        #print('manual now', self.manual)
-        if override is not None:
-            self.manual = override
-            #print('override, manual now', self.manual)
-        else:
-            # change from manual to auto-calibrate or vise-versa
-            self.manual = not self.manual
+    def change_tasks(self):
+        # change from manual to auto-calibrate or vise-versa
+        self.manual = not self.manual
         #print('switched manual?', self.manual)
-            #print('switch, manual now', self.manual)
         # do not finish whatever loop you were in
         # not sure how to do this
         # close stuff
         if self.use_daq_data:
             #print 'stopping daq tasks'
             # have to stop tasks before closing files
+            self.eye_task.DoneCallback(self.eye_task)
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
         self.close_files()
@@ -652,16 +640,17 @@ class World(DirectObject):
         config = {}
         execfile(self.config_file, config)
         # reset stuff
-        self.switch_task = False
+        self.flag_task_switch = False
         self.frameTask.move = False
         self.next = 0
         if not self.unittest:
-            # text4 is the only thing that changes
+            # text4 and text5 change
             self.set_text4()
+            self.set_text5()
         self.setup_positions(config)
         self.open_files(config)
         if self.use_pydaq:
-            self.setup_pydaq()
+            self.start_eye_task()
 
     def clear_eyes(self):
         # We can now stop plotting eye positions,
@@ -715,7 +704,7 @@ class World(DirectObject):
 
     # Setup Functions
 
-    def setup_text(self):
+    def setup_text(self, res_eye):
         #print 'make text'
         self.text = TextNode('gain')
         self.text.setText('Gain: ' + str(self.gain))
@@ -724,7 +713,9 @@ class World(DirectObject):
         text_node_path.setScale(25)
         #text_node_path.setScale(0.1)
         #text_node_path.setPos(-300, 0, 200)
-        text_node_path.setPos(0, 0, 350)
+        #text_node_path.setPos(0, 0, 350)
+        text_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1]/10)
+        print(res_eye[1]/2 - res_eye[1]/6)
         text_node_path.show(BitMask32.bit(0))
         text_node_path.hide(BitMask32.bit(1))
 
@@ -743,12 +734,14 @@ class World(DirectObject):
         text3_node_path = self.base.render.attachNewNode(self.text3)
         text3_node_path.setScale(25)
         text3_node_path.setPos(0, 0, 310)
+        text3_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] / 5)
         text3_node_path.show(BitMask32.bit(0))
         text3_node_path.hide(BitMask32.bit(1))
 
-        self.set_text4()
+        self.set_text4(res_eye)
+        self.set_text5()
 
-    def set_text4(self):
+    def set_text4(self, res_eye=None):
         # only thing different with text between manual and auto mode is text4.
         # if not manual, and it hasn't been set up yet, set up text, otherwise
         # just re-set the text
@@ -760,6 +753,7 @@ class World(DirectObject):
                 text4_node_path = self.base.camera.attachNewNode(self.text4)
                 text4_node_path.setScale(25)
                 text4_node_path.setPos(0, 0, 270)
+                #text4_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] * 3 / 10)
                 text4_node_path.show(BitMask32.bit(0))
                 text4_node_path.hide(BitMask32.bit(1))
             else:
@@ -769,6 +763,20 @@ class World(DirectObject):
             # if manual and it has been set up, clear it
             if self.text4:
                 self.text4.setText('')
+
+    def set_text5(self):
+        if not self.text5:
+            self.text5 = TextNode('task_type')
+            text5_node_path = self.base.camera.attachNewNode(self.text5)
+            text5_node_path.setScale(25)
+            text5_node_path.setPos(-600, 0, 350)
+            text5_node_path.show(BitMask32.bit(0))
+            text5_node_path.hide(BitMask32.bit(1))
+        if self.manual:
+            text_notice = 'Manual'
+        else:
+            text_notice = 'Auto'
+        self.text5.setText(text_notice)
 
     def create_square(self, scale):
         # setting up square object
@@ -801,12 +809,18 @@ class World(DirectObject):
     def setup_pydaq(self):
         #print 'setup pydaq'
         if self.use_daq_data:
-            self.eye_task = pydaq.EOGTask()
-            self.eye_task.SetCallback(self.get_eye_data)
-            self.eye_task.StartTask()
+            self.start_eye_task()
         if self.use_daq_reward:
             #print 'setup reward'
-            self.reward_task = pydaq.GiveReward()
+            self.start_reward_task()
+
+    def start_eye_task(self):
+        self.eye_task = pydaq.EOGTask()
+        self.eye_task.SetCallback(self.get_eye_data)
+        self.eye_task.StartTask()
+
+    def start_reward_task(self):
+        self.reward_task = pydaq.GiveReward()
 
     # Key Functions
     #As described earlier, this simply sets a key in the self.keys dictionary to
@@ -815,8 +829,8 @@ class World(DirectObject):
         self.keys[key] = val
         #print 'set key', self.keys[key]
 
-    def set_manual(self, val):
-        self.switch_task = val
+    def switch_task_flag(self, val):
+        self.flag_task_switch = val
 
     # this actually assigns keys to methods
     def setup_keys(self):
@@ -825,9 +839,10 @@ class World(DirectObject):
         self.accept("space", self.start)  # default is the program waits 2 min
 
         #self.accept("m", self.change_tasks)
-        # switches from manual to auto-calibrate, but only at end of current loop
-        # (after reward)
-        self.accept("s", self.set_manual, [True])
+        # switches from manual to auto-calibrate or vise-versa,
+        # but only at end of current loop (after reward)
+        # True signifies that we want to change
+        self.accept("s", self.switch_task_flag, [True])
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
@@ -872,7 +887,7 @@ class World(DirectObject):
         self.accept("9", self.set_key, ["switch", 9])
 
     def setup_window2(self, config):
-        #print 'second window'
+        #print 'second window, for researcher'
         props = WindowProperties()
         #props.setForeground(True)
         props.setCursorHidden(True)
@@ -899,7 +914,7 @@ class World(DirectObject):
         # if resolution given, set the appropriate resolution
         # otherwise assume want small windows
         if resolution is not None:
-            # resolution for main window
+            # resolution for main window, subjects monitor
             self.set_resolution(resolution)
             # properties for second window
             props.setOrigin(-int(res_eye[0]), 0)
@@ -939,6 +954,7 @@ class World(DirectObject):
         # set bit mask for eye positions
         camera.node().setCameraMask(BitMask32.bit(1))
         camera2.node().setCameraMask(BitMask32.bit(0))
+        return res_eye
 
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
@@ -951,6 +967,22 @@ class World(DirectObject):
         #wp.setOrigin(-int(res[0]), 0)
         #wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
+
+    def setup_task(self):
+        # get configurations from config file
+        config = {}
+        execfile(self.config_file, config)
+        # set up square positions
+        self.setup_positions(config)
+        # set up keys
+        self.setup_keys()
+        # open files
+        self.open_files(config)
+        if not self.use_daq_data:
+            self.fake_data = yield_eye_data((0.0, 0.0))
+        if self.use_pydaq:
+            # start pydaq stuff
+            self.setup_pydaq()
 
     # File methods
     def open_files(self, config):
@@ -1017,5 +1049,6 @@ if __name__ == "__main__":
         W = World(sys.argv[1])
     else:
         W = World(sys.argv[1], sys.argv[2])
+    W.setup_task()
     W.base.run()
 
