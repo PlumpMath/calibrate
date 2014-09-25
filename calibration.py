@@ -714,7 +714,7 @@ class World(DirectObject):
         #text_node_path.setScale(0.1)
         #text_node_path.setPos(-300, 0, 200)
         #text_node_path.setPos(0, 0, 350)
-        text_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1]/10)
+        text_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1]/16)
         print(res_eye[1]/2 - res_eye[1]/6)
         text_node_path.show(BitMask32.bit(0))
         text_node_path.hide(BitMask32.bit(1))
@@ -733,43 +733,40 @@ class World(DirectObject):
         self.text3.setText('IScan: ' + '[0, 0]')
         text3_node_path = self.base.render.attachNewNode(self.text3)
         text3_node_path.setScale(25)
-        text3_node_path.setPos(0, 0, 310)
-        text3_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] / 5)
+        #text3_node_path.setPos(0, 0, 310)
+        text3_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1] * 2 / 16)
         text3_node_path.show(BitMask32.bit(0))
         text3_node_path.hide(BitMask32.bit(1))
 
         self.set_text4(res_eye)
-        self.set_text5()
+        self.set_text5(res_eye)
 
     def set_text4(self, res_eye=None):
-        # only thing different with text between manual and auto mode is text4.
-        # if not manual, and it hasn't been set up yet, set up text, otherwise
-        # just re-set the text
-        if not self.manual:
-            degree = unichr(176).encode('utf-8')
-            if not self.text4:
-                self.text4 = TextNode('tolerance')
-                self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-                text4_node_path = self.base.camera.attachNewNode(self.text4)
-                text4_node_path.setScale(25)
-                text4_node_path.setPos(0, 0, 270)
-                #text4_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] * 3 / 10)
-                text4_node_path.show(BitMask32.bit(0))
-                text4_node_path.hide(BitMask32.bit(1))
-            else:
-                # otherwise we are switching from manual, and need to re-set the text
-                self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-        else:
-            # if manual and it has been set up, clear it
-            if self.text4:
-                self.text4.setText('')
+        degree = unichr(176).encode('utf-8')
+        # set up text, if it hasn't been done before
+        if not self.text4:
+            self.text4 = TextNode('tolerance')
+            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
+            text4_node_path = self.base.camera.attachNewNode(self.text4)
+            text4_node_path.setScale(25)
+            #text4_node_path.setPos(0, 0, 270)
+            text4_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1] * 3 / 16)
+            text4_node_path.show(BitMask32.bit(0))
+            text4_node_path.hide(BitMask32.bit(1))
 
-    def set_text5(self):
+        # if we are in manual mode, show nothing, otherwise show tolerance.
+        if not self.manual:
+            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
+        else:
+            self.text4.setText('')
+
+    def set_text5(self, res_eye=None):
         if not self.text5:
             self.text5 = TextNode('task_type')
             text5_node_path = self.base.camera.attachNewNode(self.text5)
             text5_node_path.setScale(25)
-            text5_node_path.setPos(-600, 0, 350)
+            #text5_node_path.setPos(-600, 0, 350)
+            text5_node_path.setPos(-res_eye[0]/2 + res_eye[0] * 1 / 16, 0, res_eye[1]/2 - res_eye[1] * 1 / 16)
             text5_node_path.show(BitMask32.bit(0))
             text5_node_path.hide(BitMask32.bit(1))
         if self.manual:
