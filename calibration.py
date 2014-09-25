@@ -41,13 +41,12 @@ def get_distance(p0, p1):
 class World(DirectObject):
 
     def __init__(self, mode=None, test=None):
-        print mode
         DirectObject.__init__(self)
         # mode sets whether starts at manual or auto, default is manual, auto is 0
         # test sets whether using fake eye data and test_config for config,
         # set to 1 for testing/using fake eye data
         #print 'init'
-        print 'mode', mode
+        #print 'mode', mode
         #print 'test', test
         if test == '1' or test == 1:
             # test (either unittest or testing on mac) so use fake eye data and testing configuration.
@@ -422,7 +421,8 @@ class World(DirectObject):
             if self.reward_task:
                 self.reward_task.pumpOut()
                 sleep(.2)
-            print 'beep'
+            else:
+                print 'beep'
 
     def square_move(self, position=None):
         #print 'square move, 4'
@@ -716,7 +716,6 @@ class World(DirectObject):
         #text_node_path.setPos(-300, 0, 200)
         #text_node_path.setPos(0, 0, 350)
         text_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1]/16)
-        print(res_eye[1]/2 - res_eye[1]/6)
         text_node_path.show(BitMask32.bit(0))
         text_node_path.hide(BitMask32.bit(1))
 
@@ -927,7 +926,7 @@ class World(DirectObject):
         # degree per pixel is important only for determining where to plot squares, no effect
         # on eye position plotting, so use projector resolution, screen size, etc
         self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
-        print 'deg_per_pixel', self.deg_per_pixel
+        #print 'deg_per_pixel', self.deg_per_pixel
         # set the properties for eye data window
         window2.requestProperties(props)
         #print window2.getRequestedProperties()
@@ -957,7 +956,7 @@ class World(DirectObject):
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
         wp = WindowProperties()
-        print 'calibration window', res
+        #print 'calibration window', res
         wp.setSize(int(res[0]), int(res[1]))
         #wp.setSize(1600, 900)
         #wp.setOrigin(-1600, 0)
