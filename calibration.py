@@ -47,7 +47,7 @@ class World(DirectObject):
         # test sets whether using fake eye data and test_config for config,
         # set to 1 for testing/using fake eye data
         #print 'init'
-        #print 'mode', mode
+        print 'mode', mode
         #print 'test', test
         if test == '1' or test == 1:
             # test (either unittest or testing on mac) so use fake eye data and testing configuration.
@@ -77,11 +77,12 @@ class World(DirectObject):
         self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
-        # setup square positions
-        if mode == '1' or mode == 1:
-            self.manual = True
-        else:
+        # setup square positions. Start in auto, if, and only if
+        # the input number was a zero,
+        if mode == '0' or mode == 0:
             self.manual = False
+        else:
+            self.manual = True
 
         # get configurations from config file
         config = {}

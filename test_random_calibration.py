@@ -38,11 +38,13 @@ class TestCalibration(unittest.TestCase):
         # 2 is random mode
         if not manual:
             print 'run in auto mode'
-            cls.w = World(2, 1)
+            cls.w = World(0, 1)
+            cls.w.setup_task()
             cls.class_switch = True
         else:
             print 'start in manual and switch to auto'
             cls.w = World(1, 1)
+            cls.w.setup_task()
             # run through a full loop
             square_off = True
             last = 0
@@ -55,7 +57,7 @@ class TestCalibration(unittest.TestCase):
                     square_off = False
                 else:
                     last = cls.w.next
-            cls.w.switch_task = True
+            cls.w.flag_task_switch = True
 
     def setUp(self):
         self.config = {}
