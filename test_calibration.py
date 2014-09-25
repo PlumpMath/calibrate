@@ -34,15 +34,16 @@ class TestCalibration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if manual:
-            print 'running tests using manual'
-            cls.manual = 2
-        else:
-            print 'running tests using random'
+            print 'starting tests using manual'
             cls.manual = 1
+        else:
+            print 'starting tests using random'
+            cls.manual = 0
         loadPrcFileData("", "window-type offscreen")
         #print 'about to load world'
         #print 'boo', cls.manual
         cls.w = World(cls.manual, 1)
+        cls.w.setup_task()
 
     def setUp(self):
         #print 'setup'
@@ -89,11 +90,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_square_turns_off(self):
         square_dim = True
-        # with manual, we don't use 0, and for random we don't use 3...
-        if self.manual == 1:
-            match = 3
-        else:
-            match = 0
+        match = 0
         while square_dim:
             taskMgr.step()
             if self.w.next == match:
@@ -145,6 +142,7 @@ class TestCalibration(unittest.TestCase):
         f.close()
 
     def test_tasks_and_timestamp_written_to_file(self):
+        #print('manual?', self.w.manual)
         # make sure data is written to file.
         # make sure starts at moving, so will write to file even with random
         start_task = self.w.next
@@ -154,7 +152,7 @@ class TestCalibration(unittest.TestCase):
         while no_tasks:
             taskMgr.step()
             if self.w.next != start_task:
-                #print 'something happened'
+                print 'something happened'
                 no_tasks = False
         #print 'task now', self.w.next
         # need to stop task, so file is closed
@@ -164,11 +162,12 @@ class TestCalibration(unittest.TestCase):
         self.assertIn('timestamp', f.readline())
         test_line = f.readline()
         # it is possible reward is the next line, since we don't always start
-        # from the beginning. If on random, won't fixate
+        # from the beginning.
         #print self.manual
+        #print test_line
         if start_task == 3:
             self.assertIn('Reward', test_line)
-        elif start_task == 1 and self.manual != 1:
+        elif start_task == 1 and self.manual != 0:
             self.assertIn('no fixation', test_line)
         else:
             self.assertIn('Square', test_line)
@@ -178,14 +177,10 @@ class TestCalibration(unittest.TestCase):
         # since everything should work either way, and we change
         # into the opposite direction the next time through
         before = self.w.manual
-        self.w.switch_task = True
+        #print before
+        self.w.flag_task_switch = True
         # run the task long enough to switch
         square_on = True
-        # if we are on zero, need to do two loops
-        #if self.w.next == 0:
-        #    loop = 2
-        #else:
-        #    loop = 1
         last = self.w.next
         #print self.w.next
         while square_on:
@@ -196,12 +191,13 @@ class TestCalibration(unittest.TestCase):
                 square_on = False
 
         after = self.w.manual
+        #print after
         self.assertNotEqual(before, after)
 
     def test_change_tasks_and_positions_change(self):
         #print('manual is', self.w.manual)
         #print('type', type(self.w.pos))
-        self.w.switch_task = True
+        self.w.switch_task_flag = True
         # run the task long enough to switch
         last = self.w.next
         #print self.w.next
