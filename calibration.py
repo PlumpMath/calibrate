@@ -1,6 +1,7 @@
 from __future__ import division
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
+from direct.interval.IntervalGlobal import *
 from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32
 from panda3d.core import WindowProperties, TextNode
@@ -63,7 +64,7 @@ class World(DirectObject):
         else:
             self.unittest = False
             self.use_pydaq = True
-            self.use_daq_data = True
+            self.use_daq_data = True  # as opposed to fake data
             self.use_daq_reward = True
             # in case we are not unittesting, but didn't load pydaq
             if not LOADED_PYDAQ:
@@ -184,9 +185,9 @@ class World(DirectObject):
         self.reward_task = None
         self.fake_data = None
 
-
         self.num_beeps = config['NUM_BEEPS']
-        # first task is square_on
+        # first task is square_on, which is zero, but we will increment this
+        # during the task, so needs to be the last task
         self.next = 0
 
         # Keyboard stuff:
@@ -201,42 +202,73 @@ class World(DirectObject):
         # fix_interval - used for random, how long required to fixate
         # break_interval - used for random, how long time out before
         #            next square on, if missed or broke fixation
-        self.all_intervals = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
+        self.interval_list = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
                               config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
-        #Now we create the task. taskMgr is the task manager that actually calls
-        #The function each frame. The add method creates a new task. The first
-        #argument is the function to be called, and the second argument is the name
-        #for the task. It returns a task object, that is passed to the function
-        #each frame
-        self.frameTask = self.base.taskMgr.add(self.frame_loop, "frame_loop")
-        #print self.frameTask.time
 
-        # The task object is a good place to put variables that should stay
-        # persistent for the task function from frame to frame
-        # first interval will be the move interval (time from off to move/on)
-        #
-        self.frameTask.interval = first_interval
-        #print 'first interval', self.frameTask.interval
+        self.new_interval = 0  # should be changed to correct interval in square_on
+        square_on = Func(self.square_on)
+        square_fade = Func(self.square_fade)
+        square_off = Func(self.square_off)
+        # break reward into another sequence?
+        give_reward = Func(self.give_reward)
+        square_move = Func(self.move_to_next_position)
+        delay = Wait(self.new_interval)
 
-        # Main work horse: index with self.next to choose appropriate method
-        self.frameTask.switch = {
-            0: self.square_on,
-            1: self.square_fade,
-            2: self.square_off,
-            3: self.give_reward,
-            4: self.square_move}
-
+        # move incrementing next and printing to log file into their own method. Probably called from
+        # each interval function
+        self.manual_sequence = Sequence(
+            square_on,
+            delay,
+            square_fade,
+            delay,
+            square_off,
+            delay,
+            give_reward,
+            delay,
+            square_move
+        )
         # Corresponding dictionary for writing to file
-        self.frameTask.file = {
+        self.sequence_for_file = {
             0: 'Square on \n',
             1: 'Square dims \n',
             2: 'Square off \n',
             3: 'Reward \n',
             4: 'Square moved \n'
         }
+        #Now we create the task. taskMgr is the task manager that actually calls
+        #The function each frame. The add method creates a new task. The first
+        #argument is the function to be called, and the second argument is the name
+        #for the task. It returns a task object, that is passed to the function
+        #each frame
+        #self.frameTask = self.base.taskMgr.add(self.frame_loop, "frame_loop")
+        #print self.frameTask.time
+
+        # The task object is a good place to put variables that should stay
+        # persistent for the task function from frame to frame
+        # first interval will be the move interval (time from off to move/on)
+        #
+        #self.frameTask.interval = first_interval
+        #print 'first interval', self.frameTask.interval
+
+        # Main work horse: index with self.next to choose appropriate method
+        #self.frameTask.switch = {
+        #    0: self.square_on,
+        #    1: self.square_fade,
+        #    2: self.square_off,
+        #    3: self.give_reward,
+        #    4: self.square_move}
+
+        # Corresponding dictionary for writing to file
+        #self.frameTask.file = {
+        #    0: 'Square on \n',
+        #    1: 'Square dims \n',
+        #    2: 'Square off \n',
+        #    3: 'Reward \n',
+        #    4: 'Square moved \n'
+        #}
         # task.move always starts as False, will be changed to true when time
         # to move, if move is manual
-        self.frameTask.move = False
+        #self.frameTask.move = False
 
     def frame_loop(self, task):
         #print 'in loop'
@@ -366,7 +398,7 @@ class World(DirectObject):
     # Square Functions
     def square_on(self):
         position = self.square.getPos()
-        #print 'square on, 0'
+        print 'square on, 0'
         #print position
         self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) + 
                                   ', ' + str(position[2]) + '\n')
@@ -384,6 +416,7 @@ class World(DirectObject):
         if not self.manual:
             self.show_window(position)
             self.check_fixation = True
+        self.change_interval()
 
     def square_fade(self):
         #print 'square fade, 1'
@@ -398,6 +431,7 @@ class World(DirectObject):
         self.check_fixation = False
         # if square has faded, then we can reset fixation time
         self.fix_time = None
+        self.change_interval()
 
     def square_off(self):
         #print 'square off, 2'
@@ -413,6 +447,7 @@ class World(DirectObject):
         # next interval is on to fade on
         #self.interval = random.uniform(*ON_INTERVAL)
         #print 'next-on-interval', self.interval
+        self.change_interval()
 
     def give_reward(self):
         #print 'reward, 3'
@@ -423,6 +458,7 @@ class World(DirectObject):
                 sleep(.2)
             else:
                 print 'beep'
+        self.change_interval()
 
     def square_move(self, position=None):
         #print 'square move, 4'
@@ -443,6 +479,26 @@ class World(DirectObject):
 
         self.square.setPos(Point3(position))
         #print 'square', position[0], position[2]
+        self.change_interval()
+
+    def move_to_next_position(self):
+        if self.keys["switch"]:
+            #print 'manual move'
+            #print 'switch', self.keys["switch"]
+            self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
+            self.keys["switch"] = 0  # remove the switch flag
+        else:
+            # default is the center
+            self.square_move(self.pos.get_key_position(self.depth, 5))
+
+    def change_interval(self):
+        if self.manual and self.next == 4:
+            self.next = 0
+        print self.next
+        self.new_interval = random.uniform(*self.interval_list[self.next])
+        print self.new_interval
+        self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
+        self.next += 1
 
     def restart_timer(self, fix_time):
         # either restarting the timer because fixation was broken, or because fixation was
@@ -484,8 +540,9 @@ class World(DirectObject):
     def start(self):
         # starts the experiment (otherwise start time is 2 minutes after
         # world is created)
-        self.frameTask.interval = 0
+        #self.frameTask.interval = 0
         self.pause = False
+        self.manual_sequence.loop()
 
     def get_eye_data(self, eye_data):
         # pydaq calls this function every time it calls back to get eye data,
@@ -523,7 +580,7 @@ class World(DirectObject):
                 # any reason we can't get rid of the the previous self.eye_data here,
                 # instead of when we clear the screen? Pop from the beginning?
                 if self.remove_eyes:
-                    #print 'clear eyes'
+                    print 'clear eyes'
                     # get rid of any eye positions left on screen
                     self.clear_eyes()
                     self.remove_eyes = False
@@ -551,7 +608,7 @@ class World(DirectObject):
                                        ', ' + str(round(eye_data[1], 3)) + ']')
             # check if in window for auto-calibrate - only update time if was none previously
             if self.check_fixation:
-                #print 'check fixation', self.check_fixation
+                print 'check fixation', self.check_fixation
                 # if already fixated, make sure hasn't left
                 #print 'tolerance', self.tolerance
                 distance = get_distance(plot_eye_data, (self.square.getPos()[0], self.square.getPos()[2]))
@@ -1026,7 +1083,7 @@ class World(DirectObject):
         self.time_data_file.close()
 
     def close(self):
-        #print 'close'
+        print 'close'
         if self.use_daq_data:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
