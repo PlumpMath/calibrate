@@ -2,11 +2,11 @@ from __future__ import division
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
 from direct.interval.IntervalGlobal import *
-from panda3d.core import Point2, Point3
 from panda3d.core import BitMask32
 from panda3d.core import WindowProperties, TextNode
 from panda3d.core import OrthographicLens, LineSegs
-from positions import Positions, visual_angle
+from Square import Square
+from positions import visual_angle
 import sys
 import random
 import os
@@ -70,6 +70,7 @@ class World(DirectObject):
             if not LOADED_PYDAQ:
                 self.use_pydaq = False
                 self.use_daq_reward = False
+                self.use_daq_data = False
             self.config_file = 'config.py'
 
         # seems like we can adjust the offset completely in ISCAN,
@@ -129,7 +130,7 @@ class World(DirectObject):
         print('gain', self.gain)
 
         # initialize variable for square positions
-        self.pos = None
+        #self.pos = None
         #print 'window loaded'
         self.eyes = []
 
@@ -149,13 +150,8 @@ class World(DirectObject):
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
 
-        # create square for stimulus
-        # self.depth needs to be more than zero for stuff to show up,
-        # otherwise arbitrary. This is used for positioning squares (Z)
-        self.depth = 55
-        # scale 17 is one visual angle, linear so just multiply by 17
-        self.square = self.create_square(config['SQUARE_SCALE']*17)
-        #print 'scale', config['SQUARE_SCALE']*17
+        # create dummy variable for square
+        self.square = None
 
         # Eye Data
         self.eye_data = []
@@ -202,31 +198,12 @@ class World(DirectObject):
         # fix_interval - used for random, how long required to fixate
         # break_interval - used for random, how long time out before
         #            next square on, if missed or broke fixation
+        # on, fade, reward, move
         self.interval_list = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
                               config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
 
-        self.new_interval = 0  # should be changed to correct interval in square_on
-        square_on = Func(self.square_on)
-        square_fade = Func(self.square_fade)
-        square_off = Func(self.square_off)
-        # break reward into another sequence?
-        give_reward = Func(self.give_reward)
-        square_move = Func(self.move_to_next_position)
-        delay = Wait(self.new_interval)
-
-        # move incrementing next and printing to log file into their own method. Probably called from
-        # each interval function
-        self.manual_sequence = Sequence(
-            square_on,
-            delay,
-            square_fade,
-            delay,
-            square_off,
-            delay,
-            give_reward,
-            delay,
-            square_move
-        )
+        # initiate manual sequence
+        self.manual_sequence = None
         # Corresponding dictionary for writing to file
         self.sequence_for_file = {
             0: 'Square on \n',
@@ -235,270 +212,6 @@ class World(DirectObject):
             3: 'Reward \n',
             4: 'Square moved \n'
         }
-        #Now we create the task. taskMgr is the task manager that actually calls
-        #The function each frame. The add method creates a new task. The first
-        #argument is the function to be called, and the second argument is the name
-        #for the task. It returns a task object, that is passed to the function
-        #each frame
-        #self.frameTask = self.base.taskMgr.add(self.frame_loop, "frame_loop")
-        #print self.frameTask.time
-
-        # The task object is a good place to put variables that should stay
-        # persistent for the task function from frame to frame
-        # first interval will be the move interval (time from off to move/on)
-        #
-        #self.frameTask.interval = first_interval
-        #print 'first interval', self.frameTask.interval
-
-        # Main work horse: index with self.next to choose appropriate method
-        #self.frameTask.switch = {
-        #    0: self.square_on,
-        #    1: self.square_fade,
-        #    2: self.square_off,
-        #    3: self.give_reward,
-        #    4: self.square_move}
-
-        # Corresponding dictionary for writing to file
-        #self.frameTask.file = {
-        #    0: 'Square on \n',
-        #    1: 'Square dims \n',
-        #    2: 'Square off \n',
-        #    3: 'Reward \n',
-        #    4: 'Square moved \n'
-        #}
-        # task.move always starts as False, will be changed to true when time
-        # to move, if move is manual
-        #self.frameTask.move = False
-
-    def frame_loop(self, task):
-        #print 'in loop'
-        #print task.time
-        #print task.interval
-        #dt = task.time - task.last
-        #task.last = task.time
-        # are we waiting for a manual move?
-        # no, then check if we are past the current interval
-        # print task.move
-        if self.pause:
-            #print('pause')
-            return task.cont
-        if not task.move:
-            # either not time to move, or moving automatically
-            #print 'new loop', task.time
-            #print 'frame', task.frame
-            if task.time > task.interval:
-                #print 'actual time interval was:', task.interval
-                # for auto-random task, we may be checking for fixation
-                # (this happens when square is on, but not yet faded)
-                #print 'fix?', self.check_fixation
-                #print 'fix_time', self.fix_time
-                # self.check_fixation is True or False, depending on whether we
-                # are checking for fixation.
-                # self.fix_time is either None or the time they have been fixating
-                # so if we are checking fixation, but fix_time is none, subject did
-                # not manage to fixate in time allotted. If we are checking fixation,
-                # and fix_time has a time, then we made it, and need to wait
-                # fixation is checked as eye data is collected.
-                #print('check fixation', self.check_fixation)
-                #print('fix_time', self.fix_time)
-                if self.check_fixation and not self.fix_time:
-                    #print 'no fixation, start over'
-                    self.restart_timer(None)
-                    return task.cont
-                elif self.check_fixation:
-                    # if we are done with our interval, and haven't restarted,
-                    # make sure fix_time is reset to none
-                    self.fix_time = None
-
-                # task.switch will manipulate the square and
-                # update the interval to the next task.
-                #print task.time
-                #print 'in frame loop', self.next
-                #print 'old interval', task.interval
-                task.switch[self.next]()
-                # prints name of task just did
-                #print task.file[self.next]
-                # prints number of task just did
-                #print 'just did task', self.next
-                #self.time_data_file.write('test' + '\n')
-                self.time_data_file.write(str(time()) + ', ' + task.file[self.next])
-                # if we just gave reward (3), next is moving.
-                # check to see if we are moving manually
-                # we will set self.next correctly for the next task
-                # when we do the manual move
-                #print 'in loop', self.manual
-                if self.manual and self.next == 3:
-                    #if self.next == 3 and self.manual:
-                    #print 'manual move', self.manual
-                    task.move = True
-                    # need interval from off to move
-                    task.interval = random.uniform(*self.all_intervals[self.next])
-                    #print 'next interval', task.interval
-                    #print 'waiting for keypress'
-                    task.interval = task.time + task.interval
-                    # do not complete this loop
-                    return task.cont
-
-                # if we are at self.next = 4, then the last task was moving (since
-                # we haven't incremented yet, next was actually already done)
-                # now we need to reset our counter to zero (on). Always go immediately
-                # from move to on
-                if self.next == 4:
-                    self.next = 0
-                    interval = 0
-                else:
-                    interval = random.uniform(*self.all_intervals[self.next])
-                    self.next += 1
-                    #print self.all_intervals[self.next]
-                #print 'next interval', interval
-                task.interval = task.time + interval
-                #print 'update task number', self.next
-        else:
-            # Manual moving keys
-            #print "check for key"
-            #print self.keys["switch"]
-            # check to see if we should move the target
-            #print 'switch', self.keys
-            # if we haven't received a keypress before interval is over, default to 0,0
-            if task.time > task.interval:
-                #print('interval')
-                if self.keys["switch"]:
-                    #print 'manual move'
-                    #print 'switch', self.keys["switch"]
-                    self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
-                else:
-                    # switch to center
-                    self.square_move(self.pos.get_key_position(self.depth, 5))
-
-                self.keys["switch"] = 0  # remove the switch flag
-                # square is on, so next thing to happen is it dims,
-                # this happens after on interval, 0
-                # make sure next interval is based on the time we actually moved the target (now!)
-                #task.interval = task.time + random.uniform(*self.all_intervals[0])
-                # Next is dim, since it turned on when moved
-                self.next = 0
-                task.interval = 0
-                # don't come back here until ready to move again
-                task.move = False
-                #print 'back to regularly scheduled program'
-
-        # if using fake data, plot
-        if not self.use_daq_data:
-            self.get_eye_data(self.fake_data.next())
-
-        # check if we should switch from manual to auto or vise-versa
-        # do it here before we return so no weirdness in finishing the frame loop
-        if self.flag_task_switch:
-            #print('yes, switch')
-            self.change_tasks()
-
-        return task.cont  # Since every return is Task.cont, the task will
-        #continue indefinitely
-
-    # Square Functions
-    def square_on(self):
-        position = self.square.getPos()
-        print 'square on, 0'
-        #print position
-        self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) + 
-                                  ', ' + str(position[2]) + '\n')
-        # make sure in correct color
-        self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-        # and render
-        self.square.reparentTo(self.base.render)
-        #min, max = self.square.getTightBounds()
-        #size = max - min
-        #print size[0], size[2]
-        #print self.square.getPos()
-        #print 'square is now on'
-        # show window for tolerance
-        # and make sure checking for fixation
-        if not self.manual:
-            self.show_window(position)
-            self.check_fixation = True
-        self.change_interval()
-
-    def square_fade(self):
-        #print 'square fade, 1'
-        #heading = self.square.getPos() + (0.05, 0, 0)
-        #self.square.setPos(heading)
-        #self.square.setColor(175/255, 175/255, 130/255, 1.0)
-        self.square.setColor(0.9, 0.9, 0.6, 1.0)
-        # next interval is fade off to on, at which time we move
-        # if manual move is set, after off we just wait for move, so we
-        # won't actually check this interval
-        #self.interval = random.uniform(*MOVE_INTERVAL)
-        self.check_fixation = False
-        # if square has faded, then we can reset fixation time
-        self.fix_time = None
-        self.change_interval()
-
-    def square_off(self):
-        #print 'square off, 2'
-        #print 'parent 1', self.square.getParent()
-        self.square.clearColor()
-        self.square.detachNode()
-        for win in self.eye_window:
-            win.detachNode()
-        self.remove_eyes = True
-        #print 'erase eye window'
-        #self.eye_window.detachNode()
-        #print 'parent 2', self.square.getParent()
-        # next interval is on to fade on
-        #self.interval = random.uniform(*ON_INTERVAL)
-        #print 'next-on-interval', self.interval
-        self.change_interval()
-
-    def give_reward(self):
-        #print 'reward, 3'
-        # only give reward if pydaq is setup
-        for i in range(self.num_beeps):
-            if self.reward_task:
-                self.reward_task.pumpOut()
-                sleep(.2)
-            else:
-                print 'beep'
-        self.change_interval()
-
-    def square_move(self, position=None):
-        #print 'square move, 4'
-        #print 'square position', position
-        if not position:
-            #print 'trying to get a auto position'
-            try:
-                position = self.pos.next()
-                #print position
-            except StopIteration:
-                #print('stop iterating!')
-                # Switch to manual and wait
-                self.flag_task_switch = True
-                self.pause = True
-                # need to set a position
-                position = Point3(0, 0, 0)
-                #self.close()
-
-        self.square.setPos(Point3(position))
-        #print 'square', position[0], position[2]
-        self.change_interval()
-
-    def move_to_next_position(self):
-        if self.keys["switch"]:
-            #print 'manual move'
-            #print 'switch', self.keys["switch"]
-            self.square_move(self.pos.get_key_position(self.depth, self.keys["switch"]))
-            self.keys["switch"] = 0  # remove the switch flag
-        else:
-            # default is the center
-            self.square_move(self.pos.get_key_position(self.depth, 5))
-
-    def change_interval(self):
-        if self.manual and self.next == 4:
-            self.next = 0
-        print self.next
-        self.new_interval = random.uniform(*self.interval_list[self.next])
-        print self.new_interval
-        self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
-        self.next += 1
 
     def restart_timer(self, fix_time):
         # either restarting the timer because fixation was broken, or because fixation was
@@ -538,12 +251,80 @@ class World(DirectObject):
         #print 'if not fixated, should be none', self.fix_time
 
     def start(self):
-        # starts the experiment (otherwise start time is 2 minutes after
-        # world is created)
-        #self.frameTask.interval = 0
+        # starts the loop, either at the end of one loop, or after a break
+        print 'start'
         self.pause = False
-        self.manual_sequence.loop()
+        self.setup_sequence()
+        self.manual_sequence.start()
 
+    def setup_sequence(self):
+        all_intervals = self.create_intervals()
+        square_on = Func(self.square.turn_on)
+        square_fade = Func(self.square.fade)
+        square_off = Func(self.square.turn_off)
+        # break reward into another sequence?
+        give_reward = Func(self.give_reward)
+        square_move = Func(self.square.move_for_manual_position)
+        write_to_file = Func(self.write_to_file)
+        cleanup = Func(self.cleanup)
+
+        # move incrementing next and printing to log file into their own method. Probably called from
+        # each interval function
+        self.manual_sequence = Sequence(
+            Parallel(square_on, write_to_file),
+            Wait(all_intervals[0]),
+            Parallel(square_fade, write_to_file),
+            Wait(all_intervals[1]),
+            Parallel(square_off, write_to_file),
+            Wait(all_intervals[2]),
+            Parallel(give_reward, write_to_file),
+            Wait(all_intervals[3]),
+            Parallel(square_move, write_to_file),
+            cleanup,
+        )
+
+    # sequence methods
+    def create_intervals(self):
+        all_intervals = [random.uniform(*i) for i in self.interval_list]
+        return all_intervals
+
+    def give_reward(self):
+        print 'reward, 3'
+        self.remove_eyes = True
+        # first get rid of eye trace
+        for win in self.eye_window:
+            win.detachNode()
+        # only give reward if pydaq is setup
+        for i in range(self.num_beeps):
+            if self.reward_task:
+                self.reward_task.pumpOut()
+                sleep(.2)
+            else:
+                print 'beep'
+
+    def write_to_file(self):
+        print self.next
+        # write to file, trigger next phase
+        self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
+        # if this is first time through, write positin of square
+        if self.next == 0:
+            self.write_pos_to_file()
+        # next only affects what we are writing to file,
+        self.next += 1
+        print('next', self.next)
+
+    def write_pos_to_file(self):
+        #print "write pos to file"
+        position = self.square.square.getPos()
+        self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) +
+                                  ', ' + str(position[2]) + '\n')
+
+    def cleanup(self):
+        # end of loop, start again
+        self.next = 0
+        self.start()
+
+    ##### Pydaq methods
     def get_eye_data(self, eye_data):
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
@@ -647,32 +428,7 @@ class World(DirectObject):
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
 
-    def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
-        if ch_type == 'gain':
-            self.gain[x_or_y] += ch_amount
-            self.text.setText('Gain:' + str(self.gain))
-            self.time_data_file.write(
-                str(time()) + ', Change Gain, ' +
-                str(self.gain[0]) + ', ' +
-                str(self.gain[1]) + '\n')
-        else:
-            self.offset[x_or_y] += ch_amount
-            #self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
-            #                   + ', ' + '{0:03.2f}]'.format(self.offset[1]))
-            self.time_data_file.write(
-                str(time()) + ', Change Offset, ' +
-                str(self.offset[0]) + ', ' +
-                str(self.offset[1]) + '\n')
 
-    def change_tolerance(self, direction):
-        self.tolerance += direction
-        self.set_text4()
-        #self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
-        #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
-        for win in self.eye_window:
-            win.detachNode()
-        #self.eye_window.detachNode()
-        self.show_window(self.square.getPos())
 
     def change_tasks(self):
         # change from manual to auto-calibrate or vise-versa
@@ -705,7 +461,7 @@ class World(DirectObject):
             # text4 and text5 change
             self.set_text4()
             self.set_text5()
-        self.setup_positions(config)
+        self.square.setup_positions(config)
         self.open_files(config)
         if self.use_pydaq:
             self.start_eye_task()
@@ -761,7 +517,6 @@ class World(DirectObject):
         return dist
 
     # Setup Functions
-
     def setup_text(self, res_eye):
         #print 'make text'
         self.text = TextNode('gain')
@@ -832,34 +587,6 @@ class World(DirectObject):
             text_notice = 'Auto'
         self.text5.setText(text_notice)
 
-    def create_square(self, scale):
-        # setting up square object
-        obj = self.base.loader.loadModel("models/plane")
-        # don't turn on yet
-        # make depth greater than eye positions so eye positions are on top of squares
-        # initial position of Square
-        pos = Point2(0, 0)
-        obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
-        # need to scale to be correct visual angle
-        #obj.setScale(1)
-        obj.setScale(scale)
-        #obj.setTransparency(1)
-        square = self.base.loader.loadTexture("textures/calibration_square.png")
-        obj.setTexture(square, 1)
-        # starting color, should be set by model, but let's make sure
-        obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
-        return obj
-
-    def setup_positions(self, config):
-        # If doing manual, need to initiate Positions differently than if random,
-        # so key presses work properly
-        if self.manual:
-            #print 'manual'
-            self.pos = Positions(config)
-        else:
-            #print 'manual is false, auto'
-            self.pos = Positions(config).get_position(self.depth, True)
-
     def setup_pydaq(self):
         #print 'setup pydaq'
         if self.use_daq_data:
@@ -877,6 +604,34 @@ class World(DirectObject):
         self.reward_task = pydaq.GiveReward()
 
     # Key Functions
+    ### key press methods
+    def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
+        if ch_type == 'gain':
+            self.gain[x_or_y] += ch_amount
+            self.text.setText('Gain:' + str(self.gain))
+            self.time_data_file.write(
+                str(time()) + ', Change Gain, ' +
+                str(self.gain[0]) + ', ' +
+                str(self.gain[1]) + '\n')
+        else:
+            self.offset[x_or_y] += ch_amount
+            #self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
+            #                   + ', ' + '{0:03.2f}]'.format(self.offset[1]))
+            self.time_data_file.write(
+                str(time()) + ', Change Offset, ' +
+                str(self.offset[0]) + ', ' +
+                str(self.offset[1]) + '\n')
+
+    def change_tolerance(self, direction):
+        self.tolerance += direction
+        self.set_text4()
+        #self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
+        #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
+        for win in self.eye_window:
+            win.detachNode()
+        #self.eye_window.detachNode()
+        self.show_window(self.square.getPos())
+
     #As described earlier, this simply sets a key in the self.keys dictionary to
     #the given value
     def set_key(self, key, val):
@@ -940,6 +695,7 @@ class World(DirectObject):
         self.accept("8", self.set_key, ["switch", 8])
         self.accept("9", self.set_key, ["switch", 9])
 
+    ### setup methods
     def setup_window2(self, config):
         #print 'second window, for researcher'
         props = WindowProperties()
@@ -1026,10 +782,12 @@ class World(DirectObject):
         # get configurations from config file
         config = {}
         execfile(self.config_file, config)
-        # set up square positions
-        self.setup_positions(config)
         # set up keys
         self.setup_keys()
+        # create square object
+        self.square = Square(config, self.keys)
+        # set up square positions
+        self.square.setup_positions(config, self.manual)
         # open files
         self.open_files(config)
         if not self.use_daq_data:

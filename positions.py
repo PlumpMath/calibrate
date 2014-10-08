@@ -51,6 +51,7 @@ class Positions:
         #print('positions repeat', self.repeat)
 
     def get_key_position(self, depth, key=None):
+        #print key
         #print 'get key position', key
         pos = Point2(self.small_set[key-1])
         position = (pos.getX(), depth, pos.getY())
