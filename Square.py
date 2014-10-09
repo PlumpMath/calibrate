@@ -21,9 +21,7 @@ class Square():
         # don't turn on yet
         # make depth greater than eye positions so eye positions are on top of squares
         # initial position of Square
-        pos = Point2(0, 0)
-
-        obj.setPos(Point3(pos.getX(), self.depth, pos.getY()))  # Set initial posistion
+        obj.setPos(Point3(0, self.depth, 0))  # Set initial position
         # need to scale to be correct visual angle
         #obj.setScale(1)
         obj.setScale(scale)
