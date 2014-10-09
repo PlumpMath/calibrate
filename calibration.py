@@ -60,7 +60,7 @@ class World(DirectObject):
             self.use_daq_data = False
             self.use_daq_reward = False
             self.use_pydaq = False
-            self.config_file = 'config_test.py'
+            config_file = 'config_test.py'
         else:
             self.unittest = False
             self.use_pydaq = True
@@ -71,7 +71,7 @@ class World(DirectObject):
                 self.use_pydaq = False
                 self.use_daq_reward = False
                 self.use_daq_data = False
-            self.config_file = 'config.py'
+            config_file = 'config.py'
 
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
@@ -86,14 +86,14 @@ class World(DirectObject):
             self.manual = True
 
         # get configurations from config file
-        config = {}
-        execfile(self.config_file, config)
-        print 'Subject is', config['SUBJECT']
-        if config['SUBJECT'] == 'test':
+        self.config = {}
+        execfile(config_file, self.config)
+        print 'Subject is', self.config['SUBJECT']
+        if self.config['SUBJECT'] == 'test':
             self.use_daq_data = False
 
-        self.tolerance = config['TOLERANCE']
-        #print 'repeat ', config['POINT_REPEAT']
+        self.tolerance = self.config['TOLERANCE']
+        #print 'repeat ', self.config['POINT_REPEAT']
 
         # start Panda3d
         self.base = ShowBase()
@@ -115,9 +115,9 @@ class World(DirectObject):
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
 
-        if config['WIN_RES'] != 'Test':
-            self.gain = config['GAIN']
-            eye_res = self.setup_window2(config)
+        if self.config['WIN_RES'] != 'Test':
+            self.gain = self.config['GAIN']
+            eye_res = self.setup_window2()
             # text only happens on second window
             self.setup_text(eye_res)
         else:
@@ -125,7 +125,7 @@ class World(DirectObject):
             # value for determining pixels size. In this case, accuracy is not
             # important, because never actually calibrating with this setup.
             resolution = [1280, 800]
-            self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
+            self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
 
         print('gain', self.gain)
 
@@ -139,6 +139,7 @@ class World(DirectObject):
         self.time_file_name = ''
         self.eye_data_file = None
         self.time_data_file = None
+
         # When we first open the file, we will write a line for time started calibration
         self.first = True
 
@@ -170,7 +171,7 @@ class World(DirectObject):
         # fixed...).
         if self.unittest:
             self.pause = False
-            first_interval = random.uniform(*config['MOVE_INTERVAL'])
+            first_interval = random.uniform(*self.config['MOVE_INTERVAL'])
         else:
             first_interval = 0
             self.pause = True
@@ -181,7 +182,7 @@ class World(DirectObject):
         self.reward_task = None
         self.fake_data = None
 
-        self.num_beeps = config['NUM_BEEPS']
+        self.num_beeps = self.config['NUM_BEEPS']
         # first task is square_on, which is zero, but we will increment this
         # during the task, so needs to be the last task
         self.next = 0
@@ -199,8 +200,8 @@ class World(DirectObject):
         # break_interval - used for random, how long time out before
         #            next square on, if missed or broke fixation
         # on, fade, reward, move
-        self.interval_list = [config['ON_INTERVAL'], config['FADE_INTERVAL'], config['REWARD_INTERVAL'],
-                              config['MOVE_INTERVAL'], config['FIX_INTERVAL'], config['BREAK_INTERVAL']]
+        self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
+                              self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL']]
 
         # initiate manual sequence
         self.manual_sequence = None
@@ -212,6 +213,41 @@ class World(DirectObject):
             3: 'Reward \n',
             4: 'Square moved \n'
         }
+
+    def start_task(self):
+        print 'start task'
+        if not self.unittest:
+            # text4 and text5 change
+            self.set_text4()
+            self.set_text5()
+        # set up square positions
+        self.square.setup_positions(self.config, self.manual)
+        # open files
+        self.open_files()
+        if self.use_pydaq:
+            self.start_eye_task()
+
+    def end_task(self):
+        print 'end task'
+        # close stuff
+        if self.use_daq_data:
+            #print 'stopping daq tasks'
+            # have to stop tasks before closing files
+            self.eye_task.DoneCallback(self.eye_task)
+            self.eye_task.StopTask()
+            self.eye_task.ClearTask()
+        self.close_files()
+        #self.square.pos = None
+
+    def change_tasks(self):
+        print 'change task'
+        # change from manual to auto-calibrate or vise-versa
+        self.manual = not self.manual
+        #print('switched manual?', self.manual)
+        # reset stuff
+        self.flag_task_switch = False
+        self.end_task()
+        self.start_task()
 
     def restart_timer(self, fix_time):
         # either restarting the timer because fixation was broken, or because fixation was
@@ -250,14 +286,24 @@ class World(DirectObject):
         self.fix_time = fix_time
         #print 'if not fixated, should be none', self.fix_time
 
-    def start(self):
+    def start_loop(self):
         # starts the loop, either at the end of one loop, or after a break
         print 'start'
         self.pause = False
-        self.setup_sequence()
-        self.manual_sequence.start()
+        if self.manual:
+            self.setup_manual_sequence()
+            self.manual_sequence.start()
+        else:
+            print 'auto'
 
-    def setup_sequence(self):
+    def cleanup(self):
+        # end of loop, check to see if we are switching tasks, start again
+        self.next = 0
+        if self.flag_task_switch:
+            self.change_tasks()
+        self.start_loop()
+
+    def setup_manual_sequence(self):
         all_intervals = self.create_intervals()
         square_on = Func(self.square.turn_on)
         square_fade = Func(self.square.fade)
@@ -319,12 +365,15 @@ class World(DirectObject):
         self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) +
                                   ', ' + str(position[2]) + '\n')
 
-    def cleanup(self):
-        # end of loop, start again
-        self.next = 0
-        self.start()
+    ##### Eye Methods
+    def check_for_fixation(self):
+        # show window for tolerance, if auto
+        # and make sure checking for fixation
+        # only used for auto
+        position = self.square.square.getPos()
+        self.show_window(position)
+        self.check_fixation = True
 
-    ##### Pydaq methods
     def get_eye_data(self, eye_data):
         # pydaq calls this function every time it calls back to get eye data,
         # if testing, called from frame_loop with fake data
@@ -427,44 +476,6 @@ class World(DirectObject):
         # at least change the gain by a couple of order of magnitudes
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
-
-
-
-    def change_tasks(self):
-        # change from manual to auto-calibrate or vise-versa
-        self.manual = not self.manual
-        #print('switched manual?', self.manual)
-        # do not finish whatever loop you were in
-        # not sure how to do this
-        # close stuff
-        if self.use_daq_data:
-            #print 'stopping daq tasks'
-            # have to stop tasks before closing files
-            self.eye_task.DoneCallback(self.eye_task)
-            self.eye_task.StopTask()
-            self.eye_task.ClearTask()
-        self.close_files()
-        del self.pos
-        #self.clear_eyes()
-        # clear text from IScan, rest should be okay, since not
-        # updated frequently
-        # self.text3.removeNode()
-        #print 'task', self.manual
-        # get configurations from config file
-        config = {}
-        execfile(self.config_file, config)
-        # reset stuff
-        self.flag_task_switch = False
-        self.frameTask.move = False
-        self.next = 0
-        if not self.unittest:
-            # text4 and text5 change
-            self.set_text4()
-            self.set_text5()
-        self.square.setup_positions(config)
-        self.open_files(config)
-        if self.use_pydaq:
-            self.start_eye_task()
 
     def clear_eyes(self):
         # We can now stop plotting eye positions,
@@ -587,14 +598,6 @@ class World(DirectObject):
             text_notice = 'Auto'
         self.text5.setText(text_notice)
 
-    def setup_pydaq(self):
-        #print 'setup pydaq'
-        if self.use_daq_data:
-            self.start_eye_task()
-        if self.use_daq_reward:
-            #print 'setup reward'
-            self.start_reward_task()
-
     def start_eye_task(self):
         self.eye_task = pydaq.EOGTask()
         self.eye_task.SetCallback(self.get_eye_data)
@@ -645,7 +648,7 @@ class World(DirectObject):
     def setup_keys(self):
         self.accept("escape", self.close)  # escape
         # starts turning square on
-        self.accept("space", self.start)  # default is the program waits 2 min
+        self.accept("space", self.start_loop)  # default is the program waits 2 min
 
         #self.accept("m", self.change_tasks)
         # switches from manual to auto-calibrate or vise-versa,
@@ -696,7 +699,7 @@ class World(DirectObject):
         self.accept("9", self.set_key, ["switch", 9])
 
     ### setup methods
-    def setup_window2(self, config):
+    def setup_window2(self):
         #print 'second window, for researcher'
         props = WindowProperties()
         #props.setForeground(True)
@@ -719,8 +722,8 @@ class World(DirectObject):
         #props.setCursorHidden(True)
         #props.setOrigin(0, 0)
         # resolution of window for actual calibration
-        resolution = config['WIN_RES']
-        res_eye = config['EYE_RES']
+        resolution = self.config['WIN_RES']
+        res_eye = self.config['EYE_RES']
         # if resolution given, set the appropriate resolution
         # otherwise assume want small windows
         if resolution is not None:
@@ -738,7 +741,7 @@ class World(DirectObject):
             # x and y are pretty damn close, so just us x
         # degree per pixel is important only for determining where to plot squares, no effect
         # on eye position plotting, so use projector resolution, screen size, etc
-        self.deg_per_pixel = visual_angle(config['SCREEN'], resolution, config['VIEW_DIST'])[0]
+        self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
         #print 'deg_per_pixel', self.deg_per_pixel
         # set the properties for eye data window
         window2.requestProperties(props)
@@ -778,29 +781,26 @@ class World(DirectObject):
         #wp.setUndecorated(True)
         self.base.win.requestProperties(wp)
 
-    def setup_task(self):
-        # get configurations from config file
-        config = {}
-        execfile(self.config_file, config)
+    def setup_game(self):
+        # this only happens once, at beginning
         # set up keys
         self.setup_keys()
         # create square object
-        self.square = Square(config, self.keys)
-        # set up square positions
-        self.square.setup_positions(config, self.manual)
-        # open files
-        self.open_files(config)
+        self.square = Square(self.config, self.keys, self.base)
+        # start fake data yield, if not using eye tracker
         if not self.use_daq_data:
             self.fake_data = yield_eye_data((0.0, 0.0))
-        if self.use_pydaq:
-            # start pydaq stuff
-            self.setup_pydaq()
+        # start reward capabilities, if using daq
+        if self.use_daq_reward:
+            #print 'setup reward'
+            self.start_reward_task()
+        self.start_task()
 
     # File methods
-    def open_files(self, config):
+    def open_files(self):
         # open file for recording eye data
-        subject = config['SUBJECT']
-        data_dir = 'data/' + config['SUBJECT']
+        subject = self.config['SUBJECT']
+        data_dir = 'data/' + self.config['SUBJECT']
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         if self.manual:
@@ -861,6 +861,6 @@ if __name__ == "__main__":
         W = World(sys.argv[1])
     else:
         W = World(sys.argv[1], sys.argv[2])
-    W.setup_task()
+    W.setup_game()
     W.base.run()
 

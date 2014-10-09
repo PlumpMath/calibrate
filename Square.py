@@ -4,8 +4,9 @@ from positions import Positions
 
 class Square():
 
-    def __init__(self, config, key_map):
+    def __init__(self, config, key_map, base):
         self.key_map = key_map
+        self.base = base
         # self.depth needs to be more than zero for stuff to show up,
         # otherwise arbitrary. This is used for positioning squares (Z)
         self.depth = 55
@@ -17,7 +18,7 @@ class Square():
 
     def create_square(self, scale):
         # setting up square object
-        obj = base.loader.loadModel("models/plane")
+        obj = self.base.loader.loadModel("models/plane")
         # don't turn on yet
         # make depth greater than eye positions so eye positions are on top of squares
         # initial position of Square
@@ -26,7 +27,7 @@ class Square():
         #obj.setScale(1)
         obj.setScale(scale)
         #obj.setTransparency(1)
-        square = base.loader.loadTexture("textures/calibration_square.png")
+        square = self.base.loader.loadTexture("textures/calibration_square.png")
         obj.setTexture(square, 1)
         # starting color, should be set by model, but let's make sure
         obj.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
@@ -49,18 +50,12 @@ class Square():
         # make sure in correct color
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
-        self.square.reparentTo(base.render)
+        self.square.reparentTo(self.base.render)
         #min, max = self.square.getTightBounds()
         #size = max - min
         #print size[0], size[2]
         #print self.square.getPos()
         #print 'square is now on'
-        # show window for tolerance, if auto
-        # and make sure checking for fixation
-        if not self.manual:
-            position = self.square.getPos()
-            self.show_window(position)
-            self.check_fixation = True
 
     def fade(self):
         print 'square fade, 1'
