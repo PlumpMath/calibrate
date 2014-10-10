@@ -63,10 +63,6 @@ class Square():
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
         self.square.setColor(0.9, 0.9, 0.6, 1.0)
-        # no longer have to check fixation
-        self.check_fixation = False
-        # if square has faded, then we can reset fixation time
-        self.fix_time = None
 
     def turn_off(self):
         print 'square off, 2'

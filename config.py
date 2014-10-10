@@ -59,7 +59,8 @@ Y_POINTS = 5
 # same number twice
 # How long must fixate before square changes color
 FIX_INTERVAL = (1.0, 1.0)
-# How long to wait until next square if break fixation
+# How long to wait until next square if breaks fixation,
+# (in addition to the move interval)
 BREAK_INTERVAL = (1.0, 1.0)
 
 #ON_INTERVAL = (0.7, 1.25)  # Time on
