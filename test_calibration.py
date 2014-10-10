@@ -41,15 +41,11 @@ class TestCalibration(unittest.TestCase):
             cls.manual = 0
         loadPrcFileData("", "window-type offscreen")
         #print 'about to load world'
-        #print 'boo', cls.manual
-        cls.w = World(cls.manual, 1)
-        cls.w.setup_task()
+        cls.w = World(cls.manual, 'config_test.py')
+        cls.w.setup_game()
 
     def setUp(self):
         #print 'setup'
-        self.config = {}
-        execfile('config_test.py', self.config)
-        self.w.open_files(self.config)
         self.depth = 0
         #print('setup done')
 
@@ -244,4 +240,5 @@ if __name__ == "__main__":
         if not result.wasSuccessful():
             sys.exit(1)
     else:
+        manual = False
         unittest.main(verbosity=2)

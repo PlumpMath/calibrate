@@ -43,26 +43,32 @@ def get_distance(p0, p1):
 
 class World(DirectObject):
 
-    def __init__(self, mode=None, test=None):
+    def __init__(self, mode=None, config_file=None):
         DirectObject.__init__(self)
         # mode sets whether starts at manual or auto, default is manual, auto is 0
-        # test sets whether using fake eye data and test_config for config,
-        # set to 1 for testing/using fake eye data
-        #print 'init'
-        #print 'mode', mode
-        #print 'test', test
-        if test == '1' or test == 1:
-            # test (either unittest or testing on mac) so use fake eye data and testing configuration.
+        # Start in auto, if, and only if the input number was a zero,
+        if mode == '0' or mode == 0:
+            self.manual = False
+        else:
+            self.manual = True
+
+        if not config_file:
+            config_file = 'config.py'
+
+        # get configurations from config file
+        self.config = {}
+        execfile(config_file, self.config)
+        print 'Subject is', self.config['SUBJECT']
+        # if subject is test, doing unit tests
+        if self.config['SUBJECT'] == 'test':
+            self.use_daq_data = False
+            # doing unittests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and plot_eye_data are the same
-            # if using fake data on windows, also change WIN_RES in config_test to an actual resolution to
-            # get second window
             self.gain = [1, 1]
             print 'test'
             self.unittest = True
             self.use_daq_data = False
             self.use_daq_reward = False
-            self.use_pydaq = False
-            config_file = 'config_test.py'
         else:
             self.unittest = False
             self.use_pydaq = True
@@ -70,29 +76,19 @@ class World(DirectObject):
             self.use_daq_reward = True
             # in case we are not unittesting, but didn't load pydaq
             if not LOADED_PYDAQ:
-                self.use_pydaq = False
                 self.use_daq_reward = False
                 self.use_daq_data = False
-            config_file = 'config.py'
+
+        try:
+            self.use_daq_data = not self.config['FAKE_DATA']
+        except KeyError:
+            print('using fake data', not self.use_daq_data)
 
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
         self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
-        # setup square positions. Start in auto, if, and only if
-        # the input number was a zero,
-        if mode == '0' or mode == 0:
-            self.manual = False
-        else:
-            self.manual = True
-
-        # get configurations from config file
-        self.config = {}
-        execfile(config_file, self.config)
-        print 'Subject is', self.config['SUBJECT']
-        if self.config['SUBJECT'] == 'test':
-            self.use_daq_data = False
 
         self.tolerance = self.config['TOLERANCE']
         #print 'repeat ', self.config['POINT_REPEAT']
@@ -148,7 +144,7 @@ class World(DirectObject):
         # starts out not fixated, and not checking for fixation (will
         # check for fixation when stimulus comes on, if we are doing an auto task)
         self.fixated = False
-        self.check_fixation = False
+        self.fixation_check_flag = False
 
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
@@ -211,7 +207,7 @@ class World(DirectObject):
         self.start_auto_sequence = None
         self.square_on_parallel = None
         self.auto_sequence_task = None
-        self.on_task = None
+        self.off_task = None
 
         # Corresponding dictionary for writing to file
         self.sequence_for_file = {
@@ -234,7 +230,7 @@ class World(DirectObject):
         self.square.setup_positions(self.config, self.manual)
         # open files
         self.open_files()
-        if self.use_pydaq:
+        if self.use_daq_data:
             self.start_eye_task()
 
     def end_gig(self):
@@ -270,6 +266,8 @@ class World(DirectObject):
             self.manual_sequence.start()
         else:
             print 'auto'
+            # always start out not fixated
+            self.fixated = False
             # setup sequences
             self.setup_auto_sequences()
             # turn on square and timer
@@ -309,17 +307,17 @@ class World(DirectObject):
         )
 
     ### tasks for auto
-    def wait_on_task(self, task):
+    def wait_off_task(self, task):
         print 'time up, restart'
         # this task will run after the on interval. If there is a fixation, initiate_fixation_period
         # will begin (started from get_eye_data method), if not we start over
-        self.restart_auto_gig()
+        self.restart_auto_loop()
         return task.done
 
     def wait_auto_sequence_task(self, task):
         print 'fixated! start sequence'
         # made it through fixation, will get reward, stop checking for fixation
-        self.check_fixation = False
+        self.fixation_check_flag = False
         self.auto_sequence.start()
         return task.done
 
@@ -361,7 +359,7 @@ class World(DirectObject):
         # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
         # will abort and start over
         # first stop the on interval
-        self.base.taskMgr.remove(self.on_task)
+        self.base.taskMgr.remove(self.off_task)
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
         self.auto_sequence_task = self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto')
@@ -370,9 +368,12 @@ class World(DirectObject):
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
         self.base.taskMgr.remove(self.auto_sequence_task)
-        self.restart_auto_gig()
+        # not checking for fixation anymore
+        self.fixation_check_flag = False
+        self.restart_auto_loop()
 
-    def restart_auto_gig(self):
+    def restart_auto_loop(self):
+        print 'restart'
         # turn off square
         self.square.turn_off()
         # write to log
@@ -430,10 +431,10 @@ class World(DirectObject):
         position = self.square.square.getPos()
         on_interval = random.uniform(*self.interval_list[0])
         self.show_window(position)
-        self.check_fixation = True
+        self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
-        self.on_task = self.base.taskMgr.doMethodLater(on_interval, self.wait_on_task, 'on_task')
+        self.off_task = self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'on_task')
 
     def get_eye_data(self, eye_data):
         # pydaq calls this function every time it calls back to get eye data,
@@ -498,8 +499,8 @@ class World(DirectObject):
                     self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
                                        ', ' + str(round(eye_data[1], 3)) + ']')
             # check if in window for auto-calibrate - only update time if was none previously
-            if self.check_fixation:
-                #print 'check fixation', self.check_fixation
+            if self.fixation_check_flag:
+                #print 'check fixation', self.fixation_check_flag
                 # if already fixated, make sure hasn't left
                 #print 'tolerance', self.tolerance
                 distance = get_distance(plot_eye_data, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
@@ -510,18 +511,19 @@ class World(DirectObject):
                 # if fixated is true, has fixated, making sure not leaving fixation window
                 # if fixated is false, has not fixated, and checking to see if enters window
                 if self.fixated:
-                    #print 'already fixated'
+                    print 'already fixated'
                     # if already fixated, make sure doesn't break fixation
                     if distance > tolerance:
+                        print 'broke fixation'
                         self.fixated = False
                         self.recover_from_broken_fixation()
                         # abort trial, start again with square in same position
                         #print 'abort'
                         #self.restart_timer(None)
                 else:
-                    #print 'waiting for fixation'
+                    print 'waiting for fixation'
                     if distance < tolerance:
-                        #print 'and fixated!'
+                        print 'and fixated!'
                         #print 'square', self.square.getPos()[0], self.square.getPos()[2]
                         #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
                         #print 'tolerance', self.tolerance
@@ -860,7 +862,6 @@ class World(DirectObject):
         if self.use_daq_reward:
             #print 'setup reward'
             self.start_reward_task()
-        self.base.taskMgr.popupControls()
         self.start_gig()
 
     # File methods

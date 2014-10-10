@@ -1,8 +1,9 @@
 # This file is only used for unit tests and other testing,
 # change win_res here and not in config,
-# use 'ppython calibration.py x 1', (x is 1 manual, 2 random) while testing,
+# use 'ppython calibration.py ', (x is 1 manual, 2 random) while testing,
 # but not running unit tests, change WIN_RES appropriately.
 SUBJECT = 'test'
+FAKE_DATA = True
 # window resolution, can be a resolution or None for normal panda3d window
 # use 'Test' for testing, so does not try to open second window
 # use this for unit testing
@@ -17,7 +18,7 @@ WIN_RES = 'Test'
 SCREEN = [1337, 991]
 VIEW_DIST = 1219
 # resolution for screen presenting eye data, not used for most testing
-EYE_RES = [1024, 768]
+EYE_RES = [1280, 800]
 #EYE_RES = [1600, 900]
 
 # square scale in degree of visual angle (scales both length and width)
