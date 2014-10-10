@@ -328,13 +328,6 @@ class World(DirectObject):
         self.cleanup()
         return task.done
 
-    def initiate_fixation_period(self):
-        print 'initiate fixation'
-        # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
-        # will abort and start over
-        fixate_interval = random.uniform(*self.interval_list[4])
-        self.auto_sequence_task = self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto')
-
     def setup_auto_sequences(self):
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
@@ -362,6 +355,16 @@ class World(DirectObject):
             Parallel(square_move, write_to_file),
             cleanup,
         )
+
+    def initiate_fixation_period(self):
+        print 'initiate fixation'
+        # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
+        # will abort and start over
+        # first stop the on interval
+        self.base.taskMgr.remove(self.on_task)
+        # now start the fixation interval
+        fixate_interval = random.uniform(*self.interval_list[4])
+        self.auto_sequence_task = self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto')
 
     def recover_from_broken_fixation(self):
         # method to restart the task if fixation is broken
