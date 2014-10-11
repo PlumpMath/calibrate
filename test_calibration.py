@@ -47,6 +47,7 @@ class TestCalibration(unittest.TestCase):
     def setUp(self):
         #print 'setup'
         self.depth = 0
+        self.w.start_loop()
         #print('setup done')
 
     def test_no_square(self):

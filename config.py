@@ -2,7 +2,7 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-FAKE_DATA = True
+#FAKE_DATA = True
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
 # unless you also change screen and view_dist appropriately, but for testing, should be ok
@@ -71,7 +71,7 @@ BREAK_INTERVAL = (1.0, 1.0)
 #REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
 #MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
 
-ON_INTERVAL = (2.0, 5.0)  # Time on
+ON_INTERVAL = (1.0, 2.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35)  # Time faded
 REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
 MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place

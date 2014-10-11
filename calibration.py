@@ -63,7 +63,7 @@ class World(DirectObject):
         if self.config['SUBJECT'] == 'test':
             self.use_daq_data = False
             # doing unittests so use fake eye data and testing configuration.
-            # for testing, always leave gain at one, so eye_data and plot_eye_data are the same
+            # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
             print 'test'
             self.unittest = True
@@ -164,16 +164,6 @@ class World(DirectObject):
         # initialize signal to switch tasks (manual - auto)
         self.flag_task_switch = False
 
-        # if not testing, first square will wait until spacebar is hit to start
-        # if you wait too long, may go into lala land (although I hope this is
-        # fixed...).
-        if self.unittest:
-            self.pause = False
-            first_interval = random.uniform(*self.config['MOVE_INTERVAL'])
-        else:
-            first_interval = 0
-            self.pause = True
-
         # set up daq for eye and reward, if on windows and not testing
         # testing auto mode depends on being able to control eye position
         self.eye_task = None
@@ -263,7 +253,6 @@ class World(DirectObject):
     def start_loop(self):
         # starts every loop, either at the end of one loop, or after a break
         print 'start'
-        self.pause = False
         if self.manual:
             self.setup_manual_sequence()
             self.manual_sequence.start()
@@ -289,8 +278,8 @@ class World(DirectObject):
         square_on = Func(self.square.turn_on)
         square_fade = Func(self.square.fade)
         square_off = Func(self.square.turn_off)
-        # break reward into another sequence?
         give_reward = Func(self.give_reward)
+        clear_eyes = Func(self.remove_eye_trace)
         square_move = Func(self.square.move_for_manual_position)
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
@@ -304,7 +293,7 @@ class World(DirectObject):
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file),
+            Parallel(give_reward, write_to_file, clear_eyes),
             Wait(all_intervals[3]),
             Parallel(square_move, write_to_file),
             cleanup,
@@ -316,10 +305,11 @@ class World(DirectObject):
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
         square_on = Func(self.square.turn_on)
+        end_timer = Func(self.end_fixation_timer)
         square_fade = Func(self.square.fade)
         square_off = Func(self.square.turn_off)
-        # break reward into another sequence?
         give_reward = Func(self.give_reward)
+        clear_eyes = Func(self.remove_eye_trace)
         square_move = Func(self.square.move)
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
@@ -329,11 +319,11 @@ class World(DirectObject):
         self.square_on_parallel = Parallel(square_on, write_to_file, wait_on)
 
         self.auto_sequence = Sequence(
-            Parallel(square_fade, write_to_file),
+            Parallel(square_fade, write_to_file, end_timer),
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file),
+            Parallel(give_reward, write_to_file, clear_eyes),
             Wait(all_intervals[3]),
             Parallel(square_move, write_to_file),
             cleanup,
@@ -360,7 +350,11 @@ class World(DirectObject):
         print 'held fixation, start sequence'
         # made it through fixation, will get reward, stop checking for fixation
         self.fixation_check_flag = False
+        # so, auto_sequence doesn't return until it has completed the whole
+        # sequence, which could mean we have already called the task again before
+        # we return. meh. we could remove the task in the sequence, I suppose.
         self.auto_sequence.start()
+
         return task.done
 
     def wait_cleanup_task(self, task):
@@ -383,6 +377,9 @@ class World(DirectObject):
         fixate_interval = random.uniform(*self.interval_list[4])
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
 
+    def end_fixation_timer(self):
+        self.base.taskMgr.remove('auto_sequence')
+        
     def recover_from_broken_fixation(self):
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
@@ -398,12 +395,21 @@ class World(DirectObject):
         # write to log
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[2])
         self.time_data_file.write(str(time()) + ', ' + 'no fixation or broken, restart' + '\n')
+        self.remove_eye_trace()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'cleanup')
+
+    def remove_eye_trace(self):
+        print 'remove eye trace and fixation window'
+        # get rid of eye trace
+        self.remove_eyes = True
+        # remove window around square
+        for win in self.eye_window:
+            win.detachNode()
 
     # sequence methods for both auto and manual
     def create_intervals(self):
@@ -413,10 +419,6 @@ class World(DirectObject):
 
     def give_reward(self):
         print 'reward, 3'
-        self.remove_eyes = True
-        # first get rid of eye trace
-        for win in self.eye_window:
-            win.detachNode()
         # give reward for each num_beeps
         # give one reward right away, have
         # to wait delay before giving next reward
@@ -431,7 +433,8 @@ class World(DirectObject):
                 print 'beep'
 
     def write_to_file(self):
-        print self.next
+        print('now', self.next)
+        print(self.sequence_for_file[self.next])
         # write to file, trigger next phase
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
         # if this is first time through, write positin of square
@@ -449,10 +452,12 @@ class World(DirectObject):
 
     ##### Eye Methods
     def check_for_fixation(self):
+        print 'check for fixation'
         # show window for tolerance, if auto
         # and make sure checking for fixation
         # only used for auto
         position = self.square.square.getPos()
+        self.time_data_file.write(str(time()) + ', fixation acquired')
         on_interval = random.uniform(*self.interval_list[0])
         self.show_window(position)
         self.fixation_check_flag = True
@@ -478,86 +483,84 @@ class World(DirectObject):
         # sometimes useful to not print timestamp
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
 
-        if not self.pause:
-            # stuff for plotting
-            #print 'not paused'
-            # convert to pixels for plotting, need the eye position
-            # from the last run for the starting position, and the
-            # current eye position for ending position
-            last_eye = self.eye_data_to_pixel(self.eye_data[-1])
-            plot_eye_data = self.eye_data_to_pixel(eye_data)
-            # save current data, so can erase plot later
-            self.eye_data.append((eye_data[0], eye_data[1]))
-            #print 'size eye data', len(self.eye_data)
+        # stuff for plotting
+        # convert to pixels for plotting, need the eye position
+        # from the last run for the starting position, and the
+        # current eye position for ending position
+        last_eye = self.eye_data_to_pixel(self.eye_data[-1])
+        eye_data_to_plot = self.eye_data_to_pixel(eye_data)
+        # save current data, so can erase plot later
+        self.eye_data.append((eye_data[0], eye_data[1]))
+        #print 'size eye data', len(self.eye_data)
 
-            # unittesting is the only time there is no second screen, so
-            # impossible to do eye positions
-            if not self.unittest:
-                # any reason we can't get rid of the the previous self.eye_data here,
-                # instead of when we clear the screen? Pop from the beginning?
-                if self.remove_eyes:
-                    print 'clear eyes'
-                    # get rid of any eye positions left on screen
-                    self.clear_eyes()
-                    self.remove_eyes = False
-                # plot new eye segment
-                eye = LineSegs()
-                #eye.setThickness(2.0)
-                eye.setThickness(2.0)
-                #print 'last', last_eye
-                #print 'now', plot_eye_data
-                eye.moveTo(last_eye[0], 55, last_eye[1])
-                eye.drawTo(plot_eye_data[0], 55, plot_eye_data[1])
-                #print('plotted eye', plot_eye_data)
-                #min, max = eye.getTightBounds()
-                #size = max - min
-                #print size[0], size[2]
-                node = self.base.render.attachNewNode(eye.create(True))
-                node.show(BitMask32.bit(0))
-                node.hide(BitMask32.bit(1))
-                self.eyes.append(node)
-                if self.use_daq_data:
-                    self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-                else:
-                    self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-            # check if in window for auto-calibrate - only update time if was none previously
-            if self.fixation_check_flag:
-                #print 'check fixation', self.fixation_check_flag
-                # if already fixated, make sure hasn't left
-                #print 'tolerance', self.tolerance
-                distance = get_distance(plot_eye_data, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
-                #print 'distance', distance
-                # change tolerance to pixels, currently in degree of visual angle
-                tolerance = self.tolerance / self.deg_per_pixel
-                #print tolerance
-                # if fixated is true, has fixated, making sure not leaving fixation window
-                # if fixated is false, has not fixated, and checking to see if enters window
-                if self.fixated:
-                    #print 'already fixated'
-                    # if already fixated, make sure doesn't break fixation
-                    if distance > tolerance:
-                        print 'broke fixation'
-                        self.fixated = False
-                        self.recover_from_broken_fixation()
-                        # abort trial, start again with square in same position
-                        #print 'abort'
-                        #self.restart_timer(None)
-                else:
-                    #print 'waiting for fixation'
-                    if distance < tolerance:
-                        print 'and fixated!'
-                        #print 'square', self.square.getPos()[0], self.square.getPos()[2]
-                        #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
-                        #print 'tolerance', self.tolerance
-                        #print eye_data
-                        # restart timer, started fixating now
-                        self.fixated = True
-                        self.initiate_fixation_period()
-                        #self.restart_timer(self.frameTask.time)
-                        #print 'time fixated', self.fixated
-                        #print 'self.next', self.next
+        # when unittesting there is no second screen, so
+        # impossible to actually plot eye positions
+        if not self.unittest:
+            # any reason we can't get rid of the the previous self.eye_data here,
+            # instead of when we clear the screen? Pop from the beginning?
+            if self.remove_eyes:
+                print 'clear eyes'
+                # get rid of any eye positions left on screen
+                self.clear_eyes()
+                self.remove_eyes = False
+            # plot new eye segment
+            eye = LineSegs()
+            #eye.setThickness(2.0)
+            eye.setThickness(2.0)
+            #print 'last', last_eye
+            #print 'now', eye_data_to_plot
+            eye.moveTo(last_eye[0], 55, last_eye[1])
+            eye.drawTo(eye_data_to_plot[0], 55, eye_data_to_plot[1])
+            #print('plotted eye', eye_data_to_plot)
+            #min, max = eye.getTightBounds()
+            #size = max - min
+            #print size[0], size[2]
+            node = self.base.render.attachNewNode(eye.create(True))
+            node.show(BitMask32.bit(0))
+            node.hide(BitMask32.bit(1))
+            self.eyes.append(node)
+            if self.use_daq_data:
+                self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+                                   ', ' + str(round(eye_data[1], 3)) + ']')
+            else:
+                self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
+                                   ', ' + str(round(eye_data[1], 3)) + ']')
+        # check if in window for auto-calibrate - only update time if was none previously
+        if self.fixation_check_flag:
+            #print 'check fixation', self.fixation_check_flag
+            # if already fixated, make sure hasn't left
+            #print 'tolerance', self.tolerance
+            distance = get_distance(eye_data_to_plot, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
+            #print 'distance', distance
+            # change tolerance to pixels, currently in degree of visual angle
+            tolerance = self.tolerance / self.deg_per_pixel
+            #print tolerance
+            # if fixated is true, has fixated, making sure not leaving fixation window
+            # if fixated is false, has not fixated, and checking to see if enters window
+            if self.fixated:
+                #print 'already fixated'
+                # if already fixated, make sure doesn't break fixation
+                if distance > tolerance:
+                    print 'broke fixation'
+                    self.fixated = False
+                    self.recover_from_broken_fixation()
+                    # abort trial, start again with square in same position
+                    #print 'abort'
+                    #self.restart_timer(None)
+            else:
+                #print 'waiting for fixation'
+                if distance < tolerance:
+                    print 'and fixated!'
+                    #print 'square', self.square.getPos()[0], self.square.getPos()[2]
+                    #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
+                    #print 'tolerance', self.tolerance
+                    #print eye_data
+                    # restart timer, started fixating now
+                    self.fixated = True
+                    self.initiate_fixation_period()
+                    #self.restart_timer(self.frameTask.time)
+                    #print 'time fixated', self.fixated
+                    #print 'self.next', self.next
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -580,9 +583,9 @@ class World(DirectObject):
         self.eye_data.append(last_eye)
         #print 'eye data clear, should be just one position', self.eye_data
 
-    def show_window(self, square):
+    def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
-        #print 'show window'
+        print('show window around square', square_pos)
         tolerance = self.tolerance / self.deg_per_pixel
         #print 'tolerance in pixels', tolerance
         #print 'square', square[0], square[2]
@@ -594,7 +597,7 @@ class World(DirectObject):
             a = angle_radians * i / 49
             y = tolerance * sin(a)
             x = tolerance * cos(a)
-            eye_window.drawTo((x + square[0], 55, y + square[2]))
+            eye_window.drawTo((x + square_pos[0], 55, y + square_pos[2]))
 
         # draw a radius line
         #eye_window.moveTo(square[0], 55, square[2])
@@ -605,17 +608,6 @@ class World(DirectObject):
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
         self.eye_window.append(node)
-        #print 'eye window', self.eye_window
-
-    @staticmethod
-    def distance(p0, p1):
-        """
-        (tuple, tuple) -> float
-        Returns the distance between 2 points. p0 is a tuple with (x, y)
-        and p1 is a tuple with (x1, y1)
-        """
-        dist = sqrt((float(p0[0]) - float(p1[0])) ** 2 + (float(p0[1]) - float(p1[1])) ** 2)
-        return dist
 
     # Setup Functions
     def setup_text(self, res_eye):

@@ -1,5 +1,6 @@
 from panda3d.core import Point2, Point3
 from positions import Positions
+from direct.showbase.MessengerGlobal import messenger
 
 
 class Square():
@@ -46,7 +47,7 @@ class Square():
 
     # Square methods
     def turn_on(self):
-        print 'square on, 0'
+        print 'square on'
         # make sure in correct color
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
@@ -58,14 +59,14 @@ class Square():
         #print 'square is now on'
 
     def fade(self):
-        print 'square fade, 1'
+        print 'square fade'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
         self.square.setColor(0.9, 0.9, 0.6, 1.0)
 
     def turn_off(self):
-        print 'square off, 2'
+        print 'square off'
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
@@ -83,7 +84,7 @@ class Square():
             self.move(self.pos.get_key_position(self.depth, 5))
 
     def move(self, position=None):
-        print 'square move, 4'
+        print 'square move'
         print 'square position', position
         if not position:
             #print 'trying to get a auto position'
@@ -92,9 +93,8 @@ class Square():
                 #print position
             except StopIteration:
                 #print('stop iterating!')
+                messenger.send("s")
                 # Switch to manual and wait
-                self.flag_task_switch = True
-                self.pause = True
                 # need to set a position
                 position = (0, self.depth, 0)
                 #self.close()
