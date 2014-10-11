@@ -138,9 +138,6 @@ class World(DirectObject):
         self.eye_data_file = None
         self.time_data_file = None
 
-        # When we first open the file, we will write a line for time started calibration
-        self.first = True
-
         # starts out not fixated, and not checking for fixation (will
         # check for fixation when stimulus comes on, if we are doing an auto task)
         self.fixated = False
@@ -372,7 +369,7 @@ class World(DirectObject):
         # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
         # will abort and start over
         # first stop the on interval
-        self.base.taskMgr.remove('off_task')
+        self.base.taskMgr.remove('auto_off_task')
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
@@ -401,7 +398,7 @@ class World(DirectObject):
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'cleanup')
+        self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
 
     def remove_eye_trace(self):
         print 'remove eye trace and fixation window'
@@ -463,7 +460,7 @@ class World(DirectObject):
         self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
-        self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'off_task')
+        self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
@@ -472,10 +469,6 @@ class World(DirectObject):
         # write eye data (as is, no adjustments) and timestamp to file
         # if we are paused, do not plot eye data (pausing messes up
         # with cleanup), but still collect the data
-        if self.first:
-            #print 'first?', eye_data[0], eye_data[1]
-            self.time_data_file.write(str(time()) + ', start collecting eye data\n')
-            self.first = False
         self.eye_data_file.write(str(time()) + ', ' +
                                  str(eye_data[0]) + ', ' +
                                  str(eye_data[1]) + '\n')
@@ -525,10 +518,9 @@ class World(DirectObject):
             else:
                 self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
-        # check if in window for auto-calibrate - only update time if was none previously
+        # check if in window for auto-calibrate
         if self.fixation_check_flag:
             #print 'check fixation', self.fixation_check_flag
-            # if already fixated, make sure hasn't left
             #print 'tolerance', self.tolerance
             distance = get_distance(eye_data_to_plot, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
             #print 'distance', distance

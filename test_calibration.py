@@ -67,7 +67,7 @@ class TestCalibration(unittest.TestCase):
                 #if self.w.next == 3  or self.w.next == 0:
                 if self.w.next == 0:
                     square_on = False
-        self.assertFalse(self.w.square.getParent())
+        self.assertFalse(self.w.square.square.getParent())
 
     def test_square_turns_on(self):
         """
@@ -83,7 +83,7 @@ class TestCalibration(unittest.TestCase):
             if self.w.next == 1:
                 #print 'square should be on'
                 square_off = False
-        self.assertTrue(self.w.square.getParent())
+        self.assertTrue(self.w.square.square.getParent())
 
     def test_square_turns_off(self):
         square_dim = True
@@ -92,7 +92,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if self.w.next == match:
                 square_dim = False
-        self.assertFalse(self.w.square.getParent())
+        self.assertFalse(self.w.square.square.getParent())
 
     def test_eye_data_written_to_file(self):
         # make sure data is written to file.
@@ -192,9 +192,9 @@ class TestCalibration(unittest.TestCase):
         self.assertNotEqual(before, after)
 
     def test_change_tasks_and_positions_change(self):
-        #print('manual is', self.w.manual)
+        print('manual is', self.w.manual)
         #print('type', type(self.w.pos))
-        self.w.switch_task_flag = True
+        self.w.flag_task_switch = True
         # run the task long enough to switch
         last = self.w.next
         #print self.w.next
@@ -208,12 +208,12 @@ class TestCalibration(unittest.TestCase):
             #print('manual is', self.w.manual)
         #print('type', type(self.w.pos))
         if self.w.manual:
-            #print('manual is instance')
-            self.assertIsInstance(self.w.pos, types.InstanceType)
+            print('manual is instance')
+            self.assertIsInstance(self.w.square.pos, types.InstanceType)
             #new_pos = self.w.pos.get_key_position(self.w.depth, 5)
         else:
-            #print('not manual, auto is generator')
-            self.assertIsInstance(self.w.pos, types.GeneratorType)
+            print('not manual, auto is generator')
+            self.assertIsInstance(self.w.square.pos, types.GeneratorType)
             #new_pos = self.w.pos.next()
             #print new_pos
             #switch back - not really the 'correct' way, I know...
@@ -221,6 +221,9 @@ class TestCalibration(unittest.TestCase):
             #print self.w.manual
 
     def tearDown(self):
+        if not self.w.manual:
+            self.w.base.taskMgr.removeTasksMatching('auto_*')
+            self.w.auto_sequence.finish()
         self.w.clear_eyes()
         self.w.close_files()
 
