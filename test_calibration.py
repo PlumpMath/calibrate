@@ -66,7 +66,7 @@ class TestCalibration(unittest.TestCase):
             if self.w.next != now:
                 #print('do_a_loop', self.w.next)
                 now = self.w.next
-                if now == 1:
+                if now > 0:
                     test = 0
             if now == test:
                 first_loop = False

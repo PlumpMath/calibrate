@@ -87,7 +87,7 @@ class Square():
 
     def move(self, position=None):
         print 'square move'
-        print 'square position', position
+        #print 'square position', position
         if not position:
             #print 'trying to get a auto position'
             try:

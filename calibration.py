@@ -262,13 +262,14 @@ class World(DirectObject):
             self.fixated = False
             # setup sequences
             self.setup_auto_sequences()
-            print 'turn on timer'
+            print 'turn on timer for square on, waiting for fixation'
             # turn on square and timer
             self.square_on_parallel.start()
 
     def cleanup(self):
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
+        self.num_reward = 0
         if self.flag_task_switch:
             self.change_tasks()
         if not self.unittest:
@@ -381,6 +382,7 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
 
     def end_fixation_timer(self):
+        print 'remove fixation timer'
         self.base.taskMgr.remove('auto_sequence')
         
     def recover_from_broken_fixation(self):
@@ -388,13 +390,15 @@ class World(DirectObject):
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
         self.base.taskMgr.remove('auto_sequence')
-        print(self.base.taskMgr)
-        # not checking for fixation anymore
-        self.fixation_check_flag = False
+        #print(self.base.taskMgr)
         self.restart_auto_loop()
 
     def restart_auto_loop(self):
-        print 'restart'
+        print 'restart auto loop, long pause'
+        # stop checking fixation
+        self.fixation_check_flag = False
+        # make sure there are no tasks waiting
+        self.base.taskMgr.removeTasksMatching('auto_*')
         # turn off square
         self.square.turn_off()
         # write to log
@@ -407,7 +411,7 @@ class World(DirectObject):
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
-        print(self.base.taskMgr)
+        #print(self.base.taskMgr)
 
     def remove_eye_trace(self):
         print 'remove eye trace and fixation window, if there is one'
@@ -425,30 +429,32 @@ class World(DirectObject):
 
     def give_reward(self):
         print 'reward, 3'
+        #print(self.base.taskMgr)
         # give reward for each num_beeps
         # give one reward right away, have
         # to wait delay before giving next reward
         if self.reward_task:
             print 'first reward'
-            self.reward_task.pumpOut()
             self.num_reward = 1
+            self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
             self.base.taskMgr.doMethodLater(0.2, self.wait_between_reward, 'reward')
         else:
             for i in range(self.num_beeps):
                 print 'beep'
+                self.num_reward += 1
 
     def write_to_file(self):
-        print('now', self.next)
-        print(self.sequence_for_file[self.next])
-        # write to file, trigger next phase
+        #print('now', self.next)
+        #print(self.sequence_for_file[self.next])
+        # write to file, advance next for next write
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
-        # if this is first time through, write positin of square
+        # if this is first time through, write position of square
         if self.next == 0:
             self.write_pos_to_file()
         # next only affects what we are writing to file,
         self.next += 1
-        print('next', self.next)
+        #print('next', self.next)
 
     def write_pos_to_file(self):
         #print "write pos to file"
@@ -459,17 +465,18 @@ class World(DirectObject):
     ##### Eye Methods
     def check_for_fixation(self):
         print 'check for fixation'
+        print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
         # and make sure checking for fixation
         # only used for auto
         position = self.square.square.getPos()
-        self.time_data_file.write(str(time()) + ', fixation acquired')
         on_interval = random.uniform(*self.interval_list[0])
         self.show_window(position)
         self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
+        print('should still not be fixated', self.fixated)
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
@@ -544,6 +551,9 @@ class World(DirectObject):
                 if distance > tolerance:
                     print 'broke fixation'
                     self.fixated = False
+                    # if broke fixation, also stop checking for fixation
+                    self.fixation_check_flag = False
+                    # and start all over again
                     self.recover_from_broken_fixation()
                     # abort trial, start again with square in same position
                     #print 'abort'
