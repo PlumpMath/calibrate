@@ -39,10 +39,12 @@ class Square():
         # so key presses work properly
         self.manual = manual
         if self.manual:
-            print 'manual'
+            del self.pos
+            print 'manual positions'
             self.pos = Positions(config)
         else:
-            #print 'manual is false, auto'
+            del self.pos
+            print 'auto positions'
             self.pos = Positions(config).get_position(self.depth, True)
 
     # Square methods

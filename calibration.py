@@ -208,12 +208,12 @@ class World(DirectObject):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
         print 'start new gig'
+         # set up square positions
+        self.square.setup_positions(self.config, self.manual)
         if not self.unittest:
             # text4 and text5 change
             self.set_text4()
             self.set_text5()
-        # set up square positions
-        self.square.setup_positions(self.config, self.manual)
         # open files
         self.open_files()
         if self.use_daq_data:
@@ -249,8 +249,11 @@ class World(DirectObject):
 
     def start_loop(self):
         # starts every loop, either at the end of one loop, or after a break
-        print 'start'
+        print 'start loop'
+        #print('time', time())
+        #print('eye data', self.eye_data[:20])
         if self.manual:
+            print 'manual'
             self.setup_manual_sequence()
             self.manual_sequence.start()
         else:
@@ -268,9 +271,11 @@ class World(DirectObject):
         self.next = 0
         if self.flag_task_switch:
             self.change_tasks()
-        self.start_loop()
+        if not self.unittest:
+            self.start_loop()
 
     def setup_manual_sequence(self):
+        print 'setup manual sequence'
         all_intervals = self.create_intervals()
         square_on = Func(self.square.turn_on)
         square_fade = Func(self.square.fade)
@@ -297,7 +302,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        print 'setup sequences'
+        print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -370,8 +375,10 @@ class World(DirectObject):
         # will abort and start over
         # first stop the on interval
         self.base.taskMgr.remove('auto_off_task')
+        self.time_data_file.write(str(time()) + ', Fixated')
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
+        print('fixate interval', fixate_interval)
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
 
     def end_fixation_timer(self):
@@ -401,7 +408,7 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
 
     def remove_eye_trace(self):
-        print 'remove eye trace and fixation window'
+        print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
         self.remove_eyes = True
         # remove window around square
@@ -573,7 +580,7 @@ class World(DirectObject):
         last_eye = self.eye_data[-1]
         self.eye_data = []
         self.eye_data.append(last_eye)
-        #print 'eye data clear, should be just one position', self.eye_data
+        print 'eye data clear, should be just one position', self.eye_data
 
     def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -871,7 +878,8 @@ class World(DirectObject):
         if self.use_daq_reward:
             #print 'setup reward'
             self.start_reward_task()
-        self.start_gig()
+        if not self.unittest:
+            self.start_gig()
 
     # File methods
     def open_files(self):
