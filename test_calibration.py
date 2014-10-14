@@ -3,7 +3,6 @@ from panda3d.core import loadPrcFileData
 from direct.task.TaskManagerGlobal import taskMgr
 from calibration import World
 from time import time
-import types
 import sys
 import os
 
@@ -36,13 +35,12 @@ class TestCalibration(unittest.TestCase):
     def setUpClass(cls):
         if manual:
             print 'starting tests using manual'
-            cls.manual = 1
         else:
             print 'starting tests using random'
-            cls.manual = 0
+        print manual
         loadPrcFileData("", "window-type offscreen")
         #print 'about to load world'
-        cls.w = World(cls.manual, 'config_test.py')
+        cls.w = World(manual, 'config_test.py')
         cls.w.setup_game()
 
     def setUp(self):
@@ -50,10 +48,12 @@ class TestCalibration(unittest.TestCase):
         self.w.start_gig()
         print 'started new gig'
         #is it a problem that we start the timer for auto here?
-
+        self.w.start_loop()
         print('setup done')
 
     def do_a_loop(self):
+        # does a full loop if just starting, finishes the current
+        # loop if you have already started
         print 'do a loop'
         test = None
         now = self.w.next
@@ -91,7 +91,7 @@ class TestCalibration(unittest.TestCase):
         """
         #print self.w.square.getParent()
         #
-        self.w.start_loop()
+        #self.w.start_loop()
         if self.w.next != 0:
             square_on = True
             while square_on:
@@ -100,6 +100,8 @@ class TestCalibration(unittest.TestCase):
                 if self.w.next == 0:
                     square_on = False
         self.assertFalse(self.w.square.square.getParent())
+        # finish the loop
+        self.do_a_loop()
 
     def test_square_turns_on(self):
         """
@@ -107,7 +109,7 @@ class TestCalibration(unittest.TestCase):
         """
         #time_out = time.time() + 2.1
         #start_time =
-        self.w.start_loop()
+        #self.w.start_loop()
         square_off = True
         while square_off:
         #while time.time() < time_out:
@@ -119,9 +121,24 @@ class TestCalibration(unittest.TestCase):
         self.assertTrue(self.w.square.square.getParent())
 
     def test_square_turns_off(self):
-        self.w.start_loop()
+        # for auto, will not turn off by hitting next = 4,
+        # because will not fixate and will time out instead.
+        # in this case, go until cleanup, where it turns to 0
+        # and square turns off
+        #self.w.start_loop()
         square_dim = True
-        match = 0
+        match = 4
+        if not self.w.manual:
+            match = 1
+            # go through until match is not zero,
+            # then we know we are turning off, and not
+            # just never going on.
+            while square_dim:
+                taskMgr.step()
+                if self.w.next == match:
+                    square_dim = False
+            square_dim = True
+            match = 0
         while square_dim:
             taskMgr.step()
             if self.w.next == match:
@@ -131,19 +148,15 @@ class TestCalibration(unittest.TestCase):
     def test_eye_data_written_to_file(self):
         # when run as a suite, files don't seem to open and close fast enough, so
         # eye positions can get pretty far along before actually making it into the
-        # log file.
+        # log file, so using all of the data
         #print 'what time is it?'
         test = time()
-        self.w.start_loop()
-        # make sure data is written to file.
-        # this is a little tricky, since we don't know where the data is going to be
-        # in the file, depends on where we were when we opened the file. Assume that
-        # the data file was opened within the first ten time stamps
+        #self.w.start_loop()
         print('manual is', self.w.manual)
         #last = self.w.next
         #no_change = True
         self.do_a_loop()
-        eye_data = self.w.eye_data[:200]
+        eye_data = self.w.eye_data
         file_name = self.w.eye_file_name
         #print self.w.eye_data[:10]
         # make sure files are closed
@@ -182,7 +195,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_tasks_and_timestamp_written_to_file(self):
         #print('manual?', self.w.manual)
-        self.w.start_loop()
+        #self.w.start_loop()
         # make sure data is written to file.
         # do a loop
         self.do_a_loop()
@@ -200,7 +213,7 @@ class TestCalibration(unittest.TestCase):
         # I think it shouldn't matter if we don't switch back,
         # since everything should work either way, and we change
         # into the opposite direction the next time through\
-        self.w.start_loop()
+        #self.w.start_loop()
         before = self.w.manual
         #print before
         self.w.flag_task_switch = True
@@ -228,12 +241,12 @@ if __name__ == "__main__":
     #print 'run suite'
     # run twice to cover both conditions
     if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
-        manual = False
+        manual = True
         if int(sys.argv[1]) == 0:
-            manual = True
+            manual = False
         result = unittest.TextTestRunner(verbosity=2).run(suite())
         if not result.wasSuccessful():
             sys.exit(1)
     else:
-        manual = True
+        manual = False
         unittest.main(verbosity=2)

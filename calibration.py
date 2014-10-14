@@ -51,7 +51,7 @@ class World(DirectObject):
             self.manual = False
         else:
             self.manual = True
-
+        print('manual', self.manual)
         if not config_file:
             config_file = 'config.py'
 
@@ -338,7 +338,7 @@ class World(DirectObject):
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
             return task.again
-        task.done
+        return task.done
 
     def wait_off_task(self, task):
         print 'time up, restart'
@@ -356,7 +356,6 @@ class World(DirectObject):
         # sequence, which could mean we have already called the task again before
         # we return. meh. we could remove the task in the sequence, I suppose.
         self.auto_sequence.start()
-
         return task.done
 
     def wait_cleanup_task(self, task):
@@ -385,9 +384,11 @@ class World(DirectObject):
         self.base.taskMgr.remove('auto_sequence')
         
     def recover_from_broken_fixation(self):
+        print 'recover from broken fixation'
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
         self.base.taskMgr.remove('auto_sequence')
+        print(self.base.taskMgr)
         # not checking for fixation anymore
         self.fixation_check_flag = False
         self.restart_auto_loop()
@@ -406,6 +407,7 @@ class World(DirectObject):
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
+        print(self.base.taskMgr)
 
     def remove_eye_trace(self):
         print 'remove eye trace and fixation window, if there is one'
@@ -723,9 +725,9 @@ class World(DirectObject):
         self.keys[key] = val
         #print 'set key', self.keys[key]
 
-    def switch_task_flag(self, val):
+    def switch_task_flag(self):
         print 'switch tasks'
-        self.flag_task_switch = val
+        self.flag_task_switch = True
 
     # this actually assigns keys to methods
     def setup_keys(self):
@@ -737,7 +739,7 @@ class World(DirectObject):
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change
-        self.accept("s", self.switch_task_flag, [True])
+        self.accept("s", self.switch_task_flag)
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
