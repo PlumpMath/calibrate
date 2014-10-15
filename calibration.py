@@ -13,7 +13,7 @@ import sys
 import random
 import os
 import datetime
-from time import time, sleep
+from time import time
 from math import sqrt, radians, cos, sin
 # don't always use fake_eye_data, but this just loads the function,
 # not the actual data, so no biggie.
@@ -51,7 +51,7 @@ class World(DirectObject):
             self.manual = False
         else:
             self.manual = True
-        print('manual', self.manual)
+        #print('manual', self.manual)
         if not config_file:
             config_file = 'config.py'
 
@@ -65,7 +65,7 @@ class World(DirectObject):
             # doing unittests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
-            print 'test'
+            #print 'test'
             self.unittest = True
             self.use_daq_data = False
             self.use_daq_reward = False
@@ -207,7 +207,7 @@ class World(DirectObject):
     def start_gig(self):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
-        print 'start new gig'
+        #print 'start new gig'
          # set up square positions
         self.square.setup_positions(self.config, self.manual)
         if not self.unittest:
@@ -224,7 +224,7 @@ class World(DirectObject):
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
-        print 'end gig'
+        #print 'end gig'
         # close stuff
         if self.use_daq_data:
             #print 'stopping daq tasks'
@@ -239,7 +239,7 @@ class World(DirectObject):
 
     def change_tasks(self):
         # change from manual to auto-calibrate or vise-versa
-        print 'change task'
+        #print 'change task'
         self.manual = not self.manual
         #print('switched manual?', self.manual)
         # reset stuff
@@ -249,20 +249,20 @@ class World(DirectObject):
 
     def start_loop(self):
         # starts every loop, either at the end of one loop, or after a break
-        print 'start loop'
+        #print 'start loop'
         #print('time', time())
         #print('eye data', self.eye_data[:20])
         if self.manual:
-            print 'manual'
+            #print 'manual'
             self.setup_manual_sequence()
             self.manual_sequence.start()
         else:
-            print 'auto'
+            #print 'auto'
             # always start out not fixated
             self.fixated = False
             # setup sequences
             self.setup_auto_sequences()
-            print 'turn on timer for square on, waiting for fixation'
+            #print 'turn on timer for square on, waiting for fixation'
             # turn on square and timer
             self.square_on_parallel.start()
 
@@ -278,7 +278,7 @@ class World(DirectObject):
                 self.start_loop()
 
     def setup_manual_sequence(self):
-        print 'setup manual sequence'
+        #print 'setup manual sequence'
         all_intervals = self.create_intervals()
         square_on = Func(self.square.turn_on)
         square_fade = Func(self.square.fade)
@@ -305,7 +305,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        print 'setup auto sequences'
+        #print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -336,7 +336,7 @@ class World(DirectObject):
 
     ### all tasks
     def wait_between_reward(self, task):
-        print 'give reward'
+        #print 'give reward'
         self.reward_task.pumpOut()
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
@@ -344,16 +344,16 @@ class World(DirectObject):
         return task.done
 
     def wait_off_task(self, task):
-        print 'time up, restart'
-        print time()
+        #print 'time up, restart'
+        #print time()
         # this task will run for the on interval, if there is a fixation, initiate_fixation_period
         # will begin (started from get_eye_data method), if not we start over here
         self.restart_auto_loop()
-        print 'return wait_off_task'
+        #print 'return wait_off_task'
         return task.done
 
     def wait_auto_sequence_task(self, task):
-        print 'held fixation, start sequence'
+        #print 'held fixation, start sequence'
         # made it through fixation, will get reward, stop checking for fixation
         self.fixation_check_flag = False
         # so, auto_sequence doesn't return until it has completed the whole
@@ -363,7 +363,7 @@ class World(DirectObject):
         return task.done
 
     def wait_cleanup_task(self, task):
-        print 'cleanup'
+        #print 'cleanup'
         self.cleanup()
         return task.done
 
@@ -373,7 +373,7 @@ class World(DirectObject):
 
     # auto calibrate methods
     def initiate_fixation_period(self):
-        print 'initiate fixation period'
+        #print 'initiate fixation period'
         # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
         # will abort and start over
         # first stop the on interval
@@ -381,15 +381,15 @@ class World(DirectObject):
         self.time_data_file.write(str(time()) + ', Fixated')
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
-        print('fixate interval', fixate_interval)
+        #print('fixate interval', fixate_interval)
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
 
     def end_fixation_timer(self):
-        print 'remove fixation timer'
+        #print 'remove fixation timer'
         self.base.taskMgr.remove('auto_sequence')
         
     def recover_from_broken_fixation(self):
-        print 'recover from broken fixation'
+        #print 'recover from broken fixation'
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
         self.base.taskMgr.remove('auto_sequence')
@@ -397,7 +397,7 @@ class World(DirectObject):
         self.restart_auto_loop()
 
     def restart_auto_loop(self):
-        print 'restart auto loop, long pause'
+        #print 'restart auto loop, long pause'
         # stop checking fixation
         self.fixation_check_flag = False
         # make sure there are no tasks waiting
@@ -417,7 +417,7 @@ class World(DirectObject):
         #print(self.base.taskMgr)
 
     def remove_eye_trace(self):
-        print 'remove eye trace and fixation window, if there is one'
+        #print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
         self.remove_eyes = True
         # remove window around square
@@ -427,24 +427,24 @@ class World(DirectObject):
     # sequence methods for both auto and manual
     def create_intervals(self):
         all_intervals = [random.uniform(*i) for i in self.interval_list]
-        print('all intervals', all_intervals)
+        #print('all intervals', all_intervals)
         return all_intervals
 
     def give_reward(self):
-        print 'reward, 3'
+        #print 'reward, 3'
         #print(self.base.taskMgr)
         # give reward for each num_beeps
         # give one reward right away, have
         # to wait delay before giving next reward
         if self.reward_task:
-            print 'first reward'
+            #print 'first reward'
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
             self.base.taskMgr.doMethodLater(0.2, self.wait_between_reward, 'reward')
         else:
             for i in range(self.num_beeps):
-                print 'beep'
+                #print 'beep'
                 self.num_reward += 1
 
     def write_to_file(self):
@@ -467,21 +467,21 @@ class World(DirectObject):
 
     ##### Eye Methods
     def check_for_fixation(self):
-        print 'check for fixation'
-        print('should not be fixated', self.fixated)
+        #print 'check for fixation'
+        #print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
         # and make sure checking for fixation
         # only used for auto
         position = self.square.square.getPos()
         on_interval = random.uniform(*self.interval_list[0])
-        print('on interval', on_interval)
+        #print('on interval', on_interval)
         self.show_window(position)
         self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
-        print time()
+        #print time()
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
-        print('should still not be fixated', self.fixated)
+        #print('should still not be fixated', self.fixated)
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
@@ -513,7 +513,7 @@ class World(DirectObject):
             # any reason we can't get rid of the the previous self.eye_data here,
             # instead of when we clear the screen? Pop from the beginning?
             if self.remove_eyes:
-                print 'clear eyes'
+                #print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
                 self.remove_eyes = False
@@ -554,7 +554,7 @@ class World(DirectObject):
                 #print 'already fixated'
                 # if already fixated, make sure doesn't break fixation
                 if distance > tolerance:
-                    print 'broke fixation'
+                    #print 'broke fixation'
                     self.fixated = False
                     # if broke fixation, also stop checking for fixation
                     self.fixation_check_flag = False
@@ -566,7 +566,7 @@ class World(DirectObject):
             else:
                 #print 'waiting for fixation'
                 if distance < tolerance:
-                    print 'and fixated!'
+                    #print 'and fixated!'
                     #print 'square', self.square.getPos()[0], self.square.getPos()[2]
                     #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
                     #print 'tolerance', self.tolerance
@@ -597,11 +597,11 @@ class World(DirectObject):
         last_eye = self.eye_data[-1]
         self.eye_data = []
         self.eye_data.append(last_eye)
-        print 'eye data clear, should be just one position', self.eye_data
+        #print 'eye data clear, should be just one position', self.eye_data
 
     def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
-        print('show window around square', square_pos)
+        #print('show window around square', square_pos)
         tolerance = self.tolerance / self.deg_per_pixel
         #print 'tolerance in pixels', tolerance
         #print 'square', square[0], square[2]
@@ -724,7 +724,7 @@ class World(DirectObject):
                 str(self.offset[1]) + '\n')
 
     def change_tolerance(self, direction):
-        print 'change tolerance'
+        #print 'change tolerance'
         self.tolerance += direction
         self.set_text4()
         #self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
@@ -741,7 +741,7 @@ class World(DirectObject):
         #print 'set key', self.keys[key]
 
     def switch_task_flag(self):
-        print 'switch tasks'
+        #print 'switch tasks'
         self.flag_task_switch = True
 
     # this actually assigns keys to methods
@@ -941,7 +941,7 @@ class World(DirectObject):
         self.time_data_file.close()
 
     def close(self):
-        print 'close'
+        #print 'close'
         if self.use_daq_data:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()

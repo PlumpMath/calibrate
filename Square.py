@@ -1,3 +1,4 @@
+from __future__ import division
 from panda3d.core import Point3
 from positions import Positions
 from direct.showbase.MessengerGlobal import messenger
@@ -49,11 +50,13 @@ class Square():
 
     # Square methods
     def turn_on(self):
-        print 'square on'
+        #print 'square on'
         # make sure in correct color
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
         self.square.reparentTo(self.base.render)
+        # make sure in correct color
+        #print self.square.getColor()
         #min, max = self.square.getTightBounds()
         #size = max - min
         #print size[0], size[2]
@@ -61,14 +64,14 @@ class Square():
         #print 'square is now on'
 
     def fade(self):
-        print 'square fade'
+        #print 'square fade'
         #heading = self.square.getPos() + (0.05, 0, 0)
         #self.square.setPos(heading)
         #self.square.setColor(175/255, 175/255, 130/255, 1.0)
         self.square.setColor(0.9, 0.9, 0.6, 1.0)
 
     def turn_off(self):
-        print 'square off'
+        #print 'square off'
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
@@ -86,7 +89,7 @@ class Square():
             self.move(self.pos.get_key_position(self.depth, 5))
 
     def move(self, position=None):
-        print 'square move'
+        #print 'square move'
         #print 'square position', position
         if not position:
             #print 'trying to get a auto position'
@@ -100,6 +103,6 @@ class Square():
                 # need to set a position
                 position = (0, self.depth, 0)
                 #self.close()
-        print position
+        #print position
         self.square.setPos(Point3(position))
         #print 'square', position[0], position[2]
