@@ -343,8 +343,9 @@ class World(DirectObject):
 
     def wait_off_task(self, task):
         print 'time up, restart'
-        # this task will run after the on interval. If there is a fixation, initiate_fixation_period
-        # will begin (started from get_eye_data method), if not we start over
+        print time()
+        # this task will run for the on interval, if there is a fixation, initiate_fixation_period
+        # will begin (started from get_eye_data method), if not we start over here
         self.restart_auto_loop()
         print 'return wait_off_task'
         return task.done
@@ -471,10 +472,12 @@ class World(DirectObject):
         # only used for auto
         position = self.square.square.getPos()
         on_interval = random.uniform(*self.interval_list[0])
+        print('on interval', on_interval)
         self.show_window(position)
         self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
+        print time()
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
         print('should still not be fixated', self.fixated)
 
