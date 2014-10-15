@@ -130,7 +130,7 @@ class World(DirectObject):
         # initialize variable for square positions
         #self.pos = None
         #print 'window loaded'
-        self.eyes = []
+        self.eye_nodes = []
 
         # initialize file variables
         self.eye_file_name = ''
@@ -151,9 +151,9 @@ class World(DirectObject):
 
         # Eye Data
         self.eye_data = []
-        # why do I do this?
-        self.eye_data.append((0.0, 0.0))
-        self.remove_eyes = False
+
+        # true, clear now, false, plot now, None, do not plot
+        self.flag_clear_eyes = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -249,9 +249,10 @@ class World(DirectObject):
 
     def start_loop(self):
         # starts every loop, either at the end of one loop, or after a break
+        # start plotting eye position
+        self.flag_clear_eyes = False
         #print 'start loop'
         #print('time', time())
-        #print('eye data', self.eye_data[:20])
         if self.manual:
             #print 'manual'
             self.setup_manual_sequence()
@@ -267,6 +268,7 @@ class World(DirectObject):
             self.square_on_parallel.start()
 
     def cleanup(self):
+        #print('saved eye data', self.eye_data)
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
@@ -284,7 +286,7 @@ class World(DirectObject):
         square_fade = Func(self.square.fade)
         square_off = Func(self.square.turn_off)
         give_reward = Func(self.give_reward)
-        clear_eyes = Func(self.remove_eye_trace)
+        clear_eyes = Func(self.set_flag_clear_screen)
         square_move = Func(self.square.move_for_manual_position)
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
@@ -314,7 +316,7 @@ class World(DirectObject):
         square_fade = Func(self.square.fade)
         square_off = Func(self.square.turn_off)
         give_reward = Func(self.give_reward)
-        clear_eyes = Func(self.remove_eye_trace)
+        clear_eyes = Func(self.set_flag_clear_screen)
         square_move = Func(self.square.move)
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
@@ -407,7 +409,7 @@ class World(DirectObject):
         # write to log
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[2])
         self.time_data_file.write(str(time()) + ', ' + 'no fixation or broken, restart' + '\n')
-        self.remove_eye_trace()
+        self.set_flag_clear_screen()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
@@ -416,10 +418,10 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
         #print(self.base.taskMgr)
 
-    def remove_eye_trace(self):
+    def set_flag_clear_screen(self):
         #print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
-        self.remove_eyes = True
+        self.flag_clear_eyes = True
         # remove window around square
         for win in self.eye_window:
             win.detachNode()
@@ -483,6 +485,23 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
         #print('should still not be fixated', self.fixated)
 
+    def plot_eye_trace(self, last_eye):
+        eye = LineSegs()
+        # eye.setThickness(2.0)
+        eye.setThickness(2.0)
+        #print 'last', last_eye
+        #print 'now', self.eye_data
+        eye.moveTo(last_eye[0], 55, last_eye[1])
+        eye.drawTo(self.eye_data[0], 55, self.eye_data[1])
+        #print('plotted eye', eye_data_to_plot)
+        #min, max = eye.getTightBounds()
+        #size = max - min
+        #print size[0], size[2]
+        node = self.base.render.attachNewNode(eye.create(True))
+        node.show(BitMask32.bit(0))
+        node.hide(BitMask32.bit(1))
+        self.eye_nodes.append(node)
+
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
         # if testing, self.get_fake_data_task calls this method with fake data
@@ -498,52 +517,48 @@ class World(DirectObject):
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
 
         # stuff for plotting
-        # convert to pixels for plotting, need the eye position
-        # from the last run for the starting position, and the
-        # current eye position for ending position
-        last_eye = self.eye_data_to_pixel(self.eye_data[-1])
-        eye_data_to_plot = self.eye_data_to_pixel(eye_data)
-        # save current data, so can erase plot later
-        self.eye_data.append((eye_data[0], eye_data[1]))
-        #print 'size eye data', len(self.eye_data)
-
         # when unittesting there is no second screen, so
         # impossible to actually plot eye positions
         if not self.unittest:
-            # any reason we can't get rid of the the previous self.eye_data here,
-            # instead of when we clear the screen? Pop from the beginning?
-            if self.remove_eyes:
+            # convert to pixels for plotting, need the eye position
+            # from the last run for the starting position, and the
+            # current eye position for ending position
+            if not self.eye_data:
+                #print 'use same data for start as finish'
+                # if no previous eye, just have same start and
+                # end position
+                start_eye = self.eye_data_to_pixel(eye_data)
+            else:
+                #print 'use previous data'
+                start_eye = self.eye_data
+            #print start_eye
+            # save current data, so can use it for start position next time
+            self.eye_data = self.eye_data_to_pixel(eye_data)
+
+            if self.flag_clear_eyes:
                 #print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
-                self.remove_eyes = False
-            # plot new eye segment
-            eye = LineSegs()
-            #eye.setThickness(2.0)
-            eye.setThickness(2.0)
-            #print 'last', last_eye
-            #print 'now', eye_data_to_plot
-            eye.moveTo(last_eye[0], 55, last_eye[1])
-            eye.drawTo(eye_data_to_plot[0], 55, eye_data_to_plot[1])
-            #print('plotted eye', eye_data_to_plot)
-            #min, max = eye.getTightBounds()
-            #size = max - min
-            #print size[0], size[2]
-            node = self.base.render.attachNewNode(eye.create(True))
-            node.show(BitMask32.bit(0))
-            node.hide(BitMask32.bit(1))
-            self.eyes.append(node)
+                # don't start plotting until we restart task
+                self.flag_clear_eyes = None
+            elif self.flag_clear_eyes is None:
+                pass
+            else:
+                # plot new eye segment
+                self.plot_eye_trace(start_eye)
+
             if self.use_daq_data:
                 self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
             else:
                 self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
+
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
             #print 'check fixation', self.fixation_check_flag
             #print 'tolerance', self.tolerance
-            distance = get_distance(eye_data_to_plot, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
+            distance = get_distance(self.eye_data, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
             #print 'distance', distance
             # change tolerance to pixels, currently in degree of visual angle
             tolerance = self.tolerance / self.deg_per_pixel
@@ -589,15 +604,14 @@ class World(DirectObject):
     def clear_eyes(self):
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
-        for eye in self.eyes:
+        for eye in self.eye_nodes:
             eye.removeNode()
-        #print 'should be no nodes now', self.eyes
-        self.eyes = []
-        # now can also get rid of eye_data, except the last position, so we don't eat up all of our memory
-        last_eye = self.eye_data[-1]
+        #print 'should be no nodes now', self.eye_nodes
+        self.eye_nodes = []
+        # clear out the last eye data, because will most likely be
+        # starting in a completely different place
         self.eye_data = []
-        self.eye_data.append(last_eye)
-        #print 'eye data clear, should be just one position', self.eye_data
+        #print 'eye data clear', self.eye_data
 
     def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -696,9 +710,17 @@ class World(DirectObject):
             text_notice = 'Auto'
         self.text5.setText(text_notice)
 
+    def test_eye_task(self, eye_data):
+        self.eye_data_file.write(str(time()) + ', ' +
+                                 str(eye_data[0]) + ', ' +
+                                 str(eye_data[1]) + '\n')
+        self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+                                   ', ' + str(round(eye_data[1], 3)) + ']')
+
     def start_eye_task(self):
         self.eye_task = pydaq.EOGTask()
         self.eye_task.SetCallback(self.get_eye_data)
+        #self.eye_task.SetCallback(self.test_eye_task)
         self.eye_task.StartTask()
 
     def start_reward_task(self):
