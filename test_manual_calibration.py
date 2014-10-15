@@ -33,20 +33,8 @@ class TestCalibration(unittest.TestCase):
         # all these tests are for manual
         # manual move is mode 1
 
-        cls.w = World(manual, 'config_test.py')
+        cls.w = World(1, 'config_test.py')
         cls.w.setup_game()
-        if manual:
-            print 'running tests in manual mode'
-        else:
-            # make sure starting in auto and switching to manual
-            # doesn't screw things up.
-            print 'start in auto mode, switch to manual'
-            cls.w.start_gig()
-            # run through a full loop
-            cls.do_a_loop()
-            # now set flag to switch to manual
-            cls.w.flag_task_switch = True
-        #print 'loaded world'
 
     def setUp(self):
         self.config = {}
@@ -102,6 +90,7 @@ class TestCalibration(unittest.TestCase):
         self.w.keys["switch"] = 7
         no_reward = True
         current_reward = self.w.num_reward
+        new_reward = self.w.num_reward
         print current_reward
         while no_reward:
             taskMgr.step()
@@ -421,9 +410,6 @@ def suite():
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
-        manual = False
-        if int(sys.argv[1]) == 0:
-            manual = True
         result = unittest.TextTestRunner(verbosity=2).run(suite())
         if not result.wasSuccessful():
             sys.exit(1)

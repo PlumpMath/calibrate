@@ -1,4 +1,4 @@
-from panda3d.core import Point2, Point3
+from panda3d.core import Point3
 from positions import Positions
 from direct.showbase.MessengerGlobal import messenger
 
@@ -103,4 +103,3 @@ class Square():
         print position
         self.square.setPos(Point3(position))
         #print 'square', position[0], position[2]
-

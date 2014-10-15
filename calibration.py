@@ -270,10 +270,12 @@ class World(DirectObject):
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
+        # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             self.change_tasks()
-        if not self.unittest:
-            self.start_loop()
+        else:
+            if not self.unittest:
+                self.start_loop()
 
     def setup_manual_sequence(self):
         print 'setup manual sequence'
@@ -747,8 +749,6 @@ class World(DirectObject):
         self.accept("escape", self.close)  # escape
         # starts turning square on
         self.accept("space", self.start_loop)  # default is the program waits 2 min
-
-        #self.accept("m", self.change_tasks)
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change

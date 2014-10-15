@@ -34,8 +34,7 @@ SQUARE_SCALE = 0.5
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? Use number of degrees of visual angle from outside border of square,
 # so 0 means has to be in square, 5 is 5 degrees outside of square
-#degree_out_square = 6
-degree_out_square = 50
+degree_out_square = 6
 
 # Tolerance is the distance in degree of visual angle from center of square,
 # so add half the square size to tolerance. If tolerance is 1 + square_scale/2, and
