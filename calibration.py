@@ -515,26 +515,27 @@ class World(DirectObject):
         # when searching for a particular eye data
         # sometimes useful to not print timestamp
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
+        # convert to pixels for plotting and testing distance,
+        # need the eye position from the last run for the starting
+        # position for move to position for plotting, and the
+        # current eye position for ending position
+        if not self.eye_data:
+            #print 'use same data for start as finish'
+            # if no previous eye, just have same start and
+            # end position
+            start_eye = self.eye_data_to_pixel(eye_data)
+        else:
+            #print 'use previous data'
+            start_eye = self.eye_data
+        #print start_eye
+        # save current data, so can use it for start position next time
+        self.eye_data = self.eye_data_to_pixel(eye_data)
 
         # stuff for plotting
         # when unittesting there is no second screen, so
-        # impossible to actually plot eye positions
+        # impossible to actually plot eye positions or other
+        # stuff to researchers screen
         if not self.unittest:
-            # convert to pixels for plotting, need the eye position
-            # from the last run for the starting position, and the
-            # current eye position for ending position
-            if not self.eye_data:
-                #print 'use same data for start as finish'
-                # if no previous eye, just have same start and
-                # end position
-                start_eye = self.eye_data_to_pixel(eye_data)
-            else:
-                #print 'use previous data'
-                start_eye = self.eye_data
-            #print start_eye
-            # save current data, so can use it for start position next time
-            self.eye_data = self.eye_data_to_pixel(eye_data)
-
             if self.flag_clear_eyes:
                 #print 'clear eyes'
                 # get rid of any eye positions left on screen
@@ -558,6 +559,7 @@ class World(DirectObject):
         if self.fixation_check_flag:
             #print 'check fixation', self.fixation_check_flag
             #print 'tolerance', self.tolerance
+            #print self.eye_data
             distance = get_distance(self.eye_data, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
             #print 'distance', distance
             # change tolerance to pixels, currently in degree of visual angle
