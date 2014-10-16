@@ -54,9 +54,12 @@ BREAK_INTERVAL = (1.0, 1.0)
 # Assume random.uniform really works for intervals.
 ON_INTERVAL = (0.75, 0.75)  # Time on
 FADE_INTERVAL = (0.20, 0.20)  # Time faded
-REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward, this is zero for
-# our task, but this means it happens so fast we can't measure it for testing.
+REWARD_INTERVAL = (0.1, 0.1)  # Time from off to reward, this is zero for
+# our task, but this means it happens so fast we skip a next number in testing.
 MOVE_INTERVAL = (0.2, 0.2)  # Time from reward end until on in new place
 
 # how many rewards per trial
 NUM_BEEPS = 3
+
+# pump interval assume 0 for testing
+PUMP_DELAY = 0.2

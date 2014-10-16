@@ -95,6 +95,7 @@ class World(DirectObject):
         try:
             self.pump_delay = self.config['PUMP_DELAY']
         except KeyError:
+            print 'key error'
             self.pump_delay = 0.2
 
         # start Panda3d
@@ -261,6 +262,8 @@ class World(DirectObject):
             self.start_loop()
 
     def start_loop(self):
+        #print('start loop')
+        #print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
         self.flag_clear_eyes = False
@@ -279,9 +282,12 @@ class World(DirectObject):
             #print 'turn on timer for square on, waiting for fixation'
             # turn on square and timer
             self.square_on_parallel.start()
+        #print('done start loop')
+        #print('time', time())
 
     def cleanup(self):
-        print('cleanup')
+        #print('cleanup')
+        #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
@@ -291,6 +297,8 @@ class World(DirectObject):
         else:
             if not self.unittest:
                 self.start_loop()
+        #print('done cleanup')
+        #print('time', time())
 
     def setup_manual_sequence(self):
         #print 'setup manual sequence'
@@ -307,7 +315,7 @@ class World(DirectObject):
         # Parallel does not wait for any doLaterMethods to return before returning itself, so must
         # include time for reward in the interval between reward and square moving.
         reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
-        
+
         self.manual_sequence = Sequence(
             Parallel(square_on, write_to_file),
             Wait(all_intervals[0]),
@@ -343,6 +351,7 @@ class World(DirectObject):
         # Parallel does not wait for any doLaterMethods to return before returning itself, so must
         # include time for reward in the interval between reward and square moving.
         reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        #print('pump delay', self.pump_delay)
 
         self.auto_sequence = Sequence(
             Parallel(square_fade, write_to_file, end_timer),
@@ -357,7 +366,7 @@ class World(DirectObject):
 
     ### all tasks
     def wait_between_reward(self, task):
-        print 'give another reward'
+        #print 'give another reward'
         self.reward_task.pumpOut()
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
@@ -458,7 +467,7 @@ class World(DirectObject):
         # give one reward right away, have
         # to wait delay before giving next reward
         if self.reward_task:
-            print 'first reward'
+            #print 'first reward'
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
@@ -467,11 +476,12 @@ class World(DirectObject):
             for i in range(self.num_beeps):
                 #print 'beep'
                 self.num_reward += 1
-        print 'give reward returns'
+        #print 'give reward returns'
+        #print('time', time())
 
     def write_to_file(self):
-        print('now', self.next)
-        print(self.sequence_for_file[self.next])
+        #print('now', self.next)
+        #print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
         # if this is first time through, write position of square

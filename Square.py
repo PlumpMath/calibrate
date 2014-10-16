@@ -2,6 +2,7 @@ from __future__ import division
 from panda3d.core import Point3
 from positions import Positions
 from direct.showbase.MessengerGlobal import messenger
+#from time import time
 
 
 class Square():
@@ -41,11 +42,11 @@ class Square():
         self.manual = manual
         if self.manual:
             del self.pos
-            print 'manual positions'
+            #print 'manual positions'
             self.pos = Positions(config)
         else:
             del self.pos
-            print 'auto positions'
+            #print 'auto positions'
             self.pos = Positions(config).get_position(self.depth, True)
 
     # Square methods
@@ -62,6 +63,8 @@ class Square():
         #print size[0], size[2]
         #print self.square.getPos()
         #print 'square is now on'
+        #print 'actually turned on square'
+        #print('time', time())
 
     def fade(self):
         #print 'square fade'
@@ -75,6 +78,8 @@ class Square():
         #print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
+        #print 'actually turned off square'
+        #print('time', time())
 
     def move_for_manual_position(self):
         # used for manual move
@@ -106,3 +111,5 @@ class Square():
         #print position
         self.square.setPos(Point3(position))
         #print 'square', position[0], position[2]
+        #print 'actually moved square'
+        #print('time', time())

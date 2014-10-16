@@ -20,15 +20,14 @@ def is_int_string(s):
 
 
 class TestCalibration(unittest.TestCase):
-# task.time is not very accurate when running off-screen
 # Need to make these tests faster. Since we are testing the logic
 # of moving from one task to the next, probably easiest way is to
 # override the intervals to much smaller amounts.
-# codes for w.next
-#            0: self.square_on,
-#            1: self.square_fade,
-#            2: self.square_off,
-#            3: self.square_move}
+
+# self.next advances before the wait period, so for testing
+# we need to use the numbers from calibration advanced by one.
+# square on: 1, square fade: 2, square off: 3,
+# reward: 4, square moves: 5
 
     @classmethod
     def setUpClass(cls):
@@ -245,9 +244,6 @@ class TestCalibration(unittest.TestCase):
         # use fix interval, since fake data will start it right away in fixation window
         self.assertAlmostEqual(c.total_seconds(), self.config['FIX_INTERVAL'][0], 1)
 
-    ### Timing on square on is off by 0.09s!
-    # usually I check by when next changes, which is in writing to file,
-    # which happens at the same time, but takes longer, which may be the problem
     def test_timing_stimulus_up_if_not_fixated(self):
         # if not fixated, will be on for on duration, then reset
         # First get ready for square on.
@@ -256,15 +252,15 @@ class TestCalibration(unittest.TestCase):
         square_on = True
         a = 0
         b = 0
-        print(self.w.square.square.getParent())
-        print 'start'
+        #print(self.w.square.square.getParent())
+        #print 'start'
         self.move_eye_to_get_reward('not')
         while square_off:
             taskMgr.step()
             a = datetime.datetime.now()
             # if square is parented to render, it is on, otherwise has no parent
             if self.w.square.square.getParent():
-                print 'square should be on'
+                #print 'square should be on'
                 square_off = False
         # now wait for square to turn back off:
         #print 'next loop'
@@ -272,15 +268,18 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if not self.w.square.square.getParent():
                 b = datetime.datetime.now()
-                print 'square should be off'
+                #print 'square should be off'
                 square_on = False
 
-        # there is an approximately 0.09s delay between the square turning
-        # on, and it registering here (because the program is busy writing
-        # to file at the same time, presumably), so fudging a bit here
         c = b - a
+        # this is consistently off by about 0.07s in tests, but not off when actually
+        # running the task and not running 'offscreen'. Must have something to do with
+        # the frame rate Panda3d assumes when running offscreen. This is the only task
+        # where this shows up, and it is the only task where I am actually checking the
+        # rendering (all others I have 'better?' ways of testing. Hmmm.
+        #
         c = c + datetime.timedelta(seconds=0.05)
-        print 'c', c.total_seconds()
+        #print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
@@ -321,7 +320,10 @@ class TestCalibration(unittest.TestCase):
         self.assertAlmostEqual(c.total_seconds(), self.config['FADE_INTERVAL'][0], 1)
 
     def test_timing_off_to_reward(self):
-        # make sure will get reward
+        # make sure time to reward accurate
+        # this is problematic, because it is zero in our usual configuration (which is
+        # why we skip right over next = 3. So, I think what makes the most sense is making
+        # sure that square off to move is the same as reward interval + move interval
         self.move_eye_to_get_reward()
         # First get to on, move eye to get reward, then go to off
         square_on = True
@@ -337,7 +339,7 @@ class TestCalibration(unittest.TestCase):
                 # if we go on during loop, might not be in correct place
                 self.move_eye_to_get_reward()
                 fade = True
-            if self.w.next > 3 and fade:
+            if self.w.next > 2 and fade:
                 # if taskTask.now changes to 3, then we have just turned off
                 #print 'square should be off'
                 square_on = False
@@ -349,22 +351,24 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             b = datetime.datetime.now()
             # if taskTask.now changes to 4, then we have just turned on
-            if self.w.next == 4:
+            if self.w.next == 0:
                 #print 'square should be off'
                 no_reward = False
         c = b - a
         #print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        self.assertAlmostEqual(c.total_seconds(), self.config['REWARD_INTERVAL'][0], 1)
+        reward_time = self.config['REWARD_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        config_time = reward_time + self.config['MOVE_INTERVAL'][0]
+        self.assertAlmostEqual(c.total_seconds(), config_time, 1)
 
     def test_timing_reward_to_move(self):
-        self.move_eye_to_get_reward()
         # First get to reward
         no_reward = True
         square_off = True
         a = 0
         b = 0
+        self.move_eye_to_get_reward()
         while no_reward:
             #while time.time() < time_out:
             taskMgr.step()
@@ -374,24 +378,30 @@ class TestCalibration(unittest.TestCase):
                 #print 'reward'
                 no_reward = False
         # now wait for move/on:
+        previous = self.w.next
         while square_off:
             taskMgr.step()
             b = datetime.datetime.now()
+            if self.w.next != previous:
+                print self.w.next
             if self.w.next == 0:
+                print 'loop'
                 self.w.start_loop()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 1:
                 #print 'square should be off'
                 square_off = False
         c = b - a
-        #print 'c', c.total_seconds()
+        print 'c', c.total_seconds()
         # check that time is close
         #print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
+        # must include pump delay because unlike other tasks, reward is not usually instantaneous
+        delay = self.config['MOVE_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        self.assertAlmostEqual(c.total_seconds(), delay, 1)
 
     def test_timing_for_time_out_if_missed_fixation(self):
         # if not fixated, will wait for break interval after square turns off

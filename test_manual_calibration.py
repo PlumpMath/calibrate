@@ -21,11 +21,13 @@ def is_int_string(s):
 
 
 class TestCalibration(unittest.TestCase):
-# task.time is not very accurate when running off-screen
-#            0: self.square_on,
-#            1: self.square_fade,
-#            2: self.square_off,
-#            3: self.square_move}
+
+# self.next advances before the wait period, so for testing
+# we need to use the numbers from calibration advanced by one.
+# square on: 1, square fade: 2, square off: 3,
+# reward: 4, square moves: 5. However, next = 3 never shows up
+# here, if the reward interval is zero, which is the default for
+# our version of the task.
 
     @classmethod
     def setUpClass(cls):
@@ -55,7 +57,7 @@ class TestCalibration(unittest.TestCase):
         while first_loop:
             taskMgr.step()
             if self.w.next != now:
-                #print('do_a_loop', self.w.next)
+                print('do_a_loop', self.w.next)
                 now = self.w.next
                 if now > 1:
                     test = 0
@@ -128,12 +130,12 @@ class TestCalibration(unittest.TestCase):
         print('test_on_after_manual_move')
         # make sure square goes on after manual move
         # wait for square to turn off, then send signal to move
-        signal = False
-        while not signal:
+        square_off = False
+        while not square_off:
             taskMgr.step()
             #print self.w.next
-            if self.w.next > 3:
-                signal = True
+            if self.w.next > 2:
+                square_off = True
         print 'done with first loop'
         # make sure square is off
         before = self.w.square.square.getParent()
@@ -318,23 +320,26 @@ class TestCalibration(unittest.TestCase):
         #print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        config_time = self.config['REWARD_INTERVAL'][0] + self.config['MOVE_INTERVAL'][0]
+        reward_time = self.config['REWARD_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        config_time = reward_time + self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), config_time, 1)
 
-    def test_timing_move_to_on(self):
-        # moved when next is 4
-        print 'test_timing_move_to_on'
+    def test_timing_reward_to_on(self):
+        # moved when next is 4, moving happens (almost) simultaneous with on, interval is just
+        # from reward to on, so the moving interval
+        print 'test_timing_reward_to_on'
         # and move
         self.w.keys["switch"] = 8
-        square_not_moved = True
+        not_rewarded = True
         square_off = True
         a = 0
         b = 0
-        while square_not_moved:
+        while not_rewarded:
             taskMgr.step()
             a = datetime.datetime.now()
             if self.w.next == 4:
-                square_not_moved = False
+                print('reward, next is', self.w.next)
+                not_rewarded = False
 
         #print 'next loop'
         while square_off:
@@ -344,7 +349,7 @@ class TestCalibration(unittest.TestCase):
             if self.w.next == 0:
                 self.w.start_loop()
             if self.w.next == 1:
-                #print 'square should be on'
+                print('square should be on, next is', self.w.next)
                 square_off = False
         c = b - a
         #print 'c', c.total_seconds()
@@ -354,45 +359,10 @@ class TestCalibration(unittest.TestCase):
         self.assertTrue(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        # checking move interval, not actually moving, but this is the time
-        # from off to move/on, which we do without the moving part...
-        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
-
-    def test_waits_correct_time_with_no_keypress(self):
-        print('test_waits_correct_time_with_no_keypress')
-        # if we don't press a key, do we still wait the correct
-        # time before we move?
-        square_not_moved = True
-        square_off = True
-        a = 0
-        b = 0
-        while square_not_moved:
-            taskMgr.step()
-            a = datetime.datetime.now()
-            if self.w.next == 4:
-                square_not_moved = False
-
-        #print 'next loop'
-        while square_off:
-            taskMgr.step()
-            b = datetime.datetime.now()
-            # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 0:
-                self.w.start_loop()
-            if self.w.next == 1:
-                #print 'square should be on'
-                square_off = False
-        c = b - a
-        #print 'c', c.total_seconds()
-        # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
-        # make sure really on, sanity check
-        self.assertTrue(self.w.square.square.getParent())
-        # make sure timing within 1 place, won't be very accurate.
-        # but close enough to have correct interval
-        # checking move interval, not actually moving, but this is the time
-        # from off to move/on, which we do without the moving part...
-        self.assertAlmostEqual(c.total_seconds(), self.config['MOVE_INTERVAL'][0], 1)
+        # must include pump delay because unlike other tasks, reward is not usually instantaneous,
+        # so time from "reward" to on, must include the actual time for reward
+        delay = self.config['MOVE_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        self.assertAlmostEqual(c.total_seconds(), delay, 1)
 
     def tearDown(self):
         print 'tearDown'

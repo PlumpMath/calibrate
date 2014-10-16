@@ -70,10 +70,10 @@ BREAK_INTERVAL = (1.0, 1.0)
 #REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
 #MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
 
-ON_INTERVAL = (1.0, 2.0)  # Time on
+ON_INTERVAL = (1.0, 1.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35)  # Time faded
 REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
-MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
+MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place (inter-trial interval)
 # how many rewards per trial
 NUM_BEEPS = 3
 
