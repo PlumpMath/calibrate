@@ -146,43 +146,26 @@ class TestCalibration(unittest.TestCase):
         self.assertFalse(self.w.square.square.getParent())
 
     def test_eye_data_written_to_file(self):
-        # when run as a suite, files don't seem to open and close fast enough, so
-        # eye positions can get pretty far along before actually making it into the
-        # log file, so using all of the data
+        # since this is fake data, the first data point should always be (0, 0)
+        # we are also going to make sure that there is a reasonable
+        # time stamp
         #print 'what time is it?'
         test = time()
-        #self.w.start_loop()
-        print('manual is', self.w.manual)
-        #last = self.w.next
-        #no_change = True
+        # do a loop, make sure there is data
         self.do_a_loop()
-        eye_data = self.w.eye_data
-        file_name = self.w.eye_file_name
-        #print self.w.eye_data[:10]
-        # make sure files are closed
+        # make sure files are closed before opening them up
+        # for reading
         self.w.cleanup()
         self.w.end_gig()
-        print(self.w.eye_file_name)
-        print file_name
-        # since we are using fake data, know that first point is (0,0)
+        #print(self.w.eye_file_name)
         f = open(self.w.eye_file_name, 'r')
+        # the first line is a header
         self.assertIn('timestamp', f.readline())
-        #print('what is actually in file after timestamp line')
         my_line = f.readline()
-        print my_line
-        print 'what else you got?'
-        print(f.readline())
-        print(f.readline())
-        print(f.readline())
-        print(f.readline())
+        #print my_line
         f.close()
-        check_data = None
-        for eye in eye_data:
-            #print(eye[0])
-            if str(eye[0]) in my_line:
-                check_data = str(eye[0])
-                print check_data
-                break
+        # since we are using fake data, know that first point is (0,0)
+        check_data = '0.0, 0.0'
         self.assertIn(check_data, my_line)
         # time is a floating point in seconds, so if we just
         # check to see if the digits from the 10s place on up

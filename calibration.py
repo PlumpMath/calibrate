@@ -219,6 +219,11 @@ class World(DirectObject):
         if self.use_daq_data:
             self.start_eye_task()
         else:
+            # start fake data yield, if not using eye tracker
+            # start over from zero for testing so we know what
+            # first eye position is.
+            #print 'get fake data'
+            self.fake_data = yield_eye_data((0.0, 0.0))
             self.base.taskMgr.add(self.get_fake_data_task, 'fake_eye')
 
     def end_gig(self):
