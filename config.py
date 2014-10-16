@@ -76,3 +76,5 @@ REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns
 MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
 # how many rewards per trial
 NUM_BEEPS = 3
+
+PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump

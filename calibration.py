@@ -92,6 +92,10 @@ class World(DirectObject):
 
         self.tolerance = self.config['TOLERANCE']
         #print 'repeat ', self.config['POINT_REPEAT']
+        try:
+            self.pump_delay = self.config['PUMP_DELAY']
+        except KeyError:
+            self.pump_delay = 0.2
 
         # start Panda3d
         self.base = ShowBase()
@@ -251,6 +255,10 @@ class World(DirectObject):
         self.flag_task_switch = False
         self.end_gig()
         self.start_gig()
+        # if going from manual to auto, start automatically, otherwise
+        # wait for keypress to start.
+        if not self.manual:
+            self.start_loop()
 
     def start_loop(self):
         # starts every loop, either at the end of one loop, or after a break
@@ -273,7 +281,7 @@ class World(DirectObject):
             self.square_on_parallel.start()
 
     def cleanup(self):
-        #print('saved eye data', self.eye_data)
+        print('cleanup')
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
@@ -296,8 +304,10 @@ class World(DirectObject):
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
 
-        # move incrementing next and printing to log file into their own method. Probably called from
-        # each interval function
+        # Parallel does not wait for any doLaterMethods to return before returning itself, so must
+        # include time for reward in the interval between reward and square moving.
+        reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        
         self.manual_sequence = Sequence(
             Parallel(square_on, write_to_file),
             Wait(all_intervals[0]),
@@ -306,7 +316,7 @@ class World(DirectObject):
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(all_intervals[3]),
+            Wait(reward_wait),
             Parallel(square_move, write_to_file),
             cleanup,
         )
@@ -330,20 +340,24 @@ class World(DirectObject):
 
         self.square_on_parallel = Parallel(square_on, write_to_file, wait_on)
 
+        # Parallel does not wait for any doLaterMethods to return before returning itself, so must
+        # include time for reward in the interval between reward and square moving.
+        reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+
         self.auto_sequence = Sequence(
             Parallel(square_fade, write_to_file, end_timer),
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(all_intervals[3]),
+            Wait(reward_wait),
             Parallel(square_move, write_to_file),
             cleanup,
         )
 
     ### all tasks
     def wait_between_reward(self, task):
-        #print 'give reward'
+        print 'give another reward'
         self.reward_task.pumpOut()
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
@@ -444,19 +458,20 @@ class World(DirectObject):
         # give one reward right away, have
         # to wait delay before giving next reward
         if self.reward_task:
-            #print 'first reward'
+            print 'first reward'
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
-            self.base.taskMgr.doMethodLater(0.2, self.wait_between_reward, 'reward')
+            self.base.taskMgr.doMethodLater(self.pump_delay, self.wait_between_reward, 'reward')
         else:
             for i in range(self.num_beeps):
                 #print 'beep'
                 self.num_reward += 1
+        print 'give reward returns'
 
     def write_to_file(self):
-        #print('now', self.next)
-        #print(self.sequence_for_file[self.next])
+        print('now', self.next)
+        print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
         # if this is first time through, write position of square
@@ -611,8 +626,9 @@ class World(DirectObject):
     def clear_eyes(self):
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
-        for eye in self.eye_nodes:
-            eye.removeNode()
+        if self.eye_nodes:
+            for eye in self.eye_nodes:
+                eye.removeNode()
         #print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
         # clear out the last eye data, because will most likely be
@@ -807,7 +823,9 @@ class World(DirectObject):
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
         self.accept("alt-arrow_up", self.change_tolerance, [0.5])
+        self.accept("alt-arrow_up-repeat", self.change_tolerance, [0.5])
         self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
+        self.accept("alt-arrow_down-repeat", self.change_tolerance, [-0.5])
 
         # this really doesn't need to be a dictionary now,
         # but may want to use more keys eventually
