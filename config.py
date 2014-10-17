@@ -78,3 +78,8 @@ MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place (inter-tria
 NUM_BEEPS = 3
 
 PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
+
+# Stuff for photos
+PHOTO_TIMER = 1  # how long to show each photo, only counting fixation time
+NUM_PHOTOS_IN_SET = 16  # how many photos in each set
+NUM_CAL_POINTS = 3  # how many calibration points to show between each photo

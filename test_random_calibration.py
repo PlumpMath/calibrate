@@ -362,8 +362,12 @@ class TestCalibration(unittest.TestCase):
         config_time = reward_time + self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), config_time, 1)
 
+    ### if I run this as a suite, this does not wait for reward times, but if I run it by itself, it does
+    ### meh, can't figure out what is screwing up timing. clearly there is still some residue from the last
+    ### test, but can't figure out what it may be.
     def test_timing_reward_to_move(self):
         # First get to reward
+        print self.w.interval_list
         no_reward = True
         square_off = True
         a = 0
@@ -373,9 +377,10 @@ class TestCalibration(unittest.TestCase):
             #while time.time() < time_out:
             taskMgr.step()
             a = datetime.datetime.now()
-            # if taskTask.now changes to 4, then we just gave reward
+            # if taskTask.now changes to 4, then we just gave reward,
+            # however we have to wait for all of the reward to be given,
             if self.w.next == 4:
-                #print 'reward'
+                print 'test: reward'
                 no_reward = False
         # now wait for move/on:
         previous = self.w.next
@@ -383,13 +388,14 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             b = datetime.datetime.now()
             if self.w.next != previous:
-                print self.w.next
+                print('test:', self.w.next)
+                previous = self.w.next
             if self.w.next == 0:
                 print 'loop'
                 self.w.start_loop()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 1:
-                #print 'square should be off'
+                print 'square should be on'
                 square_off = False
         c = b - a
         print 'c', c.total_seconds()
@@ -401,6 +407,7 @@ class TestCalibration(unittest.TestCase):
         # but close enough to have correct interval
         # must include pump delay because unlike other tasks, reward is not usually instantaneous
         delay = self.config['MOVE_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        #delay = self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), delay, 1)
 
     def test_timing_for_time_out_if_missed_fixation(self):

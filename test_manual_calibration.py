@@ -368,7 +368,8 @@ class TestCalibration(unittest.TestCase):
         print 'tearDown'
         # clear out any half-finished tasks
         self.w.manual_sequence.finish()
-        taskMgr.step()
+        taskMgr.removeTasksMatching('auto_*')
+        #taskMgr.step()
         self.w.cleanup()
         self.w.end_gig()
 

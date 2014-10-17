@@ -15,6 +15,7 @@ import os
 import datetime
 from time import time
 from math import sqrt, radians, cos, sin
+from Photos import Photos
 # don't always use fake_eye_data, but this just loads the function,
 # not the actual data, so no biggie.
 from fake_eye_data import yield_eye_data
@@ -61,7 +62,6 @@ class World(DirectObject):
         print 'Subject is', self.config['SUBJECT']
         # if subject is test, doing unit tests
         if self.config['SUBJECT'] == 'test':
-            self.use_daq_data = False
             # doing unittests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
@@ -71,7 +71,6 @@ class World(DirectObject):
             self.use_daq_reward = False
         else:
             self.unittest = False
-            self.use_pydaq = True
             self.use_daq_data = True  # as opposed to fake data
             self.use_daq_reward = True
             # in case we are not unittesting, but didn't load pydaq
@@ -84,6 +83,16 @@ class World(DirectObject):
         except KeyError:
             print('using fake data', not self.use_daq_data)
 
+        try:
+            self.photos = self.config['PHOTO_TIMER']
+        except KeyError:
+            self.photos = None
+
+        if self.photos:
+            self.photos = Photos(self.config)
+            self.photos.load_all_photos()
+
+        self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
         self.offset = [0, 0]
@@ -277,6 +286,14 @@ class World(DirectObject):
             #print 'auto'
             # always start out not fixated
             self.fixated = False
+            # check to see if we are showing a photo
+            if self.photo_count:
+                if self.loop_count == self.config['NUM_CAL_POINTS']:
+                    self.photos.show_photo()
+                    self.loop_count = 0
+                    return
+                else:
+                    self.loop_count += 1
             # setup sequences
             self.setup_auto_sequences()
             #print 'turn on timer for square on, waiting for fixation'
@@ -314,7 +331,7 @@ class World(DirectObject):
 
         # Parallel does not wait for any doLaterMethods to return before returning itself, so must
         # include time for reward in the interval between reward and square moving.
-        reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        post_reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
 
         self.manual_sequence = Sequence(
             Parallel(square_on, write_to_file),
@@ -324,7 +341,7 @@ class World(DirectObject):
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(reward_wait),
+            Wait(post_reward_wait),
             Parallel(square_move, write_to_file),
             cleanup,
         )
@@ -350,8 +367,9 @@ class World(DirectObject):
 
         # Parallel does not wait for any doLaterMethods to return before returning itself, so must
         # include time for reward in the interval between reward and square moving.
-        reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
-        #print('pump delay', self.pump_delay)
+        post_reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        print('pump delay', self.pump_delay)
+        print('beeps', self.num_beeps)
 
         self.auto_sequence = Sequence(
             Parallel(square_fade, write_to_file, end_timer),
@@ -359,7 +377,7 @@ class World(DirectObject):
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(reward_wait),
+            Wait(post_reward_wait),
             Parallel(square_move, write_to_file),
             cleanup,
         )
@@ -371,6 +389,7 @@ class World(DirectObject):
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
             return task.again
+        #print 'reward done'
         return task.done
 
     def wait_off_task(self, task):
@@ -461,7 +480,7 @@ class World(DirectObject):
         return all_intervals
 
     def give_reward(self):
-        #print 'reward, 3'
+        print 'reward, 3'
         #print(self.base.taskMgr)
         # give reward for each num_beeps
         # give one reward right away, have
@@ -480,8 +499,8 @@ class World(DirectObject):
         #print('time', time())
 
     def write_to_file(self):
-        #print('now', self.next)
-        #print(self.sequence_for_file[self.next])
+        print('now', self.next)
+        print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
         # if this is first time through, write position of square

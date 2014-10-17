@@ -63,3 +63,8 @@ NUM_BEEPS = 3
 
 # pump interval assume 0 for testing
 PUMP_DELAY = 0.2
+
+# Stuff for photos
+PHOTO_TIMER = 5  # how long to show each photo, only counting fixation time
+NUM_PHOTOS_IN_SET = 16  # how many photos in each set
+NUM_CAL_POINTS = 3  # how many calibration points to show between each photo
