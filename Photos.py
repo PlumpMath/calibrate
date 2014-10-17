@@ -8,7 +8,7 @@ class Photos():
 
     def __init__(self, config = None):
         # photo location
-        self.root_dir = 'c:\\Users\eblab.WANPRC\panda\calibrate\photos'
+        self.root_dir = config['PHOTO_PATH']
         self.photo_names = []
         self.photo_set = []
         self.timer = config['PHOTO_TIMER']
@@ -19,13 +19,15 @@ class Photos():
         self.photo_gen = None
 
     def load_all_photos(self):
+        print 'load all photos'
         for file_name in os.listdir(self.root_dir):
             #print file_name
             if file_name.endswith('.bmp'):
-                self.photo_names.append(file)
+                self.photo_names.append(os.path.join(self.root_dir, file_name))
         self.load_photo_set()
 
     def load_photo_set(self):
+        print 'load photo set'
         # need to make a check for last photo set
         self.photo_set = self.photo_names[self.start_num:self.end_num]
         # set the next set numbers
@@ -38,14 +40,14 @@ class Photos():
             yield photo
 
     def show_photo(self):
-        photo = None
+        photo_path = None
         try:
-            photo = self.photo_gen.next()
+            photo_path = self.photo_gen.next()
         except StopIteration:
             #print('stop iterating!')
             self.load_photo_set()
-
-        self.imageObject = OnscreenImage(photo, pos=(0, 0, 0))
+        print photo_path
+        self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0))
         taskMgr.add(self.timer_task, 'timer_task')
 
     def timer_task(self, task):

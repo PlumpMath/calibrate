@@ -84,7 +84,7 @@ class World(DirectObject):
             print('using fake data', not self.use_daq_data)
 
         try:
-            self.photos = self.config['PHOTO_TIMER']
+            self.photos = self.config['PHOTO_PATH']
         except KeyError:
             self.photos = None
 
@@ -287,7 +287,7 @@ class World(DirectObject):
             # always start out not fixated
             self.fixated = False
             # check to see if we are showing a photo
-            if self.photo_count:
+            if self.photos:
                 if self.loop_count == self.config['NUM_CAL_POINTS']:
                     self.photos.show_photo()
                     self.loop_count = 0
@@ -368,8 +368,8 @@ class World(DirectObject):
         # Parallel does not wait for any doLaterMethods to return before returning itself, so must
         # include time for reward in the interval between reward and square moving.
         post_reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
-        print('pump delay', self.pump_delay)
-        print('beeps', self.num_beeps)
+        #print('pump delay', self.pump_delay)
+        #print('beeps', self.num_beeps)
 
         self.auto_sequence = Sequence(
             Parallel(square_fade, write_to_file, end_timer),
@@ -480,7 +480,7 @@ class World(DirectObject):
         return all_intervals
 
     def give_reward(self):
-        print 'reward, 3'
+        #print 'reward, 3'
         #print(self.base.taskMgr)
         # give reward for each num_beeps
         # give one reward right away, have
@@ -499,8 +499,8 @@ class World(DirectObject):
         #print('time', time())
 
     def write_to_file(self):
-        print('now', self.next)
-        print(self.sequence_for_file[self.next])
+        #print('now', self.next)
+        #print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
         # if this is first time through, write position of square
