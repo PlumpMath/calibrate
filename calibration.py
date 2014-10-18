@@ -42,6 +42,21 @@ def get_distance(p0, p1):
     return dist
 
 
+def check_fixation(eye_data, tolerance, target):
+        # expects tolerance in degrees of visual angle
+        # expects eye_data and target in a tuple of two floats
+        #print 'tolerance', tolerance
+        #print 'eye data', eye_data
+        distance = get_distance(eye_data, target)
+        #print 'distance', distance
+        #print 'tolerance', tolerance
+        if distance > tolerance:
+            fixated = False
+        else:
+            fixated = True
+        return fixated
+
+
 class World(DirectObject):
 
     def __init__(self, mode=None, config_file=None):
@@ -98,7 +113,8 @@ class World(DirectObject):
         self.offset = [0, 0]
         # Python assumes all input from sys are string, but not
         # input variables
-
+        # tolerance in degrees, will need to be changed to pixels to be useful,
+        # but since tolerance can change (in degrees), makes sense to do this on the fly
         self.tolerance = self.config['TOLERANCE']
         #print 'repeat ', self.config['POINT_REPEAT']
         try:
@@ -287,13 +303,19 @@ class World(DirectObject):
             # always start out not fixated
             self.fixated = False
             # check to see if we are showing a photo
+            #print('loop count before photo', self.loop_count)
             if self.photos:
-                if self.loop_count == self.config['NUM_CAL_POINTS']:
+                if self.loop_count == self.photos.cal_pts_per_photo:
+                    self.flag_clear_eyes = None
+                    self.fixation_check_flag = True
                     self.photos.show_photo()
+                    print 'called show photo from start_loop'
                     self.loop_count = 0
                     return
                 else:
                     self.loop_count += 1
+            print 'showed calibration point'
+            #print('loop count after photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
             #print 'turn on timer for square on, waiting for fixation'
@@ -303,11 +325,13 @@ class World(DirectObject):
         #print('time', time())
 
     def cleanup(self):
-        #print('cleanup')
+        print('cleanup')
         #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
+        # this is switched in photos, so make sure correct
+        self.fixation_check_flag = False
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             self.change_tasks()
@@ -606,43 +630,25 @@ class World(DirectObject):
 
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
-            #print 'check fixation', self.fixation_check_flag
-            #print 'tolerance', self.tolerance
-            #print self.eye_data
-            distance = get_distance(self.eye_data, (self.square.square.getPos()[0], self.square.square.getPos()[2]))
-            #print 'distance', distance
-            # change tolerance to pixels, currently in degree of visual angle
+            previous_fixation = self.fixated
+            # convert tolerance to pixels
             tolerance = self.tolerance / self.deg_per_pixel
-            #print tolerance
-            # if fixated is true, has fixated, making sure not leaving fixation window
-            # if fixated is false, has not fixated, and checking to see if enters window
-            if self.fixated:
-                #print 'already fixated'
-                # if already fixated, make sure doesn't break fixation
-                if distance > tolerance:
-                    #print 'broke fixation'
-                    self.fixated = False
-                    # if broke fixation, also stop checking for fixation
-                    self.fixation_check_flag = False
-                    # and start all over again
-                    self.recover_from_broken_fixation()
-                    # abort trial, start again with square in same position
-                    #print 'abort'
-                    #self.restart_timer(None)
+            if self.photos.check_eye:
+                target = self.photos.photo_center
+                tolerance = self.photos.tolerance
             else:
-                #print 'waiting for fixation'
-                if distance < tolerance:
-                    #print 'and fixated!'
-                    #print 'square', self.square.getPos()[0], self.square.getPos()[2]
-                    #print 'distance', self.distance((eye_data), (self.square.getPos()[0], self.square.getPos()[2]))
-                    #print 'tolerance', self.tolerance
-                    #print eye_data
-                    # restart timer, started fixating now
-                    self.fixated = True
-                    self.initiate_fixation_period()
-                    #self.restart_timer(self.frameTask.time)
-                    #print 'time fixated', self.fixated
-                    #print 'self.next', self.next
+                target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
+            self.fixated = check_fixation(self.eye_data, tolerance, target)
+            if self.photos:
+                self.photos.flag_timer = self.fixated
+            elif self.fixated and not previous_fixation:
+                # start fixation period
+                self.initiate_fixation_period()
+            elif not self.fixated and previous_fixation:
+                # if broke fixation, stop checking for fixation
+                self.fixation_check_flag = False
+                # abort trial, start again with square in same position
+                self.recover_from_broken_fixation()
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -767,7 +773,7 @@ class World(DirectObject):
                                  str(eye_data[0]) + ', ' +
                                  str(eye_data[1]) + '\n')
         self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                                   ', ' + str(round(eye_data[1], 3)) + ']')
+                           ', ' + str(round(eye_data[1], 3)) + ']')
 
     def start_eye_task(self):
         self.eye_task = pydaq.EOGTask()
@@ -779,7 +785,7 @@ class World(DirectObject):
         self.reward_task = pydaq.GiveReward()
 
     # Key Functions
-    ### key press methods
+    ### key press or messenger methods
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
         if ch_type == 'gain':
             self.gain[x_or_y] += ch_amount
@@ -822,7 +828,8 @@ class World(DirectObject):
     def setup_keys(self):
         self.accept("escape", self.close)  # escape
         # starts turning square on
-        self.accept("space", self.start_loop)  # default is the program waits 2 min
+        self.accept("space", self.start_loop)
+        self.accept("cleanup", self.cleanup)
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change
@@ -856,8 +863,6 @@ class World(DirectObject):
         self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
         self.accept("alt-arrow_down-repeat", self.change_tolerance, [-0.5])
 
-        # this really doesn't need to be a dictionary now,
-        # but may want to use more keys eventually
         # keys will update the list, and loop will query it
         # to get new position
         self.keys = {"switch": 0}
@@ -913,8 +918,9 @@ class World(DirectObject):
             props.setOrigin(600, 200)  # make it so windows aren't on top of each other
             resolution = [800, 600]  # if no resolution given, assume normal panda window
             # x and y are pretty damn close, so just us x
-        # degree per pixel is important only for determining where to plot squares, no effect
-        # on eye position plotting, so use projector resolution, screen size, etc
+        # degree per pixel is important only for determining where to plot squares and
+        # determining tolerance, but no effect on actual eye position plotting, uses projector
+        # resolution, screen size, etc
         self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
         #print 'deg_per_pixel', self.deg_per_pixel
         # set the properties for eye data window
@@ -1039,4 +1045,3 @@ if __name__ == "__main__":
         W = World(sys.argv[1], sys.argv[2])
     W.setup_game()
     W.base.run()
-

@@ -68,3 +68,4 @@ PUMP_DELAY = 0.2
 PHOTO_TIMER = 5  # how long to show each photo, only counting fixation time
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set
 NUM_CAL_POINTS = 3  # how many calibration points to show between each photo
+LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
