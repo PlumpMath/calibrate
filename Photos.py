@@ -51,7 +51,8 @@ class Photos():
                 self.photo_names.append(os.path.join(self.root_dir, file_name))
         if self.index_list[-1] > len(self.photo_names):
             raise Exception("Not enough Photos in this directory")
-        self.load_photo_set()
+        test = self.load_photo_set()
+        print test
 
     def load_photo_set(self):
         print 'load photo set'
@@ -59,8 +60,10 @@ class Photos():
             start_ind = self.index_list.pop(0)
             end_ind = self.index_list.pop(0)
         except IndexError:
+            print 'end of index!'
             return False
         self.photo_set = self.photo_names[start_ind:end_ind]
+        print self.photo_set
         self.photo_gen = self.get_photo()
         return True
 
@@ -74,13 +77,14 @@ class Photos():
         try:
             photo_path = self.photo_gen.next()
         except StopIteration:
-            #print('stop iterating!')
+            print('stop iterating!')
             check_set = self.load_photo_set()
             if check_set:
                 photo_path = self.photo_gen.next()
             else:
-                self.total_cal_points = None
+                self.cal_pts_per_photo = None
                 messenger.send('cleanup')
+                return
         print photo_path
         self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0))
         self.check_eye = True
@@ -91,6 +95,7 @@ class Photos():
         # if looks away, add that time to the timer
         new_time = task.time
         if not self.flag_timer:
+            #print 'flagged'
             #print time()
             old_time = self.time_stash
             dt = new_time - old_time
@@ -101,7 +106,7 @@ class Photos():
         self.time_stash = new_time
         if task.time < self.timer:
             return task.cont
-        #print('remove photo')
+        #print('remove photo, on break')
         self.check_eye = False
         self.imageObject.destroy()
         # now go on break, unfortunately we will continue to
@@ -111,11 +116,12 @@ class Photos():
             return task.cont
         # return to regularly scheduled program
         # reset the timer
+        print 'break over, reset timer'
         self.timer = self.config['PHOTO_TIMER']
         return task.done
 
-    @staticmethod
-    def cleanup(task):
+    #@staticmethod
+    def cleanup(self, task):
         print('cleanup, start next loop')
         messenger.send('cleanup')
 

@@ -47,9 +47,9 @@ def check_fixation(eye_data, tolerance, target):
         # expects eye_data and target in a tuple of two floats
         #print 'tolerance', tolerance
         #print 'eye data', eye_data
+        #print 'target', target
         distance = get_distance(eye_data, target)
         #print 'distance', distance
-        #print 'tolerance', tolerance
         if distance > tolerance:
             fixated = False
         else:
@@ -305,6 +305,7 @@ class World(DirectObject):
             # check to see if we are showing a photo
             #print('loop count before photo', self.loop_count)
             if self.photos:
+                print self.photos.cal_pts_per_photo
                 if self.loop_count == self.photos.cal_pts_per_photo:
                     self.flag_clear_eyes = None
                     self.fixation_check_flag = True
@@ -631,20 +632,23 @@ class World(DirectObject):
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
             previous_fixation = self.fixated
-            # convert tolerance to pixels
-            tolerance = self.tolerance / self.deg_per_pixel
             if self.photos and self.photos.check_eye:
                 target = self.photos.photo_center
                 tolerance = self.photos.tolerance
             else:
                 target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
+                # convert tolerance to pixels
+                tolerance = self.tolerance / self.deg_per_pixel
             self.fixated = check_fixation(self.eye_data, tolerance, target)
+            #print('fixated?', self.fixated)
             if self.photos:
                 self.photos.flag_timer = self.fixated
             elif self.fixated and not previous_fixation:
+                #print 'fixated, start fixation period'
                 # start fixation period
                 self.initiate_fixation_period()
             elif not self.fixated and previous_fixation:
+                #print 'broke fixation'
                 # if broke fixation, stop checking for fixation
                 self.fixation_check_flag = False
                 # abort trial, start again with square in same position
