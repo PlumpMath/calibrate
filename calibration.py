@@ -314,7 +314,7 @@ class World(DirectObject):
                     return
                 else:
                     self.loop_count += 1
-            print 'showed calibration point'
+            #print 'showed calibration point'
             #print('loop count after photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
@@ -325,7 +325,7 @@ class World(DirectObject):
         #print('time', time())
 
     def cleanup(self):
-        print('cleanup')
+        #print('cleanup')
         #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
@@ -633,7 +633,7 @@ class World(DirectObject):
             previous_fixation = self.fixated
             # convert tolerance to pixels
             tolerance = self.tolerance / self.deg_per_pixel
-            if self.photos.check_eye:
+            if self.photos and self.photos.check_eye:
                 target = self.photos.photo_center
                 tolerance = self.photos.tolerance
             else:

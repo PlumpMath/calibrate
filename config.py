@@ -80,8 +80,8 @@ NUM_BEEPS = 3
 PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
 
 # Stuff for photos
-PHOTO_PATH = 'photos/'  # if path is none, not using photos
-#PHOTO_PATH = None
+#PHOTO_PATH = 'photos/'  # if path is none, not using photos
+PHOTO_PATH = None
 PHOTO_TIMER = 2  # how long to show each photo, only counting fixation time
 PHOTO_BREAK_TIMER = 2  # time in seconds between photo off and next fixation point
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set
