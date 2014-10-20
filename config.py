@@ -1,6 +1,6 @@
 #SUBJECT = 'test'
-SUBJECT = 'Maria'
-#SUBJECT = 'JN'
+#SUBJECT = 'Maria'
+SUBJECT = 'JN'
 
 #FAKE_DATA = True
 # window resolution, can be a resolution or None for normal panda3d window

@@ -1,8 +1,9 @@
 from __future__ import division
 from direct.gui.OnscreenImage import OnscreenImage
 from direct.showbase.MessengerGlobal import messenger
+from panda3d.core import LineSegs, BitMask32
 import os
-#from time import time
+from time import time
 
 #### Shit! How do I keep track of where I am in the directory after I quit
 #### the application?
@@ -10,8 +11,9 @@ import os
 
 class Photos():
 
-    def __init__(self, config=None):
+    def __init__(self, base, config=None):
         # photo location
+        self.base = base
         self.config = config
         self.root_dir = config['PHOTO_PATH']
         self.photo_names = []
@@ -23,6 +25,7 @@ class Photos():
         self.photo_gen = None
         self.check_eye = False
         self.photo_center = (0, 0)
+        self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
         self.cal_pts_per_photo = config['CAL_PTS_PER_PHOTO']
         total_cal_points = config['POINT_REPEAT'] * config['X_POINTS'] * config['Y_POINTS']
@@ -39,8 +42,8 @@ class Photos():
             last_index = 0
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)
         self.current_set = 0
-        #photo_size = [800, 600]
-        photo_size = [1000, 800]
+        photo_size = [800, 600]
+        #photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
 
     def load_all_photos(self):
@@ -72,7 +75,7 @@ class Photos():
             yield photo
 
     def show_photo(self):
-        print 'show photo'
+        print 'show photo and tolerance'
         photo_path = None
         try:
             photo_path = self.photo_gen.next()
@@ -86,44 +89,76 @@ class Photos():
                 messenger.send('cleanup')
                 return
         print photo_path
+        print time()
+        self.show_window()
         self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0))
+        print self.imageObject
         self.check_eye = True
-        taskMgr.add(self.timer_task, 'timer_task', uponDeath=self.cleanup)
+        self.base.taskMgr.add(self.timer_task, 'timer_task', uponDeath=self.set_break_timer)
 
     def timer_task(self, task):
-        #print 'timer task'
         # if looks away, add that time to the timer
         new_time = task.time
-        if not self.flag_timer:
-            #print 'flagged'
+        print('task time beginning', new_time)
+        # if not fixated, and still during fixation period, extend timer
+        if not self.flag_timer and self.check_eye:
+            print 'flagged'
             #print time()
             old_time = self.time_stash
-            dt = new_time - old_time
-            self.timer += dt
+            dt = new_time - old_time  # get delta that passed with no fixation
+            self.timer += dt  # add that to the timer
             #print('numframes', task.frame)
             #print('current timer', self.timer)
             #print('total time', task.time)
-        self.time_stash = new_time
+        self.time_stash = new_time  # set time for next check
         if task.time < self.timer:
             return task.cont
-        #print('remove photo, on break')
-        self.check_eye = False
-        self.imageObject.destroy()
-        # now go on break, unfortunately we will continue to
-        # call destroy, since I can't figure out a way to
-        # test if the image is still there
-        if task.time < self.break_time:
-            return task.cont
-        # return to regularly scheduled program
-        # reset the timer
-        print 'break over, reset timer'
-        self.timer = self.config['PHOTO_TIMER']
+        # done fixating
         return task.done
 
-    #@staticmethod
+    def set_break_timer(self, task):
+        print('remove photo, on break')
+        # reset the timer for next time
+        self.timer = self.config['PHOTO_TIMER']
+        self.check_eye = False
+        self.imageObject.destroy()
+        for line in self.photo_window:
+            line.detachNode()
+        print time()
+        print 'go on break'
+        self.base.taskMgr.doMethodLater(self.break_time, self.cleanup, 'cleanup')
+        print 'set break'
+        print time()
+
+    def check_fixation(self, eye_data):
+        # tolerance is the x, y border that eye_data should
+        # be contained in, both should be (x, y) tuple
+        if eye_data[0] < self.tolerance[0] and eye_data[1] < self.tolerance[1]:
+            return True
+        return False
+
+    def show_window(self):
+        # draw line around target representing how close the subject has to be looking to get reward
+        #print('show window around square', square_pos)
+        photo_window = LineSegs()
+        photo_window.setThickness(2.0)
+        photo_window.setColor(1, 0, 0, 1)
+        photo_window.moveTo(self.tolerance[0], 55, self.tolerance[1])
+        photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1])
+        photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1])
+        photo_window.drawTo(-self.tolerance[0], 55, self.tolerance[1])
+        photo_window.drawTo(self.tolerance[0], 55, self.tolerance[1])
+        node = self.base.render.attachNewNode(photo_window.create(True))
+        node.show(BitMask32.bit(0))
+        node.hide(BitMask32.bit(1))
+        self.photo_window.append(node)
+
+    @staticmethod
     def cleanup(self, task):
+        print time()
         print('cleanup, start next loop')
         messenger.send('cleanup')
+        return task.done
 
 
 def create_index_list(num_photos, num_sets, first_index=None):
@@ -140,3 +175,6 @@ def create_index_list(num_photos, num_sets, first_index=None):
         index_list.extend(next_set)
         last_set = next_set
     return index_list
+
+
+

@@ -16,7 +16,7 @@ class TestPhotos(DirectObject):
         execfile(config_file, self.config)
         self.accept("cleanup", self.cleanup)
         self.accept("escape", self.close)
-        self.photos = Photos(self.config)
+        self.photos = Photos(self.base, self.config)
         self.photos.load_all_photos()
         self.start_loop()
 

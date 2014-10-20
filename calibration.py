@@ -43,13 +43,15 @@ def get_distance(p0, p1):
 
 
 def check_fixation(eye_data, tolerance, target):
-        # expects tolerance in degrees of visual angle
+        # expects tolerance in pixels, single float, distance from target allowed
         # expects eye_data and target in a tuple of two floats
         #print 'tolerance', tolerance
         #print 'eye data', eye_data
         #print 'target', target
         distance = get_distance(eye_data, target)
         #print 'distance', distance
+        # okay, this works if tolerance is a radius from the center,
+        # but not going to work when tolerance is a square.
         if distance > tolerance:
             fixated = False
         else:
@@ -98,15 +100,6 @@ class World(DirectObject):
         except KeyError:
             print('using fake data', not self.use_daq_data)
 
-        try:
-            self.photos = self.config['PHOTO_PATH']
-        except KeyError:
-            self.photos = None
-
-        if self.photos:
-            self.photos = Photos(self.config)
-            self.photos.load_all_photos()
-
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
@@ -125,6 +118,15 @@ class World(DirectObject):
 
         # start Panda3d
         self.base = ShowBase()
+
+        # check to see if we will be showing photos:
+        try:
+            self.photos = self.config['PHOTO_PATH']
+        except KeyError:
+            self.photos = None
+        if self.photos:
+            self.photos = Photos(self.base, self.config)
+            self.photos.load_all_photos()
 
         # initialize text before setting up second window.
         # text will be overridden there.
@@ -305,9 +307,9 @@ class World(DirectObject):
             # check to see if we are showing a photo
             #print('loop count before photo', self.loop_count)
             if self.photos:
-                print self.photos.cal_pts_per_photo
+                #print self.photos.cal_pts_per_photo
                 if self.loop_count == self.photos.cal_pts_per_photo:
-                    self.flag_clear_eyes = None
+                    self.flag_clear_eyes = False
                     self.fixation_check_flag = True
                     self.photos.show_photo()
                     print 'called show photo from start_loop'
@@ -331,8 +333,10 @@ class World(DirectObject):
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         self.num_reward = 0
-        # this is switched in photos, so make sure correct
-        self.fixation_check_flag = False
+        # make sure we have cleared the eye positions
+        # this is done previously to now in regular calibration, but
+        # important for photos, and no big deal if we do it again
+        #self.set_flag_clear_screen()
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             self.change_tasks()
@@ -386,7 +390,7 @@ class World(DirectObject):
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
         # check for fixation and set up auto_task as timer
-        wait_on = Func(self.check_for_fixation)
+        wait_on = Func(self.start_check_fixation)
 
         self.square_on_parallel = Parallel(square_on, write_to_file, wait_on)
 
@@ -542,7 +546,7 @@ class World(DirectObject):
                                   ', ' + str(position[2]) + '\n')
 
     ##### Eye Methods
-    def check_for_fixation(self):
+    def start_check_fixation(self):
         #print 'check for fixation'
         #print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
@@ -632,18 +636,23 @@ class World(DirectObject):
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
             previous_fixation = self.fixated
-            if self.photos and self.photos.check_eye:
-                target = self.photos.photo_center
-                tolerance = self.photos.tolerance
+            if self.photos:
+                # for photos, only switch the fixation_check_flag when done
+                # showing a photo
+                self.photos.flag_timer = self.photos.check_fixation(eye_data)
+                # time to stop worrying about fixation and drawing eye positions
+                if not self.photos.check_eye:
+                    print 'stop checking fixation'
+                    self.fixation_check_flag = False
+                    self.flag_clear_eyes = True
+                return
             else:
                 target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
                 # convert tolerance to pixels
                 tolerance = self.tolerance / self.deg_per_pixel
-            self.fixated = check_fixation(self.eye_data, tolerance, target)
+                self.fixated = check_fixation(self.eye_data, tolerance, target)
             #print('fixated?', self.fixated)
-            if self.photos:
-                self.photos.flag_timer = self.fixated
-            elif self.fixated and not previous_fixation:
+            if self.fixated and not previous_fixation:
                 #print 'fixated, start fixation period'
                 # start fixation period
                 self.initiate_fixation_period()
