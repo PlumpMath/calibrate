@@ -88,7 +88,7 @@ class World(DirectObject):
             self.use_daq_reward = False
         else:
             self.unittest = False
-            self.use_daq_data = True  # as opposed to fake data
+            self.use_daq_data = False  # as opposed to fake data
             self.use_daq_reward = True
             # in case we are not unittesting, but didn't load pydaq
             if not LOADED_PYDAQ:
@@ -124,6 +124,9 @@ class World(DirectObject):
             self.photos = self.config['PHOTO_PATH']
         except KeyError:
             self.photos = None
+        # if no photos, this will always be false, otherwise
+        # will switch when showing a photo
+        self.fixation_photo_flag = False
         if self.photos:
             self.photos = Photos(self.base, self.config)
             self.photos.load_all_photos()
@@ -288,13 +291,14 @@ class World(DirectObject):
         if not self.manual:
             self.start_loop()
 
-    def start_loop(self):
+    def start_loop(self, good_trial=None):
+        # good_trial signifies if there was a reward last loop,
+        # for photos, we only count good trials
         #print('start loop')
         #print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
         self.flag_clear_eyes = False
-        #print 'start loop'
         #print('time', time())
         if self.manual:
             #print 'manual'
@@ -307,18 +311,21 @@ class World(DirectObject):
             # check to see if we are showing a photo
             #print('loop count before photo', self.loop_count)
             if self.photos:
+                if good_trial:
+                    self.loop_count += 1
+                    #print('good trial, loop count now', self.loop_count)
+                #print('loop count', self.loop_count)
                 #print self.photos.cal_pts_per_photo
+                # check to see if it is time to show a photo
                 if self.loop_count == self.photos.cal_pts_per_photo:
                     self.flag_clear_eyes = False
-                    self.fixation_check_flag = True
+                    self.fixation_photo_flag = True
                     self.photos.show_photo()
-                    print 'called show photo from start_loop'
+                    #print 'called show photo from start_loop'
                     self.loop_count = 0
                     return
-                else:
-                    self.loop_count += 1
             #print 'showed calibration point'
-            #print('loop count after photo', self.loop_count)
+            #print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
             #print 'turn on timer for square on, waiting for fixation'
@@ -332,6 +339,7 @@ class World(DirectObject):
         #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
+        good_trial = self.num_reward > 0
         self.num_reward = 0
         # make sure we have cleared the eye positions
         # this is done previously to now in regular calibration, but
@@ -342,7 +350,7 @@ class World(DirectObject):
             self.change_tasks()
         else:
             if not self.unittest:
-                self.start_loop()
+                self.start_loop(good_trial)
         #print('done cleanup')
         #print('time', time())
 
@@ -358,9 +366,9 @@ class World(DirectObject):
         write_to_file = Func(self.write_to_file)
         cleanup = Func(self.cleanup)
 
-        # Parallel does not wait for any doLaterMethods to return before returning itself, so must
-        # include time for reward in the interval between reward and square moving.
-        post_reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        # Parallel does not wait for any doLaterMethods to return before returning itself, which
+        # works out pretty awesome, since move interval is suppose to be time from reward start
+        # until next trial
 
         self.manual_sequence = Sequence(
             Parallel(square_on, write_to_file),
@@ -370,7 +378,7 @@ class World(DirectObject):
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(post_reward_wait),
+            Wait(all_intervals[3]),
             Parallel(square_move, write_to_file),
             cleanup,
         )
@@ -394,9 +402,10 @@ class World(DirectObject):
 
         self.square_on_parallel = Parallel(square_on, write_to_file, wait_on)
 
-        # Parallel does not wait for any doLaterMethods to return before returning itself, so must
-        # include time for reward in the interval between reward and square moving.
-        post_reward_wait = all_intervals[3] + ((self.num_beeps - 1) * self.pump_delay)
+        # Parallel does not wait for any doLaterMethods to return before returning itself, which
+        # works out pretty awesome, since move interval is suppose to be time from reward start
+        # until next trial. This would be a problem if there was so much reward that it took up
+        # all of the time for the move_interval, but that would be a lot of reward
         #print('pump delay', self.pump_delay)
         #print('beeps', self.num_beeps)
 
@@ -406,7 +415,7 @@ class World(DirectObject):
             Parallel(square_off, write_to_file),
             Wait(all_intervals[2]),
             Parallel(give_reward, write_to_file, clear_eyes),
-            Wait(post_reward_wait),
+            Wait(all_intervals[3]),
             Parallel(square_move, write_to_file),
             cleanup,
         )
@@ -441,7 +450,8 @@ class World(DirectObject):
         return task.done
 
     def wait_cleanup_task(self, task):
-        #print 'cleanup'
+        #print 'move to cleanup'
+        #print time()
         self.cleanup()
         return task.done
 
@@ -476,6 +486,7 @@ class World(DirectObject):
 
     def restart_auto_loop(self):
         #print 'restart auto loop, long pause'
+        #print time()
         # stop checking fixation
         self.fixation_check_flag = False
         # make sure there are no tasks waiting
@@ -636,21 +647,10 @@ class World(DirectObject):
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
             previous_fixation = self.fixated
-            if self.photos:
-                # for photos, only switch the fixation_check_flag when done
-                # showing a photo
-                self.photos.flag_timer = self.photos.check_fixation(eye_data)
-                # time to stop worrying about fixation and drawing eye positions
-                if not self.photos.check_eye:
-                    print 'stop checking fixation'
-                    self.fixation_check_flag = False
-                    self.flag_clear_eyes = True
-                return
-            else:
-                target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-                # convert tolerance to pixels
-                tolerance = self.tolerance / self.deg_per_pixel
-                self.fixated = check_fixation(self.eye_data, tolerance, target)
+            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
+            # convert tolerance to pixels
+            tolerance = self.tolerance / self.deg_per_pixel
+            self.fixated = check_fixation(self.eye_data, tolerance, target)
             #print('fixated?', self.fixated)
             if self.fixated and not previous_fixation:
                 #print 'fixated, start fixation period'
@@ -662,6 +662,19 @@ class World(DirectObject):
                 self.fixation_check_flag = False
                 # abort trial, start again with square in same position
                 self.recover_from_broken_fixation()
+            # if checking fixation on square, not showing photos,
+            # so can immediately return
+            return
+        if self.fixation_photo_flag:
+            # for photos, only switch the fixation_check_flag when done
+            # showing a photo, stop timer when not fixating, turn back on when
+            # fixating
+            self.photos.flag_timer = self.photos.check_fixation(self.eye_data)
+            # time to stop worrying about fixation and drawing eye positions
+            if not self.photos.check_eye:
+                #print 'stop checking fixation'
+                self.fixation_photo_flag = False
+                self.flag_clear_eyes = True
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -1037,6 +1050,11 @@ class World(DirectObject):
 
     def close(self):
         #print 'close'
+        # if we close during a photo showing or photo break, will interrupt task
+        if self.photos:
+            self.base.taskMgr.removeTasksMatching('photo_*')
+            with open('config.py', 'a') as config_file:
+                config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
         if self.use_daq_data:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()

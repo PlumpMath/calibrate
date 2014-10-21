@@ -1,6 +1,6 @@
 #SUBJECT = 'test'
-#SUBJECT = 'Maria'
-SUBJECT = 'JN'
+SUBJECT = 'Maria'
+#SUBJECT = 'JN'
 
 #FAKE_DATA = True
 # window resolution, can be a resolution or None for normal panda3d window
@@ -73,17 +73,18 @@ BREAK_INTERVAL = (1.0, 1.0)
 ON_INTERVAL = (1.0, 1.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35)  # Time faded
 REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
-MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place (inter-trial interval)
+MOVE_INTERVAL = (2.0, 2.0)  # Time from reward start until on in new place (inter-trial interval)
 # how many rewards per trial
+# num_beeps * pump_delay cannot be longer than the move interval or there will be issues!!!
 NUM_BEEPS = 3
 
 PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
 
 # Stuff for photos
-#PHOTO_PATH = 'photos/'  # if path is none, not using photos
-PHOTO_PATH = None
-PHOTO_TIMER = 2  # how long to show each photo, only counting fixation time
-PHOTO_BREAK_TIMER = 2  # time in seconds between photo off and next fixation point
+PHOTO_PATH = 'photos/'  # if path is none, not using photos
+#PHOTO_PATH = None
+PHOTO_TIMER = 5  # how long to show each photo, only counting fixation time
+PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.

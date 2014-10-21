@@ -18,13 +18,13 @@ class Photos():
         self.root_dir = config['PHOTO_PATH']
         self.photo_names = []
         self.photo_set = []
-        self.timer = config['PHOTO_TIMER']
-        self.break_time = config['PHOTO_BREAK_TIMER'] + self.timer  # accumulate together
+        self.fixation_timer = config['PHOTO_TIMER']
+        self.break_time = config['PHOTO_BREAK_TIMER'] + config['PHOTO_TIMER']  # accumulate together
         self.flag_timer = False  # starts out assuming fixated
         self.imageObject = None
         self.photo_gen = None
-        self.check_eye = False
-        self.photo_center = (0, 0)
+        # tells calibration routine when it should care about fixation for photos
+        self.check_eye = False  # true means check fixation, false means stop checking
         self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
         self.cal_pts_per_photo = config['CAL_PTS_PER_PHOTO']
@@ -32,22 +32,27 @@ class Photos():
         num_photos_in_set = config['NUM_PHOTOS_IN_SET']
         num_poss_photos = total_cal_points // self.cal_pts_per_photo
         num_sets = num_poss_photos // num_photos_in_set
-        print num_sets
+        #print num_sets
         # show each set twice, so just need half that many
         num_sets //= 2
-        print num_sets
+        #print num_sets
         try:
             last_index = config['LAST_PHOTO_INDEX']
         except KeyError:
             last_index = 0
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)
-        self.current_set = 0
-        photo_size = [800, 600]
+        self.end_index = 0
+        #photo_size = [1280, 800]
+        # ratio of photo is approximately the same as the screen (3:4), which means
+        # about same number of pixels in x and y to get same ratio. Not really intuitive.
+        photo_size = [600, 600]
+        #photo_size = [600, 600]
         #photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
+        #print('photo tolerance', self.tolerance)
 
     def load_all_photos(self):
-        print 'load all photos'
+        #print 'load all photos'
         for file_name in os.listdir(self.root_dir):
             #print file_name
             if file_name.endswith('.bmp'):
@@ -58,15 +63,16 @@ class Photos():
         print test
 
     def load_photo_set(self):
-        print 'load photo set'
+        #print 'load photo set'
         try:
             start_ind = self.index_list.pop(0)
             end_ind = self.index_list.pop(0)
+            self.end_index = end_ind
         except IndexError:
             print 'end of index!'
             return False
         self.photo_set = self.photo_names[start_ind:end_ind]
-        print self.photo_set
+        #print self.photo_set
         self.photo_gen = self.get_photo()
         return True
 
@@ -75,7 +81,7 @@ class Photos():
             yield photo
 
     def show_photo(self):
-        print 'show photo and tolerance'
+        #print 'show photo and tolerance'
         photo_path = None
         try:
             photo_path = self.photo_gen.next()
@@ -88,52 +94,66 @@ class Photos():
                 self.cal_pts_per_photo = None
                 messenger.send('cleanup')
                 return
-        print photo_path
-        print time()
+        #print photo_path
+        #print time()
         self.show_window()
-        self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0))
-        print self.imageObject
+        self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0), scale=0.75)
+        #print self.imageObject
         self.check_eye = True
-        self.base.taskMgr.add(self.timer_task, 'timer_task', uponDeath=self.set_break_timer)
+        self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
+        print('started timer task', self.fixation_timer)
 
     def timer_task(self, task):
+        #print('timer', self.fixation_timer)
         # if looks away, add that time to the timer
+        # task.time is how long this task has been running
         new_time = task.time
-        print('task time beginning', new_time)
+        #print('task time beginning', new_time)
         # if not fixated, and still during fixation period, extend timer
-        if not self.flag_timer and self.check_eye:
-            print 'flagged'
+        if not self.flag_timer:
+            #print 'flagged'
             #print time()
+            #print('new time', new_time)
+            #print('stashed time', self.time_stash)
             old_time = self.time_stash
             dt = new_time - old_time  # get delta that passed with no fixation
-            self.timer += dt  # add that to the timer
+            #print('time adjustment', dt)
+            self.fixation_timer += dt  # add that to the timer
             #print('numframes', task.frame)
-            #print('current timer', self.timer)
+            #print('current timer', self.fixation_timer)
             #print('total time', task.time)
         self.time_stash = new_time  # set time for next check
-        if task.time < self.timer:
+        if task.time < self.fixation_timer:
             return task.cont
+        self.time_stash = 0
+        print('timer was', self.fixation_timer)
+        print('task time was', task.time)
         # done fixating
         return task.done
 
     def set_break_timer(self, task):
-        print('remove photo, on break')
-        # reset the timer for next time
-        self.timer = self.config['PHOTO_TIMER']
+        #print('remove photo, on break')
         self.check_eye = False
+        # reset the timer for next time
+        self.fixation_timer = self.config['PHOTO_TIMER']
+        #print('new timer', self.fixation_timer)
         self.imageObject.destroy()
         for line in self.photo_window:
             line.detachNode()
-        print time()
-        print 'go on break'
-        self.base.taskMgr.doMethodLater(self.break_time, self.cleanup, 'cleanup')
-        print 'set break'
-        print time()
+        #print time()
+        #print 'go on break'
+        self.base.taskMgr.doMethodLater(self.break_time, self.send_cleanup, 'photo_send_cleanup')
+        #print 'set break'
+        #print time()
 
     def check_fixation(self, eye_data):
+        #print('eye', eye_data)
+        #print('tolerance', self.tolerance)
         # tolerance is the x, y border that eye_data should
         # be contained in, both should be (x, y) tuple
-        if eye_data[0] < self.tolerance[0] and eye_data[1] < self.tolerance[1]:
+        # photos are centered, so as long as the absolute value of the eye
+        # is less than the absolute value of the tolerance, should be golden
+        if abs(eye_data[0]) < abs(self.tolerance[0]) and abs(eye_data[1]) < abs(self.tolerance[1]):
             return True
         return False
 
@@ -144,19 +164,24 @@ class Photos():
         photo_window.setThickness(2.0)
         photo_window.setColor(1, 0, 0, 1)
         photo_window.moveTo(self.tolerance[0], 55, self.tolerance[1])
+        #print photo_window.getCurrentPosition()
         photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1])
+        #print photo_window.getCurrentPosition()
         photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1])
+        #print photo_window.getCurrentPosition()
         photo_window.drawTo(-self.tolerance[0], 55, self.tolerance[1])
+        #print photo_window.getCurrentPosition()
         photo_window.drawTo(self.tolerance[0], 55, self.tolerance[1])
+        #print photo_window.getCurrentPosition()
         node = self.base.render.attachNewNode(photo_window.create(True))
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
         self.photo_window.append(node)
 
     @staticmethod
-    def cleanup(self, task):
-        print time()
-        print('cleanup, start next loop')
+    def send_cleanup(task):
+        #print time()
+        #print('cleanup, start next loop')
         messenger.send('cleanup')
         return task.done
 

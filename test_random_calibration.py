@@ -358,8 +358,7 @@ class TestCalibration(unittest.TestCase):
         #print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        reward_time = self.config['REWARD_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
-        config_time = reward_time + self.config['MOVE_INTERVAL'][0]
+        config_time = self.config['REWARD_INTERVAL'][0] + self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), config_time, 1)
 
     ### if I run this as a suite, this does not wait for reward times, but if I run it by itself, it does
@@ -405,8 +404,9 @@ class TestCalibration(unittest.TestCase):
         self.assertTrue(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
-        # must include pump delay because unlike other tasks, reward is not usually instantaneous
-        delay = self.config['MOVE_INTERVAL'][0] + ((self.config['NUM_BEEPS'] - 1) * self.config['PUMP_DELAY'])
+        # move interval is from start of reward until move, so includes time it takes
+        # for reward
+        delay = self.config['MOVE_INTERVAL'][0]
         #delay = self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), delay, 1)
 
