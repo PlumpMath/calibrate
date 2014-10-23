@@ -8,12 +8,10 @@ from panda3d.core import BitMask32
 from panda3d.core import WindowProperties, TextNode
 from panda3d.core import OrthographicLens, LineSegs
 from Square import Square
+from Logging import Logging
 from positions import visual_angle
 import sys
 import random
-import os
-import datetime
-from time import time
 from math import sqrt, radians, cos, sin
 from Photos import Photos
 # don't always use fake_eye_data, but this just loads the function,
@@ -95,10 +93,12 @@ class World(DirectObject):
                 self.use_daq_reward = False
                 self.use_daq_data = False
 
-        try:
-            self.use_daq_data = not self.config['FAKE_DATA']
-        except KeyError:
-            print('using fake data', not self.use_daq_data)
+        # default is not fake data, and don't send signal
+        test_data = self.config.setdefault('FAKE_DATA', False)
+        self.config.setdefault('SEND_DATA', False)
+
+        if test_data:
+            print('using fake data')
 
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
@@ -110,11 +110,9 @@ class World(DirectObject):
         # but since tolerance can change (in degrees), makes sense to do this on the fly
         self.tolerance = self.config['TOLERANCE']
         #print 'repeat ', self.config['POINT_REPEAT']
-        try:
-            self.pump_delay = self.config['PUMP_DELAY']
-        except KeyError:
-            print 'key error'
-            self.pump_delay = 0.2
+
+        # assume 0.2 seconds for pump delay, if not set
+        self.config.setdefault('PUMP_DELAY', 0.2)
 
         # start Panda3d
         self.base = ShowBase()
@@ -127,9 +125,6 @@ class World(DirectObject):
         # if no photos, this will always be false, otherwise
         # will switch when showing a photo
         self.fixation_photo_flag = False
-        if self.photos:
-            self.photos = Photos(self.base, self.config)
-            self.photos.load_all_photos()
 
         # initialize text before setting up second window.
         # text will be overridden there.
@@ -181,8 +176,9 @@ class World(DirectObject):
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
 
-        # create dummy variable for square
+        # create dummy variable for square and logging
         self.square = None
+        self.logging = None
 
         # Eye Data
         self.eye_data = []
@@ -232,11 +228,11 @@ class World(DirectObject):
 
         # Corresponding dictionary for writing to file
         self.sequence_for_file = {
-            0: 'Square on \n',
-            1: 'Square dims \n',
-            2: 'Square off \n',
-            3: 'Reward \n',
-            4: 'Square moved \n'
+            0: 'Square on',
+            1: 'Square dims',
+            2: 'Square off',
+            3: 'Reward',
+            4: 'Square moved'
         }
 
     def start_gig(self):
@@ -250,8 +246,8 @@ class World(DirectObject):
             self.set_text4()
             self.set_text5()
         # open files
-        self.open_files()
-        if self.use_daq_data:
+        self.logging.open_files(self.manual, self.tolerance)
+        if not self.config['FAKE_DATA']:
             self.start_eye_task()
         else:
             # start fake data yield, if not using eye tracker
@@ -264,9 +260,9 @@ class World(DirectObject):
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
-        #print 'end gig'
+        print 'end gig'
         # close stuff
-        if self.use_daq_data:
+        if not self.config['FAKE_DATA']:
             #print 'stopping daq tasks'
             # have to stop tasks before closing files
             self.eye_task.DoneCallback(self.eye_task)
@@ -274,7 +270,7 @@ class World(DirectObject):
             self.eye_task.ClearTask()
         else:
             self.base.taskMgr.remove('fake_eye')
-        self.close_files()
+        self.logging.close_files()
         #self.square.pos = None
 
     def change_tasks(self):
@@ -294,7 +290,7 @@ class World(DirectObject):
     def start_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
-        #print('start loop')
+        print('start loop')
         #print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
@@ -335,7 +331,7 @@ class World(DirectObject):
         #print('time', time())
 
     def cleanup(self):
-        #print('cleanup')
+        print('cleanup method')
         #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
@@ -350,8 +346,15 @@ class World(DirectObject):
             self.change_tasks()
         else:
             if not self.unittest:
+                print 'start next loop'
                 self.start_loop(good_trial)
-        #print('done cleanup')
+                print('here twice?')
+        if self.photos and self.photos.cal_pts_per_photo is None:
+            print 'photos done, start over'
+            self.photos = None
+            self.fixation_photo_flag = False
+            self.start_loop()
+        print('done cleanup')
         #print('time', time())
 
     def setup_manual_sequence(self):
@@ -384,7 +387,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        #print 'setup auto sequences'
+        print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -406,7 +409,7 @@ class World(DirectObject):
         # works out pretty awesome, since move interval is suppose to be time from reward start
         # until next trial. This would be a problem if there was so much reward that it took up
         # all of the time for the move_interval, but that would be a lot of reward
-        #print('pump delay', self.pump_delay)
+        #print('pump delay', self.config['PUMP_DELAY'])
         #print('beeps', self.num_beeps)
 
         self.auto_sequence = Sequence(
@@ -466,7 +469,7 @@ class World(DirectObject):
         # will abort and start over
         # first stop the on interval
         self.base.taskMgr.remove('auto_off_task')
-        self.time_data_file.write(str(time()) + ', Fixated')
+        self.logging.log_event('Fixated')
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
         #print('fixate interval', fixate_interval)
@@ -494,8 +497,8 @@ class World(DirectObject):
         # turn off square
         self.square.turn_off()
         # write to log
-        self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[2])
-        self.time_data_file.write(str(time()) + ', ' + 'no fixation or broken, restart' + '\n')
+        self.logging.log_event(self.sequence_for_file[2])
+        self.logging.log_event('No fixation or broken, restart')
         self.set_flag_clear_screen()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
@@ -506,7 +509,7 @@ class World(DirectObject):
         #print(self.base.taskMgr)
 
     def set_flag_clear_screen(self):
-        #print 'remove eye trace and fixation window, if there is one'
+        print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
         self.flag_clear_eyes = True
         # remove window around square
@@ -530,7 +533,7 @@ class World(DirectObject):
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
-            self.base.taskMgr.doMethodLater(self.pump_delay, self.wait_between_reward, 'reward')
+            self.base.taskMgr.doMethodLater(self.config['PUMP_DELAY'], self.wait_between_reward, 'reward')
         else:
             for i in range(self.num_beeps):
                 #print 'beep'
@@ -539,26 +542,21 @@ class World(DirectObject):
         #print('time', time())
 
     def write_to_file(self):
-        #print('now', self.next)
+        print('now', self.next)
         #print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
-        self.time_data_file.write(str(time()) + ', ' + self.sequence_for_file[self.next])
+        self.logging.log_event(self.sequence_for_file[self.next])
         # if this is first time through, write position of square
         if self.next == 0:
-            self.write_pos_to_file()
+            position = self.square.square.getPos()
+            self.logging.log_position(position)
         # next only affects what we are writing to file,
         self.next += 1
         #print('next', self.next)
 
-    def write_pos_to_file(self):
-        #print "write pos to file"
-        position = self.square.square.getPos()
-        self.time_data_file.write(str(time()) + ', Square Position, ' + str(position[0]) +
-                                  ', ' + str(position[2]) + '\n')
-
     ##### Eye Methods
     def start_check_fixation(self):
-        #print 'check for fixation'
+        print 'check for fixation'
         #print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
         # and make sure checking for fixation
@@ -598,9 +596,7 @@ class World(DirectObject):
         # write eye data (as is, no adjustments) and timestamp to file
         # if we are paused, do not plot eye data (pausing messes up
         # with cleanup), but still collect the data
-        self.eye_data_file.write(str(time()) + ', ' +
-                                 str(eye_data[0]) + ', ' +
-                                 str(eye_data[1]) + '\n')
+        self.logging.log_eye(eye_data)
         # when searching for a particular eye data
         # sometimes useful to not print timestamp
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
@@ -626,7 +622,7 @@ class World(DirectObject):
         # stuff to researchers screen
         if not self.unittest:
             if self.flag_clear_eyes:
-                #print 'clear eyes'
+                print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
                 # don't start plotting until we restart task
@@ -637,7 +633,7 @@ class World(DirectObject):
                 # plot new eye segment
                 self.plot_eye_trace(start_eye)
 
-            if self.use_daq_data:
+            if not self.config['FAKE_DATA']:
                 self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
             else:
@@ -650,6 +646,7 @@ class World(DirectObject):
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
             # convert tolerance to pixels
             tolerance = self.tolerance / self.deg_per_pixel
+            # send in eye data converted to pixels, self.eye_data
             self.fixated = check_fixation(self.eye_data, tolerance, target)
             #print('fixated?', self.fixated)
             if self.fixated and not previous_fixation:
@@ -692,10 +689,6 @@ class World(DirectObject):
                 eye.removeNode()
         #print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
-        # clear out the last eye data, because will most likely be
-        # starting in a completely different place
-        self.eye_data = []
-        #print 'eye data clear', self.eye_data
 
     def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -794,17 +787,9 @@ class World(DirectObject):
             text_notice = 'Auto'
         self.text5.setText(text_notice)
 
-    def test_eye_task(self, eye_data):
-        self.eye_data_file.write(str(time()) + ', ' +
-                                 str(eye_data[0]) + ', ' +
-                                 str(eye_data[1]) + '\n')
-        self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                           ', ' + str(round(eye_data[1], 3)) + ']')
-
     def start_eye_task(self):
         self.eye_task = pydaq.EOGTask()
         self.eye_task.SetCallback(self.get_eye_data)
-        #self.eye_task.SetCallback(self.test_eye_task)
         self.eye_task.StartTask()
 
     def start_reward_task(self):
@@ -813,25 +798,19 @@ class World(DirectObject):
     # Key Functions
     ### key press or messenger methods
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
-        if ch_type == 'gain':
+        if ch_type == 'Gain':
             self.gain[x_or_y] += ch_amount
             self.text.setText('Gain:' + str(self.gain))
-            self.time_data_file.write(
-                str(time()) + ', Change Gain, ' +
-                str(self.gain[0]) + ', ' +
-                str(self.gain[1]) + '\n')
+            self.logging.log_change(ch_type, self.gain)
+
         else:
             self.offset[x_or_y] += ch_amount
-            #self.text2.setText('Offset:' + '[{0:03.2f}'.format(self.offset[0])
-            #                   + ', ' + '{0:03.2f}]'.format(self.offset[1]))
-            self.time_data_file.write(
-                str(time()) + ', Change Offset, ' +
-                str(self.offset[0]) + ', ' +
-                str(self.offset[1]) + '\n')
+            self.logging.log_change(ch_type, self.offset)
 
     def change_tolerance(self, direction):
         #print 'change tolerance'
         self.tolerance += direction
+        self.logging.log_change('Tolerance', self.tolerance)
         self.set_text4()
         #self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
         #self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
@@ -855,7 +834,6 @@ class World(DirectObject):
         self.accept("escape", self.close)  # escape
         # starts turning square on
         self.accept("space", self.start_loop)
-        self.accept("cleanup", self.cleanup)
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change
@@ -863,25 +841,27 @@ class World(DirectObject):
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
-        self.accept("shift-arrow_up", self.change_gain_or_offset, ['gain', 1, 1])
-        self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['gain', 1, 1])
-        self.accept("shift-arrow_down", self.change_gain_or_offset, ['gain', 1, -1])
-        self.accept("shift-arrow_down-repeat", self.change_gain_or_offset, ['gain', 1, -1])
+        # done with an outside process, time to cleanup
+        self.accept("cleanup", self.cleanup)
+        self.accept("shift-arrow_up", self.change_gain_or_offset, ['Gain', 1, 1])
+        self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['Gain', 1, 1])
+        self.accept("shift-arrow_down", self.change_gain_or_offset, ['Gain', 1, -1])
+        self.accept("shift-arrow_down-repeat", self.change_gain_or_offset, ['Gain', 1, -1])
         # gain - right and left are x
-        self.accept("shift-arrow_right", self.change_gain_or_offset, ['gain', 0, 1])
-        self.accept("shift-arrow_right-repeat", self.change_gain_or_offset, ['gain', 0, 1])
-        self.accept("shift-arrow_left", self.change_gain_or_offset, ['gain', 0, -1])
-        self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['gain', 0, -1])
+        self.accept("shift-arrow_right", self.change_gain_or_offset, ['Gain', 0, 1])
+        self.accept("shift-arrow_right-repeat", self.change_gain_or_offset, ['Gain', 0, 1])
+        self.accept("shift-arrow_left", self.change_gain_or_offset, ['Gain', 0, -1])
+        self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['Gain', 0, -1])
         # offset - up and down are y
-        self.accept("control-arrow_up", self.change_gain_or_offset, ['offset', 1, 1])
-        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['offset', 1, 1])
-        self.accept("control-arrow_down", self.change_gain_or_offset, ['offset', 1, -1])
-        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['offset', 1, -1])
+        self.accept("control-arrow_up", self.change_gain_or_offset, ['Offset', 1, 1])
+        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['Offset', 1, 1])
+        self.accept("control-arrow_down", self.change_gain_or_offset, ['Offset', 1, -1])
+        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['Offset', 1, -1])
         # offset - right and left are x
-        self.accept("control-arrow_right", self.change_gain_or_offset, ['offset', 0, 1])
-        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['offset', 0, 1])
-        self.accept("control-arrow_left", self.change_gain_or_offset, ['offset', 0, -1])
-        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['offset', 0, -1])
+        self.accept("control-arrow_right", self.change_gain_or_offset, ['Offset', 0, 1])
+        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['Offset', 0, 1])
+        self.accept("control-arrow_left", self.change_gain_or_offset, ['Offset', 0, -1])
+        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['Offset', 0, -1])
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
         self.accept("alt-arrow_up", self.change_tolerance, [0.5])
@@ -993,8 +973,12 @@ class World(DirectObject):
         self.setup_keys()
         # create square object
         self.square = Square(self.config, self.keys, self.base)
+        self.logging = Logging(self.config)
+        if self.photos:
+            self.photos = Photos(self.base, self.config, self.logging)
+            self.photos.load_all_photos()
         # start fake data yield, if not using eye tracker
-        if not self.use_daq_data:
+        if self.config['FAKE_DATA']:
             print 'get fake data'
             self.fake_data = yield_eye_data((0.0, 0.0))
         # start reward capabilities, if using daq
@@ -1004,61 +988,18 @@ class World(DirectObject):
         if not self.unittest:
             self.start_gig()
 
-    # File methods
-    def open_files(self):
-        # open file for recording eye data
-        subject = self.config['SUBJECT']
-        data_dir = 'data/' + self.config['SUBJECT']
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        if self.manual:
-            self.eye_file_name = data_dir + '/eye_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-            self.time_file_name = data_dir + '/time_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-        else:
-            self.eye_file_name = data_dir + '/eye_cal2_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-            self.time_file_name = data_dir + '/time_cal2_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-
-        #print('open', self.eye_file_name)
-        # open file for recording eye positions
-        self.eye_data_file = open(self.eye_file_name, 'w')
-        self.eye_data_file.write('timestamp, x_position, y_position, for subject: ' + subject + '\n')
-        # open file for recording event times
-        self.time_data_file = open(self.time_file_name, 'w')
-        self.time_data_file.write('timestamp, task, for subject: ' + subject + '\n')
-
-        # open and close file for keeping configuration info
-        # turns out there is a lot of extra crap in the config dictionary,
-        # and I haven't figured out a pretty way to get rid of the extra crap.
-        # Honestly, the best thing may be to just make a copy of the original damn file.
-        # maybe look to see how pandaepl handles this
-        #config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
-
-        #w = csv.writer(open(config_file_name, 'w'))
-        #for name, value in config.items():
-        #    w.writerow([name, value])
-
-        #for name, value in config.items():
-        #    print name, value
-        # if you want to see the frame rate
-        # window.setFrameRateMeter(True)
-
-    # Closing methods
-    def close_files(self):
-        #print('close', self.eye_file_name)
-        self.eye_data_file.close()
-        self.time_data_file.close()
-
     def close(self):
         #print 'close'
         # if we close during a photo showing or photo break, will interrupt task
+        # also want to keep track of where we ended. Move this to Photos
         if self.photos:
             self.base.taskMgr.removeTasksMatching('photo_*')
             with open('config.py', 'a') as config_file:
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
-        if self.use_daq_data:
+        if not self.config['FAKE_DATA']:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
-        self.close_files()
+        self.logging.close_files()
         if self.unittest:
             self.ignoreAll()  # ignore everything, so nothing weird happens after deleting it.
         else:

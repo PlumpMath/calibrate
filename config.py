@@ -2,7 +2,8 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-#FAKE_DATA = True
+FAKE_DATA = True
+SEND_DATA = True  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
 # unless you also change screen and view_dist appropriately, but for testing, should be ok
@@ -83,8 +84,23 @@ PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
 # Stuff for photos
 PHOTO_PATH = 'photos/'  # if path is none, not using photos
 #PHOTO_PATH = None
-PHOTO_TIMER = 5  # how long to show each photo, only counting fixation time
-PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point
-NUM_PHOTOS_IN_SET = 16  # how many photos in each set
-CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo
+# how long to show each photo, only counting fixation time
+PHOTO_TIMER = 2  # 5 is standard for Buffalo Lab
+PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point, 1 standard
+NUM_PHOTOS_IN_SET = 1  # how many photos in each set, 16 standard
+CAL_PTS_PER_PHOTO = 2  # how many calibration points to show between each photo, 3 standard
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
+LAST_PHOTO_INDEX = 16
+LAST_PHOTO_INDEX = 32
+LAST_PHOTO_INDEX = 34
+LAST_PHOTO_INDEX = 36
+LAST_PHOTO_INDEX = 38
+LAST_PHOTO_INDEX = 40
+LAST_PHOTO_INDEX = 42
+LAST_PHOTO_INDEX = 43
+LAST_PHOTO_INDEX = 44
+LAST_PHOTO_INDEX = 45
+LAST_PHOTO_INDEX = 46
+LAST_PHOTO_INDEX = 47
+LAST_PHOTO_INDEX = 48
+LAST_PHOTO_INDEX = 49

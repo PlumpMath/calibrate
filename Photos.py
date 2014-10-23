@@ -11,15 +11,16 @@ from time import time
 
 class Photos():
 
-    def __init__(self, base, config=None):
+    def __init__(self, base, config=None, logging=None):
         # photo location
         self.base = base
         self.config = config
-        self.root_dir = config['PHOTO_PATH']
+        self.logging = logging
+
         self.photo_names = []
         self.photo_set = []
+        # this variable will change, and then be re-set with the configuration
         self.fixation_timer = config['PHOTO_TIMER']
-        self.break_time = config['PHOTO_BREAK_TIMER'] + config['PHOTO_TIMER']  # accumulate together
         self.flag_timer = False  # starts out assuming fixated
         self.imageObject = None
         self.photo_gen = None
@@ -27,6 +28,7 @@ class Photos():
         self.check_eye = False  # true means check fixation, false means stop checking
         self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
+        # this will change when finished with all sets
         self.cal_pts_per_photo = config['CAL_PTS_PER_PHOTO']
         total_cal_points = config['POINT_REPEAT'] * config['X_POINTS'] * config['Y_POINTS']
         num_photos_in_set = config['NUM_PHOTOS_IN_SET']
@@ -35,12 +37,14 @@ class Photos():
         #print num_sets
         # show each set twice, so just need half that many
         num_sets //= 2
+        num_sets = 1
         #print num_sets
         try:
             last_index = config['LAST_PHOTO_INDEX']
         except KeyError:
             last_index = 0
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)
+        print('index list', self.index_list)
         self.end_index = 0
         #photo_size = [1280, 800]
         # ratio of photo is approximately the same as the screen (3:4), which means
@@ -53,17 +57,17 @@ class Photos():
 
     def load_all_photos(self):
         #print 'load all photos'
-        for file_name in os.listdir(self.root_dir):
+        for file_name in os.listdir(self.config['PHOTO_PATH']):
             #print file_name
             if file_name.endswith('.bmp'):
-                self.photo_names.append(os.path.join(self.root_dir, file_name))
+                self.photo_names.append(os.path.join(self.config['PHOTO_PATH'], file_name))
         if self.index_list[-1] > len(self.photo_names):
             raise Exception("Not enough Photos in this directory")
         test = self.load_photo_set()
         print test
 
     def load_photo_set(self):
-        #print 'load photo set'
+        print 'load photo set'
         try:
             start_ind = self.index_list.pop(0)
             end_ind = self.index_list.pop(0)
@@ -72,7 +76,7 @@ class Photos():
             print 'end of index!'
             return False
         self.photo_set = self.photo_names[start_ind:end_ind]
-        #print self.photo_set
+        print self.photo_set
         self.photo_gen = self.get_photo()
         return True
 
@@ -81,7 +85,7 @@ class Photos():
             yield photo
 
     def show_photo(self):
-        #print 'show photo and tolerance'
+        print 'show photo and tolerance'
         photo_path = None
         try:
             photo_path = self.photo_gen.next()
@@ -92,12 +96,13 @@ class Photos():
                 photo_path = self.photo_gen.next()
             else:
                 self.cal_pts_per_photo = None
-                messenger.send('cleanup')
+                print 'out of photos, cleanup'
                 return
         #print photo_path
         #print time()
         self.show_window()
         self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0), scale=0.75)
+        self.write_to_file('Photo On', photo_path)
         #print self.imageObject
         self.check_eye = True
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
@@ -138,11 +143,12 @@ class Photos():
         self.fixation_timer = self.config['PHOTO_TIMER']
         #print('new timer', self.fixation_timer)
         self.imageObject.destroy()
+        self.write_to_file('Photo Off')
         for line in self.photo_window:
             line.detachNode()
         #print time()
         #print 'go on break'
-        self.base.taskMgr.doMethodLater(self.break_time, self.send_cleanup, 'photo_send_cleanup')
+        self.base.taskMgr.doMethodLater(self.config['PHOTO_BREAK_TIMER'], self.send_cleanup, 'photo_send_cleanup')
         #print 'set break'
         #print time()
 
@@ -178,6 +184,11 @@ class Photos():
         node.hide(BitMask32.bit(1))
         self.photo_window.append(node)
 
+    def write_to_file(self, event, photo=None):
+        self.logging.log_event(event)
+        if photo:
+            self.logging.log_event(photo)
+
     @staticmethod
     def send_cleanup(task):
         #print time()
@@ -193,7 +204,10 @@ def create_index_list(num_photos, num_sets, first_index=None):
     num_sets -= 1
     if not first_index:
         first_index = 0
-    index_list = [first_index, num_photos] * 2
+    # last photo is first + num_photos
+    last_index = first_index + num_photos
+    index_list = [first_index, last_index] * 2
+    print('index_list', index_list)
     last_set = index_list
     for i in range(num_sets):
         next_set = [x + num_photos for x in last_set]

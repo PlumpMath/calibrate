@@ -23,7 +23,8 @@ def yield_eye_data(origin=None, variance=None):
     if origin:
         (x, y) = origin
     if not variance:
-        variance = 0.05
+        #variance = 0.05
+        variance = 0.005
     while True:
         #print 'x', x
         #print 'y', y
