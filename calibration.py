@@ -103,7 +103,8 @@ class World(DirectObject):
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
-        self.offset = [0, 0]
+        #self.offset = [0, 0]
+        self.offset = [-4, -4]
         # Python assumes all input from sys are string, but not
         # input variables
         # tolerance in degrees, will need to be changed to pixels to be useful,
@@ -260,7 +261,7 @@ class World(DirectObject):
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
-        print 'end gig'
+        #print 'end gig'
         # close stuff
         if not self.config['FAKE_DATA']:
             #print 'stopping daq tasks'
@@ -290,7 +291,7 @@ class World(DirectObject):
     def start_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
-        print('start loop')
+        #print('start loop')
         #print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
@@ -316,6 +317,7 @@ class World(DirectObject):
                 if self.loop_count == self.photos.cal_pts_per_photo:
                     self.flag_clear_eyes = False
                     self.fixation_photo_flag = True
+                    #print 'about to call show photo from start_loop'
                     self.photos.show_photo()
                     #print 'called show photo from start_loop'
                     self.loop_count = 0
@@ -331,31 +333,29 @@ class World(DirectObject):
         #print('time', time())
 
     def cleanup(self):
-        print('cleanup method')
+        #print('cleanup method')
         #print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         good_trial = self.num_reward > 0
         self.num_reward = 0
-        # make sure we have cleared the eye positions
-        # this is done previously to now in regular calibration, but
-        # important for photos, and no big deal if we do it again
-        #self.set_flag_clear_screen()
+
+        # if done with photos, done with photos
+        if self.photos and self.photos.cal_pts_per_photo is None:
+            #print 'photos done, start over'
+            self.photos = None
+            self.fixation_photo_flag = False
+            self.start_loop()
+            return
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             self.change_tasks()
         else:
             if not self.unittest:
-                print 'start next loop'
+                #print 'start next loop'
                 self.start_loop(good_trial)
-                print('here twice?')
-        if self.photos and self.photos.cal_pts_per_photo is None:
-            print 'photos done, start over'
-            self.photos = None
-            self.fixation_photo_flag = False
-            self.start_loop()
-        print('done cleanup')
-        #print('time', time())
+                #print('leaving cleanup')
+        #print('done cleanup')
 
     def setup_manual_sequence(self):
         #print 'setup manual sequence'
@@ -387,7 +387,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        print 'setup auto sequences'
+        #print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -509,7 +509,7 @@ class World(DirectObject):
         #print(self.base.taskMgr)
 
     def set_flag_clear_screen(self):
-        print 'remove eye trace and fixation window, if there is one'
+        #print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
         self.flag_clear_eyes = True
         # remove window around square
@@ -542,7 +542,7 @@ class World(DirectObject):
         #print('time', time())
 
     def write_to_file(self):
-        print('now', self.next)
+        #print('now', self.next)
         #print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.logging.log_event(self.sequence_for_file[self.next])
@@ -556,7 +556,7 @@ class World(DirectObject):
 
     ##### Eye Methods
     def start_check_fixation(self):
-        print 'check for fixation'
+        #print 'check for fixation'
         #print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
         # and make sure checking for fixation
@@ -622,14 +622,16 @@ class World(DirectObject):
         # stuff to researchers screen
         if not self.unittest:
             if self.flag_clear_eyes:
-                print 'clear eyes'
+                #print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
                 # don't start plotting until we restart task
                 self.flag_clear_eyes = None
             elif self.flag_clear_eyes is None:
+                #print 'do not plot eyes'
                 pass
             else:
+                #print 'plot eyes'
                 # plot new eye segment
                 self.plot_eye_trace(start_eye)
 
@@ -685,6 +687,7 @@ class World(DirectObject):
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
         if self.eye_nodes:
+            #print self.eye_nodes
             for eye in self.eye_nodes:
                 eye.removeNode()
         #print 'should be no nodes now', self.eye_nodes
@@ -996,6 +999,8 @@ class World(DirectObject):
             self.base.taskMgr.removeTasksMatching('photo_*')
             with open('config.py', 'a') as config_file:
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
+            # make sure eye data was cleared
+            self.flag_clear_eyes = True
         if not self.config['FAKE_DATA']:
             self.eye_task.StopTask()
             self.eye_task.ClearTask()

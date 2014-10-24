@@ -44,13 +44,12 @@ class Photos():
         except KeyError:
             last_index = 0
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)
-        print('index list', self.index_list)
+        #print('index list', self.index_list)
         self.end_index = 0
         #photo_size = [1280, 800]
         # ratio of photo is approximately the same as the screen (3:4), which means
         # about same number of pixels in x and y to get same ratio. Not really intuitive.
         photo_size = [600, 600]
-        #photo_size = [600, 600]
         #photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
         #print('photo tolerance', self.tolerance)
@@ -64,19 +63,19 @@ class Photos():
         if self.index_list[-1] > len(self.photo_names):
             raise Exception("Not enough Photos in this directory")
         test = self.load_photo_set()
-        print test
+        #print test
 
     def load_photo_set(self):
-        print 'load photo set'
+        #print 'load photo set'
         try:
             start_ind = self.index_list.pop(0)
             end_ind = self.index_list.pop(0)
             self.end_index = end_ind
         except IndexError:
-            print 'end of index!'
+            #print 'end of index!'
             return False
         self.photo_set = self.photo_names[start_ind:end_ind]
-        print self.photo_set
+        #print self.photo_set
         self.photo_gen = self.get_photo()
         return True
 
@@ -85,28 +84,30 @@ class Photos():
             yield photo
 
     def show_photo(self):
-        print 'show photo and tolerance'
+        #print 'show photo and tolerance'
         photo_path = None
         try:
             photo_path = self.photo_gen.next()
         except StopIteration:
-            print('stop iterating!')
+            #print('stop iterating!')
             check_set = self.load_photo_set()
             if check_set:
                 photo_path = self.photo_gen.next()
             else:
                 self.cal_pts_per_photo = None
-                print 'out of photos, cleanup'
+                #print 'out of photos, cleanup'
                 return
+        self.check_eye = True
         #print photo_path
         #print time()
+        #print 'show window'
         self.show_window()
+        #print 'show actual photo'
         self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0), scale=0.75)
         self.write_to_file('Photo On', photo_path)
         #print self.imageObject
-        self.check_eye = True
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
-        print('started timer task', self.fixation_timer)
+        #print('started timer task', self.fixation_timer)
 
     def timer_task(self, task):
         #print('timer', self.fixation_timer)
@@ -131,8 +132,8 @@ class Photos():
         if task.time < self.fixation_timer:
             return task.cont
         self.time_stash = 0
-        print('timer was', self.fixation_timer)
-        print('task time was', task.time)
+        #print('timer was', self.fixation_timer)
+        #print('task time was', task.time)
         # done fixating
         return task.done
 
@@ -173,9 +174,9 @@ class Photos():
         #print photo_window.getCurrentPosition()
         photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1])
         #print photo_window.getCurrentPosition()
-        photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1])
+        photo_window.drawTo(-self.tolerance[0] + 100, 55, -self.tolerance[1])
         #print photo_window.getCurrentPosition()
-        photo_window.drawTo(-self.tolerance[0], 55, self.tolerance[1])
+        photo_window.drawTo(-self.tolerance[0] + 100, 55, self.tolerance[1])
         #print photo_window.getCurrentPosition()
         photo_window.drawTo(self.tolerance[0], 55, self.tolerance[1])
         #print photo_window.getCurrentPosition()
@@ -207,7 +208,7 @@ def create_index_list(num_photos, num_sets, first_index=None):
     # last photo is first + num_photos
     last_index = first_index + num_photos
     index_list = [first_index, last_index] * 2
-    print('index_list', index_list)
+    #print('index_list', index_list)
     last_set = index_list
     for i in range(num_sets):
         next_set = [x + num_photos for x in last_set]
