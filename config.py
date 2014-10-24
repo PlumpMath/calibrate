@@ -2,7 +2,7 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-FAKE_DATA = False
+FAKE_DATA = True
 SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -93,4 +93,3 @@ LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to
 LAST_PHOTO_INDEX = 16
 LAST_PHOTO_INDEX = 32
 LAST_PHOTO_INDEX = 48
-LAST_PHOTO_INDEX = 64

@@ -575,11 +575,12 @@ class World(DirectObject):
     def plot_eye_trace(self, last_eye):
         # if plotting too many eye positions, things slow down and
         # python goes into lala land. If we go over 1000, get rid of the
-        # first 100.
-        if len(self.eye_nodes) > 500:
+        # first 500.
+        if len(self.eye_nodes) > 1000:
             print('get rid of eye nodes', len(self.eye_nodes))
-            for eye in self.eye_nodes[:400]:
-                eye.removeNode()
+            remove_nodes = self.eye_nodes[:500]
+            for index, eye in remove_nodes:
+                self.eye_nodes[index].removeNode()
             print('new length', len(self.eye_nodes))
         eye = LineSegs()
         # eye.setThickness(2.0)
