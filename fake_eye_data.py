@@ -33,7 +33,8 @@ def yield_eye_data(origin=None, variance=None):
         x = random.uniform(x + variance, x - variance)
         y = random.uniform(y + variance, y - variance)
     # will continue sending data every x seconds until calling function quits
-    next_call += 0.1
+    next_call += 0.0004
+    #next_call += 0.1
     threading.Timer(next_call - time.time(), yield_eye_data).start()
 
 yield_eye_data()

@@ -93,6 +93,7 @@ class Logging():
     def log_change(self, change_type, change):
         # was going to try to make this smart, but always either send in a list of 2
         # or a single number, so this turns out to be least complicated way to do it.
+        print(change_type, change)
         if isinstance(change, list):
             self.time_data_file.write(str(time()) +
                                       ', Change ' + change_type + ', ' +

@@ -321,7 +321,14 @@ class World(DirectObject):
                     self.photos.show_photo()
                     #print 'called show photo from start_loop'
                     self.loop_count = 0
-                    return
+                    # if there were no photos, continue on to
+                    # calibrations, otherwise, we are done here
+                    if self.photos.cal_pts_per_photo is None:
+                        #print 'no more photos, continue to regularly scheduled program'
+                        self.photos = None
+                        self.fixation_photo_flag = False
+                    else:
+                        return
             #print 'showed calibration point'
             #print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
@@ -339,16 +346,9 @@ class World(DirectObject):
         self.next = 0
         good_trial = self.num_reward > 0
         self.num_reward = 0
-
-        # if done with photos, done with photos
-        if self.photos and self.photos.cal_pts_per_photo is None:
-            #print 'photos done, start over'
-            self.photos = None
-            self.fixation_photo_flag = False
-            self.start_loop()
-            return
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
+            #print 'change tasks'
             self.change_tasks()
         else:
             if not self.unittest:
@@ -573,6 +573,14 @@ class World(DirectObject):
         #print('should still not be fixated', self.fixated)
 
     def plot_eye_trace(self, last_eye):
+        # if plotting too many eye positions, things slow down and
+        # python goes into lala land. If we go over 1000, get rid of the
+        # first 100.
+        if len(self.eye_nodes) > 500:
+            print('get rid of eye nodes', len(self.eye_nodes))
+            for eye in self.eye_nodes[:400]:
+                eye.removeNode()
+            print('new length', len(self.eye_nodes))
         eye = LineSegs()
         # eye.setThickness(2.0)
         eye.setThickness(2.0)
