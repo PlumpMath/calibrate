@@ -5,9 +5,6 @@ from panda3d.core import LineSegs, BitMask32
 import os
 from time import time
 
-#### Shit! How do I keep track of where I am in the directory after I quit
-#### the application?
-
 
 class Photos():
 
@@ -85,7 +82,6 @@ class Photos():
 
     def show_photo(self):
         #print 'show photo and tolerance'
-        photo_path = None
         try:
             photo_path = self.photo_gen.next()
         except StopIteration:
