@@ -1,6 +1,6 @@
 #SUBJECT = 'test'
-SUBJECT = 'Maria'
-#SUBJECT = 'JN'
+#SUBJECT = 'Maria'
+SUBJECT = 'JN'
 
 FAKE_DATA = False
 SEND_DATA = False  # send digital signals to Blackrock or Plexon

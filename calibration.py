@@ -575,15 +575,12 @@ class World(DirectObject):
     def plot_eye_trace(self, last_eye):
         # if plotting too many eye positions, things slow down and
         # python goes into lala land. Never need more than 500, and
-        # last 300 is definitely plenty, so everytime it hits 500,
+        # last 300 is definitely plenty, so every time it hits 500,
         # get rid of first 200.
         if len(self.eye_nodes) > 500:
             #print('get rid of eye nodes', len(self.eye_nodes))
             # Since this just removes the node, but doesn't delete
             # the object in the list, can do this in a for loop,
-            # but don't delete the node in the list in the for loop,
-            # or indexing will be totally screwed up, and won't
-            # delete as expected.
             for index in range(200):
                 self.eye_nodes[index].removeNode()
             # now get rid of the empty nodes in eye_nodes
@@ -705,6 +702,8 @@ class World(DirectObject):
         # and get rid of old eye positions.
         if self.eye_nodes:
             #print self.eye_nodes
+            # can do this in a loop, since does not
+            # delete object from list
             for eye in self.eye_nodes:
                 eye.removeNode()
         #print 'should be no nodes now', self.eye_nodes
