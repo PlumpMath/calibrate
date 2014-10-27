@@ -103,8 +103,8 @@ class World(DirectObject):
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
-        #self.offset = [0, 0]
-        self.offset = [-4, -4]
+        self.offset = [0, 0]
+
         # Python assumes all input from sys are string, but not
         # input variables
         # tolerance in degrees, will need to be changed to pixels to be useful,
@@ -574,14 +574,22 @@ class World(DirectObject):
 
     def plot_eye_trace(self, last_eye):
         # if plotting too many eye positions, things slow down and
-        # python goes into lala land. If we go over 1000, get rid of the
-        # first 500.
-        if len(self.eye_nodes) > 1000:
-            print('get rid of eye nodes', len(self.eye_nodes))
-            remove_nodes = self.eye_nodes[:500]
-            for index, eye in remove_nodes:
+        # python goes into lala land. Never need more than 500, and
+        # last 300 is definitely plenty, so everytime it hits 500,
+        # get rid of first 200.
+        if len(self.eye_nodes) > 500:
+            #print('get rid of eye nodes', len(self.eye_nodes))
+            # Since this just removes the node, but doesn't delete
+            # the object in the list, can do this in a for loop,
+            # but don't delete the node in the list in the for loop,
+            # or indexing will be totally screwed up, and won't
+            # delete as expected.
+            for index in range(200):
                 self.eye_nodes[index].removeNode()
-            print('new length', len(self.eye_nodes))
+            # now get rid of the empty nodes in eye_nodes
+            #print('new length', len(self.eye_nodes))
+            self.eye_nodes = self.eye_nodes[200:]
+            #print('new length', len(self.eye_nodes))
         eye = LineSegs()
         # eye.setThickness(2.0)
         eye.setThickness(2.0)

@@ -2,7 +2,7 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-FAKE_DATA = True
+FAKE_DATA = False
 SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -92,4 +92,3 @@ CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo,
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
 LAST_PHOTO_INDEX = 16
 LAST_PHOTO_INDEX = 32
-LAST_PHOTO_INDEX = 48
