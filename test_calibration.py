@@ -157,8 +157,8 @@ class TestCalibration(unittest.TestCase):
         # for reading
         self.w.cleanup()
         self.w.end_gig()
-        #print(self.w.eye_file_name)
-        f = open(self.w.eye_file_name, 'r')
+        #print(self.w.logging.eye_file_name)
+        f = open(self.w.logging.eye_file_name, 'r')
         # the first line is a header
         self.assertIn('timestamp', f.readline())
         my_line = f.readline()
@@ -185,10 +185,15 @@ class TestCalibration(unittest.TestCase):
         #print 'task now', self.w.next
         # need to make sure file is closed
         self.w.end_gig()
-        #print self.w.time_file_name
-        f = open(self.w.time_file_name, 'r')
-        self.assertIn('timestamp', f.readline())
+        #print self.w.logging.time_file_name
+        f = open(self.w.logging.time_file_name, 'r')
         test_line = f.readline()
+        self.assertIn('timestamp', test_line)
+        test_line = f.readline()
+        # next line gives tolerance, if random mode
+        if not self.w.manual:
+            self.assertIn('Tolerance', test_line)
+            test_line = f.readline()
         # should always be starting with square on...
         self.assertIn('Square', test_line)
 
@@ -212,7 +217,7 @@ class TestCalibration(unittest.TestCase):
         taskMgr.step()
         self.w.cleanup()
         self.w.end_gig()
-        os.remove(self.w.eye_file_name)
+        os.remove(self.w.logging.eye_file_name)
 
 
 def suite():
@@ -224,12 +229,12 @@ if __name__ == "__main__":
     #print 'run suite'
     # run twice to cover both conditions
     if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
-        manual = True
+        manual = 1
         if int(sys.argv[1]) == 0:
-            manual = False
+            manual = 0
         result = unittest.TextTestRunner(verbosity=2).run(suite())
         if not result.wasSuccessful():
             sys.exit(1)
     else:
-        manual = False
+        manual = 0
         unittest.main(verbosity=2)
