@@ -103,8 +103,8 @@ class World(DirectObject):
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
         # so for now just set it here to zero.
-        #self.offset = [0, 0]
-        self.offset = [-4, -4]
+        self.offset = [0, 0]
+
         # Python assumes all input from sys are string, but not
         # input variables
         # tolerance in degrees, will need to be changed to pixels to be useful,
@@ -120,9 +120,13 @@ class World(DirectObject):
 
         # check to see if we will be showing photos:
         try:
-            self.photos = self.config['PHOTO_PATH']
+            self.show_photos = self.config['PHOTO_PATH']
         except KeyError:
-            self.photos = None
+            self.show_photos = False
+
+        # This will be the photo object, if we are showing photos
+        self.photos = None
+
         # if no photos, this will always be false, otherwise
         # will switch when showing a photo
         self.fixation_photo_flag = False
@@ -307,7 +311,7 @@ class World(DirectObject):
             self.fixated = False
             # check to see if we are showing a photo
             #print('loop count before photo', self.loop_count)
-            if self.photos:
+            if self.show_photos:
                 if good_trial:
                     self.loop_count += 1
                     #print('good trial, loop count now', self.loop_count)
@@ -325,7 +329,9 @@ class World(DirectObject):
                     # calibrations, otherwise, we are done here
                     if self.photos.cal_pts_per_photo is None:
                         #print 'no more photos, continue to regularly scheduled program'
-                        self.photos = None
+                        self.photo_end = self.photos.end_index
+                        # don't need to check for photos now
+                        self.show_photos = None
                         self.fixation_photo_flag = False
                     else:
                         return
@@ -574,14 +580,19 @@ class World(DirectObject):
 
     def plot_eye_trace(self, last_eye):
         # if plotting too many eye positions, things slow down and
-        # python goes into lala land. If we go over 1000, get rid of the
-        # first 500.
-        if len(self.eye_nodes) > 1000:
-            print('get rid of eye nodes', len(self.eye_nodes))
-            remove_nodes = self.eye_nodes[:500]
-            for index, eye in remove_nodes:
+        # python goes into lala land. Never need more than 500, and
+        # last 300 is definitely plenty, so every time it hits 500,
+        # get rid of first 200.
+        if len(self.eye_nodes) > 500:
+            #print('get rid of eye nodes', len(self.eye_nodes))
+            # Since this just removes the node, but doesn't delete
+            # the object in the list, can do this in a for loop,
+            for index in range(200):
                 self.eye_nodes[index].removeNode()
-            print('new length', len(self.eye_nodes))
+            # now get rid of the empty nodes in eye_nodes
+            #print('new length', len(self.eye_nodes))
+            self.eye_nodes = self.eye_nodes[200:]
+            #print('new length', len(self.eye_nodes))
         eye = LineSegs()
         # eye.setThickness(2.0)
         eye.setThickness(2.0)
@@ -697,6 +708,8 @@ class World(DirectObject):
         # and get rid of old eye positions.
         if self.eye_nodes:
             #print self.eye_nodes
+            # can do this in a loop, since does not
+            # delete object from list
             for eye in self.eye_nodes:
                 eye.removeNode()
         #print 'should be no nodes now', self.eye_nodes
@@ -986,7 +999,7 @@ class World(DirectObject):
         # create square object
         self.square = Square(self.config, self.keys, self.base)
         self.logging = Logging(self.config)
-        if self.photos:
+        if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging)
             self.photos.load_all_photos()
         # start fake data yield, if not using eye tracker
@@ -1003,7 +1016,7 @@ class World(DirectObject):
     def close(self):
         #print 'close'
         # if we close during a photo showing or photo break, will interrupt task
-        # also want to keep track of where we ended. Move this to Photos
+        # also want to keep track of where we ended. Move this to Photos.
         if self.photos:
             self.base.taskMgr.removeTasksMatching('photo_*')
             with open('config.py', 'a') as config_file:
