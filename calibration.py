@@ -75,6 +75,8 @@ class World(DirectObject):
         self.config = {}
         execfile(config_file, self.config)
         print 'Subject is', self.config['SUBJECT']
+        self.config.setdefault('file_name', config_file)
+        print 'Calibration file is', config_file
         # if subject is test, doing unit tests
         if self.config['SUBJECT'] == 'test':
             # doing unittests so use fake eye data and testing configuration.
@@ -1019,7 +1021,7 @@ class World(DirectObject):
         # also want to keep track of where we ended. Move this to Photos.
         if self.photos:
             self.base.taskMgr.removeTasksMatching('photo_*')
-            with open('config.py', 'a') as config_file:
+            with open(self.config['file_name'], 'a') as config_file:
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
             # make sure eye data was cleared
             self.flag_clear_eyes = True
