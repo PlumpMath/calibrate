@@ -187,15 +187,15 @@ class TestCalibration(unittest.TestCase):
         self.w.end_gig()
         #print self.w.logging.time_file_name
         f = open(self.w.logging.time_file_name, 'r')
-        test_line = f.readline()
-        self.assertIn('timestamp', test_line)
-        test_line = f.readline()
+        self.assertIn('timestamp', f.readline())
         # next line gives tolerance, if random mode
         if not self.w.manual:
-            self.assertIn('Tolerance', test_line)
-            test_line = f.readline()
+            self.assertIn('Tolerance', f.readline())
+        # get offset and gain
+        self.assertIn('Gain', f.readline())
+        self.assertIn('Offset', f.readline())
         # should always be starting with square on...
-        self.assertIn('Square', test_line)
+        self.assertIn('Square', f.readline())
 
     def test_change_from_manual_to_auto_or_vise_versa(self):
         # I think it shouldn't matter if we don't switch back,
