@@ -19,7 +19,8 @@ class World(DirectObject):
         self.base = ShowBase()
         #print self.base.win.getRejectedProperties()
         self.config = {}
-        execfile('config_test.py', self.config)
+        #execfile('config_test.py', self.config)
+        execfile('config.py', self.config)
         resolution = self.config['WIN_RES']
         if not resolution or resolution == 'Test':
             #print 'test'
@@ -68,7 +69,7 @@ class World(DirectObject):
         square = self.make_square()
         try:
             square.setPos(Point3(self.pos.next()))
-            #print square.getPos()
+            print square.getPos()
         except StopIteration:
             print 'done'
         #square.setColor(175 / 255, 175 / 255, (i * 7) / 255, 1.0)
@@ -80,16 +81,15 @@ class World(DirectObject):
             self.make_circle()
             pos = Positions(self.config).get_position(self.depth)
             self.mode = 1
-        b = 0
-        for i, j in enumerate(pos):
-            #b += 0.04  # covers all of the values if using 25 points
-            #b += 0.08
-            b += 0.03
-            #print b
-            #print i
-            #print j
+        #print pos
+        #for i, j in enumerate(pos):
+        while True:
+            try:
+                position = pos.next()
+            except StopIteration:
+                break
             square = self.make_square()
-            square.setPos(Point3(j))
+            square.setPos(Point3(position))
             #print square.getPos()
             #print square.getTightBounds()
             #sq_min, sq_max = square.getTightBounds()

@@ -45,7 +45,7 @@ class Logging():
         self.time_data_file = open(self.time_file_name, 'w')
         self.time_data_file.write('timestamp, task, for subject: ' + subject + '\n')
         if not manual:
-            self.time_data_file.write('Tolerance: ' + str(tolerance) + '\n')
+            self.log_config('Tolerance', tolerance)
         self.pydaq_dict = {}
         if self.config['SEND_DATA'] and LOADED_PYDAQ:
             self.open_pydaq()
@@ -104,11 +104,15 @@ class Logging():
                                       ', Change ' + change_type + ', ' +
                                       str(change) + '\n')
 
+    def log_config(self, config, value):
+        self.time_data_file.write(str(time()) + ', ' + config + ', ' +
+                                  str(value) + '\n')
+            
     def log_eye(self, eye_data):
         self.eye_data_file.write(str(time()) + ', ' +
                                  str(eye_data[0]) + ', ' +
                                  str(eye_data[1]) + '\n')
-
+            
     def create_pydaq_dict(self):
         self.pydaq_dict = {
             'Square on': 100,

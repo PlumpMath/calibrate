@@ -254,6 +254,8 @@ class World(DirectObject):
             self.set_text5()
         # open files
         self.logging.open_files(self.manual, self.tolerance)
+        self.logging.log_config('Gain', self.gain)
+        self.logging.log_config('Offset', self.offset)
         if not self.config['FAKE_DATA']:
             self.start_eye_task()
         else:
