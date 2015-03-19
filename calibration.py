@@ -75,6 +75,8 @@ class World(DirectObject):
         self.config = {}
         execfile(config_file, self.config)
         print 'Subject is', self.config['SUBJECT']
+        self.config.setdefault('file_name', config_file)
+        print 'Calibration file is', config_file
         # if subject is test, doing unit tests
         if self.config['SUBJECT'] == 'test':
             # doing unittests so use fake eye data and testing configuration.
@@ -252,6 +254,8 @@ class World(DirectObject):
             self.set_text5()
         # open files
         self.logging.open_files(self.manual, self.tolerance)
+        self.logging.log_config('Gain', self.gain)
+        self.logging.log_config('Offset', self.offset)
         if not self.config['FAKE_DATA']:
             self.start_eye_task()
         else:
@@ -1017,13 +1021,15 @@ class World(DirectObject):
         #print 'close'
         # if we close during a photo showing or photo break, will interrupt task
         # also want to keep track of where we ended. Move this to Photos.
+        # make sure eye data is
+        # if eye data comes in during closing, clear eyes
+        self.flag_clear_eyes = True
         if self.photos:
             self.base.taskMgr.removeTasksMatching('photo_*')
-            with open('config.py', 'a') as config_file:
+            with open(self.config['file_name'], 'a') as config_file:
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
-            # make sure eye data was cleared
-            self.flag_clear_eyes = True
         if not self.config['FAKE_DATA']:
+            self.eye_task.DoneCallback(self.eye_task)
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
         self.logging.close_files()

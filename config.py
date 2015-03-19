@@ -3,24 +3,25 @@ SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
 FAKE_DATA = False
-SEND_DATA = False  # send digital signals to Blackrock or Plexon
+SEND_DATA = True  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
 # unless you also change screen and view_dist appropriately, but for testing, should be ok
 # WIN_RES is the resolution for the window that we are using for the actual calibration,
 # the one used for determining visual angle. Resolution for the second window, set below
 #WIN_RES = None
-#WIN_RES = [1024, 768]
-WIN_RES = [1280, 800]
+WIN_RES = [1024, 768]
+#WIN_RES = [1280, 800]
 # Screen size, again for actual calibration, so size of image on projector screen (mm)
-SCREEN = [1467, 902]
+SCREEN = [1235, 940]  # at 1024x768
+#SCREEN = [1467, 902]
 #SCREEN = [1337, 991]
 # mm distance from subject to screen
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-EYE_RES = [1280, 800]
-#EYE_RES = [1600, 900]
+#EYE_RES = [1280, 800]
+EYE_RES = [1024, 768]
 
 # the voltage from the eye tracker runs from about 5 to -5 volts,
 # so total 10 variance, with 1280, 800 as resolution, use gain of
@@ -30,7 +31,8 @@ GAIN = [150, 100]
 
 # size of square, scale is in degree of visual angle
 # (scales both length and width)
-SQUARE_SCALE = 0.5
+SQUARE_SCALE = 0.5  # default 0.5
+#SQUARE_SCALE = 5
 
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? Use number of degrees of visual angle from outside border of square,
@@ -46,8 +48,8 @@ degree_out_square = 6
 TOLERANCE = degree_out_square + SQUARE_SCALE/2
 
 # How far out in visual angle degrees do you want the outer targets?
-MAX_DEGREES_X = 10
-MAX_DEGREES_Y = 10
+MAX_DEGREES_X = 10  # 10
+MAX_DEGREES_Y = 10  # 10
 
 # how many times to repeat each point when in random mode
 POINT_REPEAT = 5
@@ -90,3 +92,11 @@ PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation poi
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set, 16 standard
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
+
+LAST_PHOTO_INDEX = 16
+LAST_PHOTO_INDEX = 32
+LAST_PHOTO_INDEX = 48
+
+LAST_PHOTO_INDEX = 64
+LAST_PHOTO_INDEX = 80
+LAST_PHOTO_INDEX = 96
