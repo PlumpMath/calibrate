@@ -3,6 +3,7 @@ from direct.gui.OnscreenImage import OnscreenImage
 from direct.showbase.MessengerGlobal import messenger
 from panda3d.core import LineSegs, BitMask32
 import os
+from random import shuffle
 from time import time
 
 
@@ -71,7 +72,9 @@ class Photos():
         except IndexError:
             #print 'end of index!'
             return False
-        self.photo_set = self.photo_names[start_ind:end_ind]
+        # want photos presented in different order second time,
+        # so shuffle list.
+        self.photo_set = shuffle(self.photo_names[start_ind:end_ind])
         #print self.photo_set
         self.photo_gen = self.get_photo()
         return True
