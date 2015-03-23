@@ -42,7 +42,7 @@ class TestCalibration(unittest.TestCase):
         self.config = {}
         execfile('config_test.py', self.config)
         self.w.start_gig()
-        self.w.start_loop()
+        self.w.start_new_loop()
 
     def do_a_loop(self):
         # does a full loop if just starting, finishes the current
@@ -149,7 +149,7 @@ class TestCalibration(unittest.TestCase):
             #print self.w.next
             # does not loop automatically in unittest mode
             if self.w.next == 0:
-                self.w.start_loop()
+                self.w.start_new_loop()
             if self.w.next == 1:
                 square_off = False
         #print 'move'
@@ -172,7 +172,7 @@ class TestCalibration(unittest.TestCase):
         # and move again
         self.w.keys["switch"] = 4
         # and loop again
-        self.w.start_loop()
+        self.w.start_new_loop()
         self.do_a_loop()
         self.assertNotEqual(self.w.square.square.getPos(), old_position)
 
@@ -217,7 +217,7 @@ class TestCalibration(unittest.TestCase):
         # interval between turning on and fading, which will
         # be when self.w.next switches to 2.
         self.do_a_loop()
-        self.w.start_loop()
+        self.w.start_new_loop()
         # and move
         self.w.keys["switch"] = 3
         #print 'check time'
@@ -312,7 +312,7 @@ class TestCalibration(unittest.TestCase):
             b = datetime.datetime.now()
             # 1 is square just turned on
             #if self.w.next == 0:
-            #    self.w.start_loop()
+            #    self.w.start_new_loop()
             if self.w.next == 0:
                 #print 'square should have moved'
                 square_not_moved = False
@@ -346,7 +346,7 @@ class TestCalibration(unittest.TestCase):
             b = datetime.datetime.now()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 0:
-                self.w.start_loop()
+                self.w.start_new_loop()
             if self.w.next == 1:
                 print('square should be on, next is', self.w.next)
                 square_off = False

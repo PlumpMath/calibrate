@@ -294,9 +294,9 @@ class World(DirectObject):
         # if going from manual to auto, start automatically, otherwise
         # wait for keypress to start.
         if not self.manual:
-            self.start_loop()
+            self.start_new_loop()
 
-    def start_loop(self, good_trial=None):
+    def start_new_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
         #print('start loop')
@@ -316,29 +316,9 @@ class World(DirectObject):
             # check to see if we are showing a photo
             #print('loop count before photo', self.loop_count)
             if self.show_photos:
-                if good_trial:
-                    self.loop_count += 1
-                    #print('good trial, loop count now', self.loop_count)
-                #print('loop count', self.loop_count)
-                #print self.photos.cal_pts_per_photo
-                # check to see if it is time to show a photo
-                if self.loop_count == self.photos.cal_pts_per_photo:
-                    self.flag_clear_eyes = False
-                    self.fixation_photo_flag = True
-                    #print 'about to call show photo from start_loop'
-                    self.photos.show_photo()
-                    #print 'called show photo from start_loop'
-                    self.loop_count = 0
-                    # if there were no photos, continue on to
-                    # calibrations, otherwise, we are done here
-                    if self.photos.cal_pts_per_photo is None:
-                        #print 'no more photos, continue to regularly scheduled program'
-                        self.photo_end = self.photos.end_index
-                        # don't need to check for photos now
-                        self.show_photos = None
-                        self.fixation_photo_flag = False
-                    else:
-                        return
+                signal = self.start_photo_loop(good_trial)
+                if signal:
+                    return
             #print 'showed calibration point'
             #print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
@@ -348,6 +328,37 @@ class World(DirectObject):
             self.square_on_parallel.start()
         #print('done start loop')
         #print('time', time())
+
+    def start_photo_loop(self, good_trial):
+        # if returns true, showing a photo, otherwise continue
+        # on with regular calibration routine
+        if good_trial:
+            self.loop_count += 1
+        #print('good trial, loop count now', self.loop_count)
+        #print('loop count', self.loop_count)
+        #print self.photos.cal_pts_per_photo
+        # check to see if it is time to show a photo
+        if self.loop_count == self.photos.cal_pts_per_photo:
+            # time to show a photo, probably
+            # plot eye positions
+            self.flag_clear_eyes = False
+
+            self.fixation_photo_flag = True
+            #print 'about to call show photo from start_new_loop'
+            self.photos.show_photo()
+            #print 'called show photo from start_new_loop'
+            self.loop_count = 0
+            # if there were no photos, continue on to
+            # calibrations, otherwise, we are done here
+            if self.photos.cal_pts_per_photo is None:
+                #print 'no more photos, continue to regularly scheduled program'
+                self.photo_end = self.photos.end_index
+                # don't need to check for photos now
+                self.show_photos = None
+                self.fixation_photo_flag = False
+            else:
+                return True
+        return False
 
     def cleanup(self):
         #print('cleanup method')
@@ -363,7 +374,7 @@ class World(DirectObject):
         else:
             if not self.unittest:
                 #print 'start next loop'
-                self.start_loop(good_trial)
+                self.start_new_loop(good_trial)
                 #print('leaving cleanup')
         #print('done cleanup')
 
@@ -692,7 +703,11 @@ class World(DirectObject):
             # for photos, only switch the fixation_check_flag when done
             # showing a photo, stop timer when not fixating, turn back on when
             # fixating
-            self.photos.flag_timer = self.photos.check_fixation(self.eye_data)
+            # check to see if subject is still looking at photo
+            self.photos.check_fixation(self.eye_data)
+            # flag_timer lets us know if subject is fixation, and if time
+            # should therefor be counted towards total time
+            # once check_eye is false,
             # time to stop worrying about fixation and drawing eye positions
             if not self.photos.check_eye:
                 #print 'stop checking fixation'
@@ -862,7 +877,7 @@ class World(DirectObject):
     def setup_keys(self):
         self.accept("escape", self.close)  # escape
         # starts turning square on
-        self.accept("space", self.start_loop)
+        self.accept("space", self.start_new_loop)
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change

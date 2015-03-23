@@ -48,7 +48,7 @@ class TestCalibration(unittest.TestCase):
         self.w.start_gig()
         print 'started new gig'
         #is it a problem that we start the timer for auto here?
-        self.w.start_loop()
+        self.w.start_new_loop()
         print('setup done')
 
     def do_a_loop(self):
@@ -91,7 +91,7 @@ class TestCalibration(unittest.TestCase):
         """
         #print self.w.square.getParent()
         #
-        #self.w.start_loop()
+        #self.w.start_new_loop()
         if self.w.next != 0:
             square_on = True
             while square_on:
@@ -109,7 +109,7 @@ class TestCalibration(unittest.TestCase):
         """
         #time_out = time.time() + 2.1
         #start_time =
-        #self.w.start_loop()
+        #self.w.start_new_loop()
         square_off = True
         while square_off:
         #while time.time() < time_out:
@@ -125,7 +125,7 @@ class TestCalibration(unittest.TestCase):
         # because will not fixate and will time out instead.
         # in this case, go until cleanup, where it turns to 0
         # and square turns off
-        #self.w.start_loop()
+        #self.w.start_new_loop()
         square_dim = True
         match = 4
         if not self.w.manual:
@@ -178,7 +178,7 @@ class TestCalibration(unittest.TestCase):
 
     def test_tasks_and_timestamp_written_to_file(self):
         #print('manual?', self.w.manual)
-        #self.w.start_loop()
+        #self.w.start_new_loop()
         # make sure data is written to file.
         # do a loop
         self.do_a_loop()
@@ -201,7 +201,7 @@ class TestCalibration(unittest.TestCase):
         # I think it shouldn't matter if we don't switch back,
         # since everything should work either way, and we change
         # into the opposite direction the next time through\
-        #self.w.start_loop()
+        #self.w.start_new_loop()
         before = self.w.manual
         #print before
         self.w.flag_task_switch = True

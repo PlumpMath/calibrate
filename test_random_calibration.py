@@ -42,7 +42,7 @@ class TestCalibration(unittest.TestCase):
         self.config = {}
         execfile('config_test.py', self.config)
         self.w.start_gig()
-        self.w.start_loop()
+        self.w.start_new_loop()
 
     def test_square_fades(self):
         # we may change the actual colors, so just make sure the
@@ -199,7 +199,7 @@ class TestCalibration(unittest.TestCase):
             if last == 0:
                 #print 'new loop'
                 # last will only be 0 the second time around
-                self.w.start_loop()
+                self.w.start_new_loop()
                 count = 1
             if last == 1 and count == 1:
                 #print 'square should be on for second time'
@@ -391,7 +391,7 @@ class TestCalibration(unittest.TestCase):
                 previous = self.w.next
             if self.w.next == 0:
                 print 'loop'
-                self.w.start_loop()
+                self.w.start_new_loop()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.next == 1:
                 print 'square should be on'
@@ -442,7 +442,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             b = datetime.datetime.now()
             if self.w.next == 0:
-                self.w.start_loop()
+                self.w.start_new_loop()
             if self.w.square.square.getParent():
                 #print('square should be back on')
                 square_off = False

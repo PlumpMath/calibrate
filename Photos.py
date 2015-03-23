@@ -159,9 +159,9 @@ class Photos():
         # be contained in, both should be (x, y) tuple
         # photos are centered, so as long as the absolute value of the eye
         # is less than the absolute value of the tolerance, should be golden
+        self.flag_timer = False
         if abs(eye_data[0]) < abs(self.tolerance[0]) and abs(eye_data[1]) < abs(self.tolerance[1]):
-            return True
-        return False
+            self.flag_timer = True
 
     def show_window(self):
         # draw line around target representing how close the subject has to be looking to get reward
