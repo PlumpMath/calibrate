@@ -43,11 +43,11 @@ def get_distance(p0, p1):
 def check_fixation(eye_data, tolerance, target):
         # expects tolerance in pixels, single float, distance from target allowed
         # expects eye_data and target in a tuple of two floats
-        #print 'tolerance', tolerance
-        #print 'eye data', eye_data
-        #print 'target', target
+        # print 'tolerance', tolerance
+        # print 'eye data', eye_data
+        # print 'target', target
         distance = get_distance(eye_data, target)
-        #print 'distance', distance
+        # print 'distance', distance
         # okay, this works if tolerance is a radius from the center,
         # but not going to work when tolerance is a square.
         if distance > tolerance:
@@ -67,7 +67,7 @@ class World(DirectObject):
             self.manual = False
         else:
             self.manual = True
-        #print('manual', self.manual)
+        # print('manual', self.manual)
         if not config_file:
             config_file = 'config.py'
 
@@ -82,7 +82,7 @@ class World(DirectObject):
             # doing unittests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
-            #print 'test'
+            # print 'test'
             self.unittest = True
             self.use_daq_data = False
             self.use_daq_reward = False
@@ -112,7 +112,7 @@ class World(DirectObject):
         # tolerance in degrees, will need to be changed to pixels to be useful,
         # but since tolerance can change (in degrees), makes sense to do this on the fly
         self.tolerance = self.config['TOLERANCE']
-        #print 'repeat ', self.config['POINT_REPEAT']
+        # print 'repeat ', self.config['POINT_REPEAT']
 
         # assume 0.2 seconds for pump delay, if not set
         self.config.setdefault('PUMP_DELAY', 0.2)
@@ -136,15 +136,14 @@ class World(DirectObject):
         # initialize text before setting up second window.
         # text will be overridden there.
         # text only happens on second window
-        # text2 not used anymore, but could be re-implemented,
-        # if one was interested in displaying the offset
         self.text = None
+        self.text2 = None
         self.text3 = None
         self.text4 = None
         self.text5 = None
 
-        #print base.pipe.getDisplayWidth()
-        #print base.pipe.getDisplayHeight()
+        # print base.pipe.getDisplayWidth()
+        # print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
         # so can't open second window.
         # if an actual resolution in config file, change to that resolution,
@@ -163,10 +162,8 @@ class World(DirectObject):
             self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
 
         print('gain', self.gain)
-
-        # initialize variable for square positions
-        #self.pos = None
-        #print 'window loaded'
+        # print 'window loaded'
+        # empty list for plotting eye nodes
         self.eye_nodes = []
 
         # initialize file variables
@@ -245,8 +242,8 @@ class World(DirectObject):
     def start_gig(self):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
-        #print 'start new gig'
-         # set up square positions
+        # print 'start new gig'
+        # set up square positions
         self.square.setup_positions(self.config, self.manual)
         if not self.unittest:
             # text4 and text5 change
@@ -262,17 +259,17 @@ class World(DirectObject):
             # start fake data yield, if not using eye tracker
             # start over from zero for testing so we know what
             # first eye position is.
-            #print 'get fake data'
+            # print 'get fake data'
             self.fake_data = yield_eye_data((0.0, 0.0))
             self.base.taskMgr.add(self.get_fake_data_task, 'fake_eye')
 
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
-        #print 'end gig'
+        # print 'end gig'
         # close stuff
         if not self.config['FAKE_DATA']:
-            #print 'stopping daq tasks'
+            # print 'stopping daq tasks'
             # have to stop tasks before closing files
             self.eye_task.DoneCallback(self.eye_task)
             self.eye_task.StopTask()
@@ -280,13 +277,13 @@ class World(DirectObject):
         else:
             self.base.taskMgr.remove('fake_eye')
         self.logging.close_files()
-        #self.square.pos = None
+        # self.square.pos = None
 
     def change_tasks(self):
         # change from manual to auto-calibrate or vise-versa
-        #print 'change task'
+        # print 'change task'
         self.manual = not self.manual
-        #print('switched manual?', self.manual)
+        # print('switched manual?', self.manual)
         # reset stuff
         self.flag_task_switch = False
         self.end_gig()
@@ -299,44 +296,44 @@ class World(DirectObject):
     def start_new_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
-        #print('start loop')
-        #print('time', time())
+        # print('start loop')
+        # print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
         self.flag_clear_eyes = False
-        #print('time', time())
+        # print('time', time())
         if self.manual:
-            #print 'manual'
+            # print 'manual'
             self.setup_manual_sequence()
             self.manual_sequence.start()
         else:
-            #print 'auto'
+            # print 'auto'
             # always start out not fixated
             self.fixated = False
             # check to see if we are showing a photo
-            #print('loop count before photo', self.loop_count)
+            # print('loop count before photo', self.loop_count)
             if self.show_photos:
                 signal = self.start_photo_loop(good_trial)
                 if signal:
                     return
-            #print 'showed calibration point'
-            #print('loop count after checking/showing photo', self.loop_count)
+            # print 'showed calibration point'
+            # print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
-            #print 'turn on timer for square on, waiting for fixation'
+            # print 'turn on timer for square on, waiting for fixation'
             # turn on square and timer
             self.square_on_parallel.start()
-        #print('done start loop')
-        #print('time', time())
+        # print('done start loop')
+        # print('time', time())
 
     def start_photo_loop(self, good_trial):
         # if returns true, showing a photo, otherwise continue
         # on with regular calibration routine
         if good_trial:
             self.loop_count += 1
-        #print('good trial, loop count now', self.loop_count)
-        #print('loop count', self.loop_count)
-        #print self.photos.cal_pts_per_photo
+        # print('good trial, loop count now', self.loop_count)
+        # print('loop count', self.loop_count)
+        # print self.photos.cal_pts_per_photo
         # check to see if it is time to show a photo
         if self.loop_count == self.photos.cal_pts_per_photo:
             # time to show a photo, probably
@@ -344,15 +341,13 @@ class World(DirectObject):
             self.flag_clear_eyes = False
 
             self.fixation_photo_flag = True
-            #print 'about to call show photo from start_new_loop'
+            # print 'about to call show photo from start_new_loop'
             self.photos.show_photo()
-            #print 'called show photo from start_new_loop'
+            # print 'called show photo from start_new_loop'
             self.loop_count = 0
             # if there were no photos, continue on to
             # calibrations, otherwise, we are done here
             if self.photos.cal_pts_per_photo is None:
-                #print 'no more photos, continue to regularly scheduled program'
-                self.photo_end = self.photos.end_index
                 # don't need to check for photos now
                 self.show_photos = None
                 self.fixation_photo_flag = False
@@ -361,25 +356,25 @@ class World(DirectObject):
         return False
 
     def cleanup(self):
-        #print('cleanup method')
-        #print('time', time())
+        # print('cleanup method')
+        # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
         good_trial = self.num_reward > 0
         self.num_reward = 0
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
-            #print 'change tasks'
+            # print 'change tasks'
             self.change_tasks()
         else:
             if not self.unittest:
-                #print 'start next loop'
+                # print 'start next loop'
                 self.start_new_loop(good_trial)
-                #print('leaving cleanup')
-        #print('done cleanup')
+                # print('leaving cleanup')
+        # print('done cleanup')
 
     def setup_manual_sequence(self):
-        #print 'setup manual sequence'
+        # print 'setup manual sequence'
         all_intervals = self.create_intervals()
         square_on = Func(self.square.turn_on)
         square_fade = Func(self.square.fade)
@@ -408,7 +403,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        #print 'setup auto sequences'
+        # print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -430,8 +425,8 @@ class World(DirectObject):
         # works out pretty awesome, since move interval is suppose to be time from reward start
         # until next trial. This would be a problem if there was so much reward that it took up
         # all of the time for the move_interval, but that would be a lot of reward
-        #print('pump delay', self.config['PUMP_DELAY'])
-        #print('beeps', self.num_beeps)
+        # print('pump delay', self.config['PUMP_DELAY'])
+        # print('beeps', self.num_beeps)
 
         self.auto_sequence = Sequence(
             Parallel(square_fade, write_to_file, end_timer),
@@ -446,25 +441,25 @@ class World(DirectObject):
 
     ### all tasks
     def wait_between_reward(self, task):
-        #print 'give another reward'
+        # print 'give another reward'
         self.reward_task.pumpOut()
         self.num_reward += 1
         if self.num_reward < self.num_beeps:
             return task.again
-        #print 'reward done'
+        # print 'reward done'
         return task.done
 
     def wait_off_task(self, task):
-        #print 'time up, restart'
-        #print time()
+        # print 'time up, restart'
+        # print time()
         # this task will run for the on interval, if there is a fixation, initiate_fixation_period
         # will begin (started from get_eye_data method), if not we start over here
         self.restart_auto_loop()
-        #print 'return wait_off_task'
+        # print 'return wait_off_task'
         return task.done
 
     def wait_auto_sequence_task(self, task):
-        #print 'held fixation, start sequence'
+        # print 'held fixation, start sequence'
         # made it through fixation, will get reward, stop checking for fixation
         self.fixation_check_flag = False
         # so, auto_sequence doesn't return until it has completed the whole
@@ -474,8 +469,8 @@ class World(DirectObject):
         return task.done
 
     def wait_cleanup_task(self, task):
-        #print 'move to cleanup'
-        #print time()
+        # print 'move to cleanup'
+        # print time()
         self.cleanup()
         return task.done
 
@@ -485,7 +480,7 @@ class World(DirectObject):
 
     # auto calibrate methods
     def initiate_fixation_period(self):
-        #print 'initiate fixation period'
+        # print 'initiate fixation period'
         # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
         # will abort and start over
         # first stop the on interval
@@ -493,24 +488,24 @@ class World(DirectObject):
         self.logging.log_event('Fixated')
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
-        #print('fixate interval', fixate_interval)
+        # print('fixate interval', fixate_interval)
         self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
 
     def end_fixation_timer(self):
-        #print 'remove fixation timer'
+        # print 'remove fixation timer'
         self.base.taskMgr.remove('auto_sequence')
         
     def recover_from_broken_fixation(self):
-        #print 'recover from broken fixation'
+        # print 'recover from broken fixation'
         # method to restart the task if fixation is broken
         # stop auto_sequence from starting
         self.base.taskMgr.remove('auto_sequence')
-        #print(self.base.taskMgr)
+        # print(self.base.taskMgr)
         self.restart_auto_loop()
 
     def restart_auto_loop(self):
-        #print 'restart auto loop, long pause'
-        #print time()
+        # print 'restart auto loop, long pause'
+        # print time()
         # stop checking fixation
         self.fixation_check_flag = False
         # make sure there are no tasks waiting
@@ -527,10 +522,10 @@ class World(DirectObject):
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
         self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
-        #print(self.base.taskMgr)
+        # print(self.base.taskMgr)
 
     def set_flag_clear_screen(self):
-        #print 'remove eye trace and fixation window, if there is one'
+        # print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
         self.flag_clear_eyes = True
         # remove window around square
@@ -540,31 +535,31 @@ class World(DirectObject):
     # sequence methods for both auto and manual
     def create_intervals(self):
         all_intervals = [random.uniform(*i) for i in self.interval_list]
-        #print('all intervals', all_intervals)
+        # print('all intervals', all_intervals)
         return all_intervals
 
     def give_reward(self):
-        #print 'reward, 3'
-        #print(self.base.taskMgr)
+        # print 'reward, 3'
+        # print(self.base.taskMgr)
         # give reward for each num_beeps
         # give one reward right away, have
         # to wait delay before giving next reward
         if self.reward_task:
-            #print 'first reward'
+            # print 'first reward'
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
             self.base.taskMgr.doMethodLater(self.config['PUMP_DELAY'], self.wait_between_reward, 'reward')
         else:
             for i in range(self.num_beeps):
-                #print 'beep'
+                # print 'beep'
                 self.num_reward += 1
-        #print 'give reward returns'
-        #print('time', time())
+        # print 'give reward returns'
+        # print('time', time())
 
     def write_to_file(self):
-        #print('now', self.next)
-        #print(self.sequence_for_file[self.next])
+        # print('now', self.next)
+        # print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
         self.logging.log_event(self.sequence_for_file[self.next])
         # if this is first time through, write position of square
@@ -573,25 +568,25 @@ class World(DirectObject):
             self.logging.log_position(position)
         # next only affects what we are writing to file,
         self.next += 1
-        #print('next', self.next)
+        # print('next', self.next)
 
     ##### Eye Methods
     def start_check_fixation(self):
-        #print 'check for fixation'
-        #print('should not be fixated', self.fixated)
+        # print 'check for fixation'
+        # print('should not be fixated', self.fixated)
         # show window for tolerance, if auto
         # and make sure checking for fixation
         # only used for auto
         position = self.square.square.getPos()
         on_interval = random.uniform(*self.interval_list[0])
-        #print('on interval', on_interval)
+        # print('on interval', on_interval)
         self.show_window(position)
         self.fixation_check_flag = True
         # start timing for on task, this runs for square on time and waits for fixation,
         # if no fixation, method runs to abort trial
-        #print time()
+        # print time()
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
-        #print('should still not be fixated', self.fixated)
+        # print('should still not be fixated', self.fixated)
 
     def plot_eye_trace(self, last_eye):
         # if plotting too many eye positions, things slow down and
@@ -599,26 +594,26 @@ class World(DirectObject):
         # last 300 is definitely plenty, so every time it hits 500,
         # get rid of first 200.
         if len(self.eye_nodes) > 500:
-            #print('get rid of eye nodes', len(self.eye_nodes))
+            # print('get rid of eye nodes', len(self.eye_nodes))
             # Since this just removes the node, but doesn't delete
             # the object in the list, can do this in a for loop,
             for index in range(200):
                 self.eye_nodes[index].removeNode()
             # now get rid of the empty nodes in eye_nodes
-            #print('new length', len(self.eye_nodes))
+            # print('new length', len(self.eye_nodes))
             self.eye_nodes = self.eye_nodes[200:]
-            #print('new length', len(self.eye_nodes))
+            # print('new length', len(self.eye_nodes))
         eye = LineSegs()
         # eye.setThickness(2.0)
         eye.setThickness(2.0)
-        #print 'last', last_eye
-        #print 'now', self.eye_data
+        # print 'last', last_eye
+        # print 'now', self.eye_data
         eye.moveTo(last_eye[0], 55, last_eye[1])
         eye.drawTo(self.eye_data[0], 55, self.eye_data[1])
-        #print('plotted eye', eye_data_to_plot)
+        # print('plotted eye', eye_data_to_plot)
         #min, max = eye.getTightBounds()
         #size = max - min
-        #print size[0], size[2]
+        # print size[0], size[2]
         node = self.base.render.attachNewNode(eye.create(True))
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
@@ -640,14 +635,14 @@ class World(DirectObject):
         # position for move to position for plotting, and the
         # current eye position for ending position
         if not self.eye_data:
-            #print 'use same data for start as finish'
+            # print 'use same data for start as finish'
             # if no previous eye, just have same start and
             # end position
             start_eye = self.eye_data_to_pixel(eye_data)
         else:
-            #print 'use previous data'
+            # print 'use previous data'
             start_eye = self.eye_data
-        #print start_eye
+        # print start_eye
         # save current data, so can use it for start position next time
         self.eye_data = self.eye_data_to_pixel(eye_data)
 
@@ -657,16 +652,16 @@ class World(DirectObject):
         # stuff to researchers screen
         if not self.unittest:
             if self.flag_clear_eyes:
-                #print 'clear eyes'
+                # print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
                 # don't start plotting until we restart task
                 self.flag_clear_eyes = None
             elif self.flag_clear_eyes is None:
-                #print 'do not plot eyes'
+                # print 'do not plot eyes'
                 pass
             else:
-                #print 'plot eyes'
+                # print 'plot eyes'
                 # plot new eye segment
                 self.plot_eye_trace(start_eye)
 
@@ -685,13 +680,13 @@ class World(DirectObject):
             tolerance = self.tolerance / self.deg_per_pixel
             # send in eye data converted to pixels, self.eye_data
             self.fixated = check_fixation(self.eye_data, tolerance, target)
-            #print('fixated?', self.fixated)
+            # print('fixated?', self.fixated)
             if self.fixated and not previous_fixation:
-                #print 'fixated, start fixation period'
+                # print 'fixated, start fixation period'
                 # start fixation period
                 self.initiate_fixation_period()
             elif not self.fixated and previous_fixation:
-                #print 'broke fixation'
+                # print 'broke fixation'
                 # if broke fixation, stop checking for fixation
                 self.fixation_check_flag = False
                 # abort trial, start again with square in same position
@@ -710,7 +705,7 @@ class World(DirectObject):
             # once check_eye is false,
             # time to stop worrying about fixation and drawing eye positions
             if not self.photos.check_eye:
-                #print 'stop checking fixation'
+                # print 'stop checking fixation'
                 self.fixation_photo_flag = False
                 self.flag_clear_eyes = True
 
@@ -726,20 +721,20 @@ class World(DirectObject):
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
         if self.eye_nodes:
-            #print self.eye_nodes
+            # print self.eye_nodes
             # can do this in a loop, since does not
             # delete object from list
             for eye in self.eye_nodes:
                 eye.removeNode()
-        #print 'should be no nodes now', self.eye_nodes
+        # print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
 
     def show_window(self, square_pos):
         # draw line around target representing how close the subject has to be looking to get reward
-        #print('show window around square', square_pos)
+        # print('show window around square', square_pos)
         tolerance = self.tolerance / self.deg_per_pixel
-        #print 'tolerance in pixels', tolerance
-        #print 'square', square[0], square[2]
+        # print 'tolerance in pixels', tolerance
+        # print 'square', square[0], square[2]
         eye_window = LineSegs()
         eye_window.setThickness(2.0)
         eye_window.setColor(1, 0, 0, 1)
@@ -753,7 +748,7 @@ class World(DirectObject):
         # draw a radius line
         #eye_window.moveTo(square[0], 55, square[2])
         #eye_window.drawTo(square[0], 55, square[2] + self.tolerance)
-        #print 'distance drawn', self.distance((square[0], square[2]), (square[0], square[2] + self.tolerance))
+        # print 'distance drawn', self.distance((square[0], square[2]), (square[0], square[2] + self.tolerance))
         # True optimizes the line segments, which sounds useful
         node = self.base.render.attachNewNode(eye_window.create(True))
         node.show(BitMask32.bit(0))
@@ -762,35 +757,30 @@ class World(DirectObject):
 
     # Setup Functions
     def setup_text(self, res_eye):
-        #print 'make text'
+        # print 'make text'
         self.text = TextNode('gain')
         self.text.setText('Gain: ' + str(self.gain))
         #text_nodepath = aspect2d.attachNewNode(self.text)
         text_node_path = self.base.render.attachNewNode(self.text)
         text_node_path.setScale(25)
-        #text_node_path.setScale(0.1)
-        #text_node_path.setPos(-300, 0, 200)
-        #text_node_path.setPos(0, 0, 350)
-        text_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1]/16)
+        text_node_path.setPos(0 - res_eye[0]/4, 0, res_eye[1]/2 - res_eye[1]/16)
         text_node_path.show(BitMask32.bit(0))
         text_node_path.hide(BitMask32.bit(1))
 
-        # not using offset for our purposes presently
         # if decide to use it again, need to move IScan text down
-        # self.text2 = TextNode('offset')
-        # self.text2.setText('Offset: ' + str(self.offset))
-        # text2NodePath = render.attachNewNode(self.text2)
-        # text2NodePath.setScale(30)
-        # text2NodePath.setPos(500, 0, 250)
-        # text2NodePath.show(BitMask32.bit(0))
-        # text2NodePath.hide(BitMask32.bit(1))
+        self.text2 = TextNode('offset')
+        self.text2.setText('Offset: ' + str(self.offset))
+        text2_node_path = self.base.render.attachNewNode(self.text2)
+        text2_node_path.setScale(25)
+        text2_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1]/16)
+        text2_node_path.show(BitMask32.bit(0))
+        text2_node_path.hide(BitMask32.bit(1))
 
         self.text3 = TextNode('IScan')
         self.text3.setText('IScan: ' + '[0, 0]')
         text3_node_path = self.base.render.attachNewNode(self.text3)
         text3_node_path.setScale(25)
-        #text3_node_path.setPos(0, 0, 310)
-        text3_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1] * 2 / 16)
+        text3_node_path.setPos(0 + res_eye[0]/4, 0, res_eye[1]/2 - res_eye[1]/16)
         text3_node_path.show(BitMask32.bit(0))
         text3_node_path.hide(BitMask32.bit(1))
 
@@ -806,7 +796,7 @@ class World(DirectObject):
             text4_node_path = self.base.camera.attachNewNode(self.text4)
             text4_node_path.setScale(25)
             #text4_node_path.setPos(0, 0, 270)
-            text4_node_path.setPos(0 + res_eye[0]/14, 0, res_eye[1]/2 - res_eye[1] * 3 / 16)
+            text4_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] * 2 / 16)
             text4_node_path.show(BitMask32.bit(0))
             text4_node_path.hide(BitMask32.bit(1))
 
@@ -849,10 +839,11 @@ class World(DirectObject):
 
         else:
             self.offset[x_or_y] += ch_amount
+            self.text2.setText('Offset:' + str(self.offset))
             self.logging.log_change(ch_type, self.offset)
 
     def change_tolerance(self, direction):
-        #print 'change tolerance'
+        # print 'change tolerance'
         self.tolerance += direction
         self.logging.log_change('Tolerance', self.tolerance)
         self.set_text4()
@@ -867,10 +858,10 @@ class World(DirectObject):
     #the given value
     def set_key(self, key, val):
         self.keys[key] = val
-        #print 'set key', self.keys[key]
+        # print 'set key', self.keys[key]
 
     def switch_task_flag(self):
-        #print 'switch tasks'
+        # print 'switch tasks'
         self.flag_task_switch = True
 
     # this actually assigns keys to methods
@@ -897,15 +888,15 @@ class World(DirectObject):
         self.accept("shift-arrow_left", self.change_gain_or_offset, ['Gain', 0, -1])
         self.accept("shift-arrow_left-repeat", self.change_gain_or_offset, ['Gain', 0, -1])
         # offset - up and down are y
-        self.accept("control-arrow_up", self.change_gain_or_offset, ['Offset', 1, 1])
-        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['Offset', 1, 1])
-        self.accept("control-arrow_down", self.change_gain_or_offset, ['Offset', 1, -1])
-        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['Offset', 1, -1])
+        self.accept("control-arrow_up", self.change_gain_or_offset, ['Offset', 1, 0.5])
+        self.accept("control-arrow_up-repeat", self.change_gain_or_offset, ['Offset', 1, 0.5])
+        self.accept("control-arrow_down", self.change_gain_or_offset, ['Offset', 1, -0.5])
+        self.accept("control-arrow_down-repeat", self.change_gain_or_offset, ['Offset', 1, -0.5])
         # offset - right and left are x
-        self.accept("control-arrow_right", self.change_gain_or_offset, ['Offset', 0, 1])
-        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['Offset', 0, 1])
-        self.accept("control-arrow_left", self.change_gain_or_offset, ['Offset', 0, -1])
-        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['Offset', 0, -1])
+        self.accept("control-arrow_right", self.change_gain_or_offset, ['Offset', 0, 0.5])
+        self.accept("control-arrow_right-repeat", self.change_gain_or_offset, ['Offset', 0, 0.5])
+        self.accept("control-arrow_left", self.change_gain_or_offset, ['Offset', 0, -0.5])
+        self.accept("control-arrow_left-repeat", self.change_gain_or_offset, ['Offset', 0, -0.5])
 
         # For adjusting tolerance (allowable distance from target that still gets reward)
         self.accept("alt-arrow_up", self.change_tolerance, [0.5])
@@ -929,13 +920,13 @@ class World(DirectObject):
 
     ### setup methods
     def setup_window2(self):
-        #print 'second window, for researcher'
+        # print 'second window, for researcher'
         props = WindowProperties()
         #props.setForeground(True)
         props.setCursorHidden(True)
         try:
             self.base.win.requestProperties(props)
-            #print props
+            # print props
         except AttributeError:
             print 'Cannot open second window. To open just one window, ' \
                   'change the resolution in the config file to Test ' \
@@ -972,10 +963,10 @@ class World(DirectObject):
         # determining tolerance, but no effect on actual eye position plotting, uses projector
         # resolution, screen size, etc
         self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
-        #print 'deg_per_pixel', self.deg_per_pixel
+        # print 'deg_per_pixel', self.deg_per_pixel
         # set the properties for eye data window
         window2.requestProperties(props)
-        #print window2.getRequestedProperties()
+        # print window2.getRequestedProperties()
 
         # orthographic lens means 2d, then we can set size to resolution
         # so coordinate system is in pixels
@@ -1002,7 +993,7 @@ class World(DirectObject):
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
         wp = WindowProperties()
-        #print 'calibration window', res
+        # print 'calibration window', res
         wp.setSize(int(res[0]), int(res[1]))
         #wp.setSize(1600, 900)
         #wp.setOrigin(-1600, 0)
@@ -1027,13 +1018,13 @@ class World(DirectObject):
             self.fake_data = yield_eye_data((0.0, 0.0))
         # start reward capabilities, if using daq
         if self.use_daq_reward:
-            #print 'setup reward'
+            # print 'setup reward'
             self.start_reward_task()
         if not self.unittest:
             self.start_gig()
 
     def close(self):
-        #print 'close'
+        # print 'close'
         # if we close during a photo showing or photo break, will interrupt task
         # also want to keep track of where we ended. Move this to Photos.
         # make sure eye data is
@@ -1054,8 +1045,8 @@ class World(DirectObject):
             sys.exit()
 
 if __name__ == "__main__":
-    #print 'run as module'
-    #print 'main'
+    # print 'run as module'
+    # print 'main'
     # default is manual
     if len(sys.argv) == 1:
         W = World(1)
