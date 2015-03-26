@@ -74,7 +74,8 @@ class Photos():
             return False
         # want photos presented in different order second time,
         # so shuffle list.
-        self.photo_set = shuffle(self.photo_names[start_ind:end_ind])
+        self.photo_set = self.photo_names[start_ind:end_ind]
+        shuffle(self.photo_set)
         #print self.photo_set
         self.photo_gen = self.get_photo()
         return True
