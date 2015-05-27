@@ -561,6 +561,8 @@ class World(DirectObject):
         # print('now', self.next)
         # print(self.sequence_for_file[self.next])
         # write to file, advance next for next write
+        print 'next', self.next
+        print 'sequence', self.sequence_for_file[self.next]
         self.logging.log_event(self.sequence_for_file[self.next])
         # if this is first time through, write position of square
         if self.next == 0:
