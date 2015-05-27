@@ -657,6 +657,8 @@ class World(DirectObject):
                 self.clear_eyes()
                 # don't start plotting until we restart task
                 self.flag_clear_eyes = None
+                if not eye_data.any():
+                    return
             elif self.flag_clear_eyes is None:
                 # print 'do not plot eyes'
                 pass
@@ -666,6 +668,7 @@ class World(DirectObject):
                 self.plot_eye_trace(start_eye)
 
             if not self.config['FAKE_DATA']:
+                print 'eye data', eye_data
                 self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
                                    ', ' + str(round(eye_data[1], 3)) + ']')
             else:
@@ -725,8 +728,9 @@ class World(DirectObject):
             # can do this in a loop, since does not
             # delete object from list
             for eye in self.eye_nodes:
+                print eye
                 eye.removeNode()
-        # print 'should be no nodes now', self.eye_nodes
+        print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
 
     def show_window(self, square_pos):
