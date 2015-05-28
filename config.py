@@ -84,19 +84,11 @@ NUM_BEEPS = 3
 PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
 
 # Stuff for photos
-# PHOTO_PATH = 'photos/'  # if path is none, not using photos
-PHOTO_PATH = False
+PHOTO_PATH = 'photos/'  # if path is none, not using photos
+# PHOTO_PATH = False
 # how long to show each photo, only counting fixation time
 PHOTO_TIMER = 5  # 5 is standard for Buffalo Lab
 PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point, 1 standard
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set, 16 standard
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
-
-LAST_PHOTO_INDEX = 16
-LAST_PHOTO_INDEX = 32
-LAST_PHOTO_INDEX = 48
-
-LAST_PHOTO_INDEX = 64
-LAST_PHOTO_INDEX = 80
-LAST_PHOTO_INDEX = 96

@@ -1016,7 +1016,7 @@ class World(DirectObject):
         self.square = Square(self.config, self.keys, self.base)
         self.logging = Logging(self.config)
         if self.show_photos:
-            self.photos = Photos(self.base, self.config, self.logging)
+            self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
         # start fake data yield, if not using eye tracker
         if self.config['FAKE_DATA']:

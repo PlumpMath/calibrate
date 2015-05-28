@@ -8,12 +8,13 @@ from random import shuffle
 
 class Photos():
 
-    def __init__(self, base, config=None, logging=None):
+    def __init__(self, base, config=None, logging=None, deg_per_pixel=None):
         # photo location
         self.base = base
         self.config = config
         self.logging = logging
-
+        self.x_node = None
+        self.photo_path = None
         self.photo_names = []
         self.photo_set = []
         # this variable will change, and then be re-set with the configuration
@@ -49,6 +50,7 @@ class Photos():
         photo_size = [600, 600]
         # photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
+        self.draw_x_hair(deg_per_pixel)
         # print('photo tolerance', self.tolerance)
 
     def load_all_photos(self):
@@ -86,8 +88,9 @@ class Photos():
 
     def show_photo(self):
         # print 'show photo and tolerance'
+        self.photo_path = None
         try:
-            photo_path = self.photo_gen.next()
+            self.photo_path = self.photo_gen.next()
         except StopIteration:
             # print('stop iterating!')
             check_set = self.load_photo_set()
@@ -97,17 +100,35 @@ class Photos():
                 self.cal_pts_per_photo = None
                 # print 'out of photos, cleanup'
                 return
+        self.show_x_hair()
+        self.x_hair_timer()
+
+    def show_actual_photo(self):
         self.check_eye = True
-        # print photo_path
+        # print self.photo_path
         # print time()
         # print 'show window'
         self.show_window()
         # print 'show actual photo'
-        self.imageObject = OnscreenImage(photo_path, pos=(0, 0, 0), scale=0.75)
-        self.write_to_file('Photo On', photo_path)
+        self.imageObject = OnscreenImage(self.photo_path, pos=(0, 0, 0), scale=0.75)
+        self.write_to_file('Photo On', self.photo_path)
         # print self.imageObject
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
         # print('started timer task', self.fixation_timer)
+
+    def show_x_hair(self):
+        # print 'show cross hair'
+        self.x_node.show()
+        self.check_eye = True
+
+    def x_hair_timer(self):
+        self.base.taskMgr.doMethodLater(1, self.clear_x_hair, 'clear_x_hair')
+
+    def clear_x_hair(self, task):
+        self.x_node.hide()
+        self.check_eye = False
+        self.show_actual_photo()
+        return task.done
 
     def timer_task(self, task):
         # print('timer', self.fixation_timer)
@@ -152,6 +173,7 @@ class Photos():
         self.base.taskMgr.doMethodLater(self.config['PHOTO_BREAK_TIMER'], self.send_cleanup, 'photo_send_cleanup')
         # print 'set break'
         # print time()
+        return task.done
 
     def check_fixation(self, eye_data):
         # print('eye', eye_data)
@@ -184,6 +206,19 @@ class Photos():
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
         self.photo_window.append(node)
+
+    def draw_x_hair(self, deg_per_pixel):
+        x_hair = LineSegs()
+        x_hair.setThickness(2.0)
+        # cross hair is 1/2 degree visual angle,
+        # so go 1/4 on each side
+        dist_from_center = 0.25 / deg_per_pixel
+        x_hair.move_to(0 + dist_from_center, 55, 0)
+        x_hair.draw_to(0 - dist_from_center, 55, 0)
+        x_hair.move_to(0, 55, 0 - dist_from_center)
+        x_hair.draw_to(0, 55, 0 + dist_from_center)
+        self.x_node = self.base.render.attachNewNode(x_hair.create(True))
+        self.x_node.hide()
 
     def write_to_file(self, event, photo=None):
         self.logging.log_event(event)
