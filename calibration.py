@@ -17,7 +17,6 @@ from Photos import Photos
 # don't always use fake_eye_data, but this just loads the function,
 # not the actual data, so no biggie.
 from fake_eye_data import yield_eye_data
-import time
 
 try:
     sys.path.insert(1, '../pydaq')
@@ -299,7 +298,7 @@ class World(DirectObject):
     def start_new_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
-        print('start loop')
+        # print('start loop')
         # print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
@@ -310,11 +309,12 @@ class World(DirectObject):
             self.setup_manual_sequence()
             self.manual_sequence.start()
         else:
-            # print 'auto'
+            print 'auto start loop'
             # always start out not fixated
             self.fixated = False
             # check to see if we are showing a photo
             # print('loop count before photo', self.loop_count)
+            print 'not checking fixation', self.fixation_cross_flag
             if self.fixation_cross_flag:
                 print 'show photo'
                 self.do_photo_loop()
@@ -335,7 +335,7 @@ class World(DirectObject):
             # print 'turn on timer for square on, waiting for fixation'
             # turn on square and timer
             self.square_on_parallel.start()
-        # print('done start loop')
+        print('done start loop')
         # print('time', time())
 
     def check_photo_loop(self, good_trial):
@@ -375,6 +375,7 @@ class World(DirectObject):
 
     def cleanup(self):
         print('cleanup method')
+        print 'cleanup, should not be checking fixation', self.fixation_check_flag
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
@@ -421,7 +422,7 @@ class World(DirectObject):
         )
 
     def setup_auto_sequences(self):
-        # print 'setup auto sequences'
+        print 'setup auto sequences'
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
@@ -477,12 +478,13 @@ class World(DirectObject):
         return task.done
 
     def wait_auto_sequence_task(self, task):
-        # print 'held fixation, start sequence'
+        print 'held fixation, start sequence'
         # made it through fixation, will get reward, stop checking for fixation
         self.fixation_check_flag = False
         # so, auto_sequence doesn't return until it has completed the whole
         # sequence, which could mean we have already called the task again before
         # we return. meh. we could remove the task in the sequence, I suppose.
+        print 'wait auto sequence task'
         self.auto_sequence.start()
         return task.done
 
@@ -498,7 +500,7 @@ class World(DirectObject):
 
     # auto calibrate methods
     def initiate_fixation_period(self):
-        # print 'initiate fixation period'
+        print 'initiate fixation period'
         # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
         # will abort and start over
         # first stop the on interval
@@ -557,6 +559,7 @@ class World(DirectObject):
         return all_intervals
 
     def give_reward(self):
+        print 'reward, should not check fixation', self.fixation_check_flag
         # print 'reward, 3'
         # print(self.base.taskMgr)
         # give reward for each num_beeps
