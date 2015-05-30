@@ -17,6 +17,7 @@ from Photos import Photos
 # don't always use fake_eye_data, but this just loads the function,
 # not the actual data, so no biggie.
 from fake_eye_data import yield_eye_data
+import time
 
 try:
     sys.path.insert(1, '../pydaq')
@@ -132,6 +133,8 @@ class World(DirectObject):
         # if no photos, this will always be false, otherwise
         # will switch when showing a photo
         self.fixation_photo_flag = False
+        # same here, for cross hair
+        self.fixation_cross_flag = False
 
         # initialize text before setting up second window.
         # text will be overridden there.
@@ -296,7 +299,7 @@ class World(DirectObject):
     def start_new_loop(self, good_trial=None):
         # good_trial signifies if there was a reward last loop,
         # for photos, we only count good trials
-        # print('start loop')
+        print('start loop')
         # print('time', time())
         # starts every loop, either at the end of one loop, or after a break
         # start plotting eye position
@@ -312,11 +315,20 @@ class World(DirectObject):
             self.fixated = False
             # check to see if we are showing a photo
             # print('loop count before photo', self.loop_count)
+            if self.fixation_cross_flag:
+                print 'show photo'
+                self.do_photo_loop()
+                return
             if self.show_photos:
-                signal = self.check_photo_loop(good_trial)
-                if signal:
+                print 'check for photo'
+                photo_signal = self.check_photo_loop(good_trial)
+                # if we are showing a photo/cross hair, not going to set up the
+                # next sequence yet.
+                print 'photo signal', photo_signal
+                print self.base.taskMgr
+                if photo_signal:
                     return
-            # print 'showed calibration point'
+            print 'showed calibration point'
             # print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
@@ -327,36 +339,42 @@ class World(DirectObject):
         # print('time', time())
 
     def check_photo_loop(self, good_trial):
-        # if returns true, showing a photo, otherwise continue
-        # on with regular calibration routine
+        # if returns true, showing a crosshair and then a photo,
+        # otherwise continue on with regular calibration routine
         if good_trial:
             self.loop_count += 1
         # print('good trial, loop count now', self.loop_count)
         # print('loop count', self.loop_count)
         # print self.photos.cal_pts_per_photo
         # check to see if it is time to show a photo
-        if self.loop_count == self.photos.cal_pts_per_photo:
-            # time to show a photo, probably
+        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
+            # check to see if we are out of photos
+            self.show_photos = self.photos.get_next_photo()
+            # if there were no photos, continue on to
+            # finish regular calibration
+            if not self.show_photos:
+                return False
             # start plotting eye positions again
             self.flag_clear_eyes = False
-
-            self.fixation_photo_flag = True
-            # print 'about to call show photo from start_new_loop'
-            self.photos.show_photo()
-            # print 'called show photo from start_new_loop'
-            self.loop_count = 0
-            # if there were no photos, continue on to
-            # calibrations, otherwise, we are done here
-            if self.photos.cal_pts_per_photo is None:
-                # don't need to check for photos now
-                self.show_photos = None
-                self.fixation_photo_flag = False
-            else:
-                return True
+            # and start cross hair
+            self.fixation_cross_flag = True
+            print 'call show cross hair'
+            self.photos.show_cross_hair()
+            return True
         return False
 
+    def do_photo_loop(self):
+        print 'photo loop in calibration'
+        self.fixation_cross_flag = False
+        self.fixation_photo_flag = True
+        # start plotting eye positions again
+        self.flag_clear_eyes = False
+        # print 'called show photo from start_new_loop'
+        self.loop_count = 0
+        self.photos.show_actual_photo()
+
     def cleanup(self):
-        # print('cleanup method')
+        print('cleanup method')
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         self.next = 0
@@ -469,7 +487,7 @@ class World(DirectObject):
         return task.done
 
     def wait_cleanup_task(self, task):
-        # print 'move to cleanup'
+        print 'wait cleanup task'
         # print time()
         self.cleanup()
         return task.done
@@ -504,7 +522,7 @@ class World(DirectObject):
         self.restart_auto_loop()
 
     def restart_auto_loop(self):
-        # print 'restart auto loop, long pause'
+        print 'restart auto loop, long pause'
         # print time()
         # stop checking fixation
         self.fixation_check_flag = False
@@ -684,8 +702,8 @@ class World(DirectObject):
             # print 'broke fixation'
             # if broke fixation, stop checking for fixation
             self.fixation_check_flag = False
-            # abort trial, start again with square in same position
-            self.recover_from_broken_fixation()
+            return False
+        return True
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
@@ -704,9 +722,20 @@ class World(DirectObject):
         if self.fixation_check_flag:
             # print 'check fixation'
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-            self.evaluate_fixation(target)
+            fixation = self.evaluate_fixation(target)
+            if not fixation:
+                # abort trial, start again with square in same position
+                self.recover_from_broken_fixation()
             # if checking fixation here, not showing photos,
             # so can immediately return
+            return
+        if self.fixation_cross_flag:
+            # cross hair always in center
+            target = (0, 0)
+            fixation = self.evaluate_fixation(target)
+            if not fixation:
+                pass
+                # show cross hair again
             return
         if self.fixation_photo_flag:
             # for photos, only switch the fixation_check_flag when done
@@ -714,7 +743,7 @@ class World(DirectObject):
             # fixating
             # check to see if subject is still looking at photo
             self.photos.check_fixation(self.eye_data)
-            # flag_timer lets us know if subject is fixation, and if time
+            # flag_timer lets us know if subject is fixating, and if time
             # should therefor be counted towards total time
             # once check_eye is false,
             # time to stop worrying about fixation and drawing eye positions

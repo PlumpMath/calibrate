@@ -26,11 +26,9 @@ class Photos():
         self.check_eye = False  # true means check fixation, false means stop checking
         self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
-        # this will change when finished with all sets
-        self.cal_pts_per_photo = config['CAL_PTS_PER_PHOTO']
         total_cal_points = config['POINT_REPEAT'] * config['X_POINTS'] * config['Y_POINTS']
         num_photos_in_set = config['NUM_PHOTOS_IN_SET']
-        num_poss_photos = total_cal_points // self.cal_pts_per_photo
+        num_poss_photos = total_cal_points // config['CAL_PTS_PER_PHOTO']
         num_sets = num_poss_photos // num_photos_in_set
         # print num_sets
         # show each set twice, so just need half that many
@@ -86,7 +84,7 @@ class Photos():
         for photo in self.photo_set:
             yield photo
 
-    def show_photo(self):
+    def get_next_photo(self):
         # print 'show photo and tolerance'
         self.photo_path = None
         try:
@@ -95,13 +93,22 @@ class Photos():
             # print('stop iterating!')
             check_set = self.load_photo_set()
             if check_set:
-                photo_path = self.photo_gen.next()
+                self.photo_path = self.photo_gen.next()
             else:
-                self.cal_pts_per_photo = None
                 # print 'out of photos, cleanup'
-                return
-        self.show_x_hair()
-        self.x_hair_timer()
+                return False
+        return True
+
+    def show_cross_hair(self):
+        print 'show cross hair, set timer'
+        self.x_node.show()
+        self.base.taskMgr.doMethodLater(5, self.clear_x_hair, 'clear_x_hair')
+
+    def clear_x_hair(self, task):
+        self.x_node.hide()
+        print 'turn off cross hair'
+        messenger.send('cleanup')
+        return task.done
 
     def show_actual_photo(self):
         self.check_eye = True
@@ -115,20 +122,6 @@ class Photos():
         # print self.imageObject
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
         # print('started timer task', self.fixation_timer)
-
-    def show_x_hair(self):
-        # print 'show cross hair'
-        self.x_node.show()
-        self.check_eye = True
-
-    def x_hair_timer(self):
-        self.base.taskMgr.doMethodLater(1, self.clear_x_hair, 'clear_x_hair')
-
-    def clear_x_hair(self, task):
-        self.x_node.hide()
-        self.check_eye = False
-        self.show_actual_photo()
-        return task.done
 
     def timer_task(self, task):
         # print('timer', self.fixation_timer)
@@ -169,7 +162,7 @@ class Photos():
         for line in self.photo_window:
             line.detachNode()
         # print time()
-        # print 'go on break'
+        # print 'go on break after photo'
         self.base.taskMgr.doMethodLater(self.config['PHOTO_BREAK_TIMER'], self.send_cleanup, 'photo_send_cleanup')
         # print 'set break'
         # print time()
@@ -228,7 +221,7 @@ class Photos():
     @staticmethod
     def send_cleanup(task):
         # print time()
-        # print('cleanup, start next loop')
+        print('after photo cleanup, start next loop')
         messenger.send('cleanup')
         return task.done
 
