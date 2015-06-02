@@ -313,7 +313,7 @@ class World(DirectObject):
             # check to see if we are showing a photo
             # print('loop count before photo', self.loop_count)
             if self.show_photos:
-                signal = self.start_photo_loop(good_trial)
+                signal = self.check_photo_loop(good_trial)
                 if signal:
                     return
             # print 'showed calibration point'
@@ -326,7 +326,7 @@ class World(DirectObject):
         # print('done start loop')
         # print('time', time())
 
-    def start_photo_loop(self, good_trial):
+    def check_photo_loop(self, good_trial):
         # if returns true, showing a photo, otherwise continue
         # on with regular calibration routine
         if good_trial:
@@ -337,7 +337,7 @@ class World(DirectObject):
         # check to see if it is time to show a photo
         if self.loop_count == self.photos.cal_pts_per_photo:
             # time to show a photo, probably
-            # plot eye positions
+            # start plotting eye positions again
             self.flag_clear_eyes = False
 
             self.fixation_photo_flag = True
@@ -588,7 +588,54 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
         # print('should still not be fixated', self.fixated)
 
+    def plot_eye_data(self, eye_data):
+        # convert to pixels for plotting and testing distance,
+        # need the eye position from the last run for the starting
+        # position for move to position for plotting, and the
+        # current eye position for ending position
+        if not self.eye_data:
+            # print 'use same data for start as finish'
+            # if no previous eye, just have same start and
+            # end position
+            start_eye = self.eye_data_to_pixel(eye_data)
+        else:
+            # print 'use previous data'
+            start_eye = self.eye_data
+        # print start_eye
+        # save current data, so can use it for start position next time
+        self.eye_data = self.eye_data_to_pixel(eye_data)
+        # stuff for plotting
+        # when unittesting there is no second screen, so
+        # impossible to actually plot eye positions or other
+        # stuff to researchers screen
+        if not self.unittest:
+            # print 'plotting'
+            if self.flag_clear_eyes:
+                # print 'clear eyes'
+                # get rid of any eye positions left on screen
+                self.clear_eyes()
+                # don't start plotting until we restart task
+                self.flag_clear_eyes = None
+            elif self.flag_clear_eyes is None:
+                # print 'do not plot eyes'
+                pass
+            else:
+                # print 'plot eyes'
+                # plot new eye segment
+                self.plot_eye_trace(start_eye)
+
+            if eye_data.any() and self.text3:
+                # print 'print text', eye_data
+                if not self.config['FAKE_DATA']:
+                    self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+                                       ', ' + str(round(eye_data[1], 3)) + ']')
+                else:
+                    self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
+                                       ', ' + str(round(eye_data[1], 3)) + ']')
+                # print 'text set'
+
     def plot_eye_trace(self, last_eye):
+        # print 'plot trace'
         # if plotting too many eye positions, things slow down and
         # python goes into lala land. Never need more than 500, and
         # last 300 is definitely plenty, so every time it hits 500,
@@ -618,6 +665,27 @@ class World(DirectObject):
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
         self.eye_nodes.append(node)
+        # print 'end plot trace'
+
+    def evaluate_fixation(self, target):
+        previous_fixation = self.fixated
+        # convert tolerance to pixels
+        tolerance = self.tolerance / self.deg_per_pixel
+        # send in eye data converted to pixels, self.eye_data
+        self.fixated = check_fixation(self.eye_data, tolerance, target)
+        # print('fixated?', self.fixated)
+        # need to check if time to start fixation period or time to end
+        # fixation period, otherwise business as usual
+        if self.fixated and not previous_fixation:
+            # print 'fixated, start fixation period'
+            # start fixation period
+            self.initiate_fixation_period()
+        elif not self.fixated and previous_fixation:
+            # print 'broke fixation'
+            # if broke fixation, stop checking for fixation
+            self.fixation_check_flag = False
+            # abort trial, start again with square in same position
+            self.recover_from_broken_fixation()
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
@@ -626,78 +694,18 @@ class World(DirectObject):
         # write eye data (as is, no adjustments) and timestamp to file
         # if we are paused, do not plot eye data (pausing messes up
         # with cleanup), but still collect the data
-        print 'log'
+        # print 'log'
         self.logging.log_eye(eye_data)
         # when searching for a particular eye data
         # sometimes useful to not print timestamp
         # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
-        # convert to pixels for plotting and testing distance,
-        # need the eye position from the last run for the starting
-        # position for move to position for plotting, and the
-        # current eye position for ending position
-        if not self.eye_data:
-            print 'use same data for start as finish'
-            # if no previous eye, just have same start and
-            # end position
-            start_eye = self.eye_data_to_pixel(eye_data)
-        else:
-            print 'use previous data'
-            start_eye = self.eye_data
-        # print start_eye
-        # save current data, so can use it for start position next time
-        self.eye_data = self.eye_data_to_pixel(eye_data)
-
-        # stuff for plotting
-        # when unittesting there is no second screen, so
-        # impossible to actually plot eye positions or other
-        # stuff to researchers screen
-        if not self.unittest:
-            print 'plotting'
-            if self.flag_clear_eyes:
-                print 'clear eyes'
-                # get rid of any eye positions left on screen
-                self.clear_eyes()
-                # don't start plotting until we restart task
-                self.flag_clear_eyes = None
-            elif self.flag_clear_eyes is None:
-                print 'do not plot eyes'
-                pass
-            else:
-                print 'plot eyes'
-                # plot new eye segment
-                self.plot_eye_trace(start_eye)
-
-            # if eye_data.any():
-            #     print 'print text'
-            #     print eye_data
-            #     if not self.config['FAKE_DATA']:
-            #         self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-            #                            ', ' + str(round(eye_data[1], 3)) + ']')
-            #     else:
-            #         self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
-            #                            ', ' + str(round(eye_data[1], 3)) + ']')
-            # print 'yup, printed text'
+        self.plot_eye_data(eye_data)
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
-            print 'check fixation'
-            previous_fixation = self.fixated
+            # print 'check fixation'
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-            # convert tolerance to pixels
-            tolerance = self.tolerance / self.deg_per_pixel
-            # send in eye data converted to pixels, self.eye_data
-            self.fixated = check_fixation(self.eye_data, tolerance, target)
-            # print('fixated?', self.fixated)
-            if self.fixated and not previous_fixation:
-                # print 'fixated, start fixation period'
-                # start fixation period
-                self.initiate_fixation_period()
-            elif not self.fixated and previous_fixation:
-                # print 'broke fixation'
-                # if broke fixation, stop checking for fixation
-                self.fixation_check_flag = False
-                # abort trial, start again with square in same position
-                self.recover_from_broken_fixation()
-            # if checking fixation on square, not showing photos,
+            self.evaluate_fixation(target)
+            # if checking fixation here, not showing photos,
             # so can immediately return
             return
         if self.fixation_photo_flag:
