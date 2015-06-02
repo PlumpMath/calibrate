@@ -626,7 +626,7 @@ class World(DirectObject):
         # write eye data (as is, no adjustments) and timestamp to file
         # if we are paused, do not plot eye data (pausing messes up
         # with cleanup), but still collect the data
-        # print 'log'
+        print 'log'
         self.logging.log_eye(eye_data)
         # when searching for a particular eye data
         # sometimes useful to not print timestamp
@@ -636,12 +636,12 @@ class World(DirectObject):
         # position for move to position for plotting, and the
         # current eye position for ending position
         if not self.eye_data:
-            # print 'use same data for start as finish'
+            print 'use same data for start as finish'
             # if no previous eye, just have same start and
             # end position
             start_eye = self.eye_data_to_pixel(eye_data)
         else:
-            # print 'use previous data'
+            print 'use previous data'
             start_eye = self.eye_data
         # print start_eye
         # save current data, so can use it for start position next time
@@ -652,33 +652,34 @@ class World(DirectObject):
         # impossible to actually plot eye positions or other
         # stuff to researchers screen
         if not self.unittest:
-            # print 'plotting'
+            print 'plotting'
             if self.flag_clear_eyes:
-                # print 'clear eyes'
+                print 'clear eyes'
                 # get rid of any eye positions left on screen
                 self.clear_eyes()
                 # don't start plotting until we restart task
                 self.flag_clear_eyes = None
             elif self.flag_clear_eyes is None:
-                # print 'do not plot eyes'
+                print 'do not plot eyes'
                 pass
             else:
-                # print 'plot eyes'
+                print 'plot eyes'
                 # plot new eye segment
                 self.plot_eye_trace(start_eye)
 
-            if eye_data.any():
-                # print 'print text'
-                if not self.config['FAKE_DATA']:
-                    self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-                else:
-                    self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-
+            # if eye_data.any():
+            #     print 'print text'
+            #     print eye_data
+            #     if not self.config['FAKE_DATA']:
+            #         self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
+            #                            ', ' + str(round(eye_data[1], 3)) + ']')
+            #     else:
+            #         self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
+            #                            ', ' + str(round(eye_data[1], 3)) + ']')
+            # print 'yup, printed text'
         # check if in window for auto-calibrate
         if self.fixation_check_flag:
-            # print 'check fixation'
+            print 'check fixation'
             previous_fixation = self.fixated
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
             # convert tolerance to pixels
