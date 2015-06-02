@@ -58,10 +58,11 @@ class EyeData(object):
     def consumer(self):
         """wait for the condition and use the resource"""
         logging.debug('Starting consumer thread')
-        with self.condition:
-            self.condition.wait()
-            self.consume_queue()
-            logging.debug('Resource is available, consumer waiting')
+        while True:
+            with self.condition:
+                self.condition.wait()
+                self.consume_queue()
+                logging.debug('Resource is available, consumer waiting')
         logging.debug('left consumer')
 
     def producer(self):
