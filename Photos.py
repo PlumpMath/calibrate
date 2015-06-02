@@ -48,7 +48,7 @@ class Photos():
         photo_size = [600, 600]
         # photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
-        self.draw_x_hair(deg_per_pixel)
+        self.draw_cross(deg_per_pixel)
         # print('photo tolerance', self.tolerance)
 
     def load_all_photos(self):
@@ -100,15 +100,12 @@ class Photos():
         return True
 
     def show_cross_hair(self):
-        print 'show cross hair, set timer'
+        print 'show cross hair'
         self.x_node.show()
-        self.base.taskMgr.doMethodLater(5, self.clear_x_hair, 'clear_x_hair')
 
-    def clear_x_hair(self, task):
+    def clear_cross(self):
+        print 'clear cross hair'
         self.x_node.hide()
-        print 'turn off cross hair'
-        messenger.send('cleanup')
-        return task.done
 
     def show_actual_photo(self):
         self.check_eye = True
@@ -200,17 +197,17 @@ class Photos():
         node.hide(BitMask32.bit(1))
         self.photo_window.append(node)
 
-    def draw_x_hair(self, deg_per_pixel):
-        x_hair = LineSegs()
-        x_hair.setThickness(2.0)
+    def draw_cross(self, deg_per_pixel):
+        cross = LineSegs()
+        cross.setThickness(2.0)
         # cross hair is 1/2 degree visual angle,
         # so go 1/4 on each side
         dist_from_center = 0.25 / deg_per_pixel
-        x_hair.move_to(0 + dist_from_center, 55, 0)
-        x_hair.draw_to(0 - dist_from_center, 55, 0)
-        x_hair.move_to(0, 55, 0 - dist_from_center)
-        x_hair.draw_to(0, 55, 0 + dist_from_center)
-        self.x_node = self.base.render.attachNewNode(x_hair.create(True))
+        cross.move_to(0 + dist_from_center, 55, 0)
+        cross.draw_to(0 - dist_from_center, 55, 0)
+        cross.move_to(0, 55, 0 - dist_from_center)
+        cross.draw_to(0, 55, 0 + dist_from_center)
+        self.x_node = self.base.render.attachNewNode(cross.create(True))
         self.x_node.hide()
 
     def write_to_file(self, event, photo=None):

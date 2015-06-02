@@ -223,8 +223,10 @@ class World(DirectObject):
         # break_interval - used for auto, how long time out before
         #            next square on, if missed or broke fixation
         # on, fade, reward, move
+        cross_hair_int = self.config.get('CROSS_HAIR_FIX', 0)
         self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
-                              self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL']]
+                              self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
+                              cross_hair_int]
 
         # initiate sequences
         self.manual_sequence = None
@@ -305,7 +307,7 @@ class World(DirectObject):
         self.flag_clear_eyes = False
         # print('time', time())
         if self.manual:
-            # print 'manual'
+            print 'manual'
             self.setup_manual_sequence()
             self.manual_sequence.start()
         else:
@@ -314,9 +316,9 @@ class World(DirectObject):
             self.fixated = False
             # check to see if we are showing a photo
             # print('loop count before photo', self.loop_count)
-            print 'not checking fixation', self.fixation_cross_flag
+            print 'checking cross fixation', self.fixation_cross_flag
             if self.fixation_cross_flag:
-                print 'show photo'
+                print 'did fixation, show photo'
                 self.do_photo_loop()
                 return
             if self.show_photos:
@@ -328,7 +330,7 @@ class World(DirectObject):
                 print self.base.taskMgr
                 if photo_signal:
                     return
-            print 'showed calibration point'
+            print 'show calibration point'
             # print('loop count after checking/showing photo', self.loop_count)
             # setup sequences
             self.setup_auto_sequences()
@@ -700,13 +702,33 @@ class World(DirectObject):
         if self.fixated and not previous_fixation:
             # print 'fixated, start fixation period'
             # start fixation period
-            self.initiate_fixation_period()
+            if self.fixation_cross_flag:
+                self.initiate_cross_hair_fixation()
+            else:
+                self.initiate_fixation_period()
         elif not self.fixated and previous_fixation:
             # print 'broke fixation'
             # if broke fixation, stop checking for fixation
             self.fixation_check_flag = False
             return False
         return True
+
+    def initiate_cross_hair_fixation(self):
+        print 'initiate cross hair fixation period'
+        # subject has fixated, if makes it through fixation interval, will show picture, otherwise
+        # will abort and start over
+        # first stop the on interval
+        self.logging.log_event('Fixated')
+        # now start the fixation interval
+        fixate_interval = random.uniform(*self.interval_list[5])
+        print('fixate interval', fixate_interval)
+        self.base.taskMgr.doMethodLater(fixate_interval, self.end_cross_fixation, 'cross_fixation')
+
+    def end_cross_fixation(self, task):
+        print 'end cross fixation'
+        self.photos.clear_cross()
+        self.start_new_loop()
+        return task.done
 
     def get_eye_data(self, eye_data):
         # pydaq calls this method every time it calls back to get eye data,
