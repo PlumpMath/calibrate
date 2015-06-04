@@ -4,6 +4,8 @@ from fake_eye_data import yield_eye_data
 import logging
 from direct.showbase.ShowBase import ShowBase
 import sys
+import time
+
 try:
     sys.path.insert(1, '../pydaq')
     import pydaq
@@ -19,28 +21,23 @@ logging.basicConfig(level=logging.DEBUG,
 
 class EyeData(object):
 
-    def __init__(self):
+    def __init__(self, show_base, fake_data):
         self.queue = Queue(32)
         self.condition = threading.Condition()
-        self.base = ShowBase()
-        self.base.exitFunc = self.close
-        pydaq = None
-        if not pydaq:
+        self.base = show_base
+        if not pydaq or fake_data:
             self.fake_data = yield_eye_data((0.0, 0.0))
             self.pydaq = None
         else:
             self.fake_data = None
             self.pydaq = pydaq
             self.eye_task = self.pydaq.EOGTask()
-        self.c1 = threading.Thread(name='c1', target=self.consumer)
-        self.c2 = threading.Thread(name='c2', target=self.consumer)
-        self.p = threading.Thread(name='p', target=self.producer)
-        self.c1.start()
-        self.c2.start()
-        self.p.start()
+        self.threads = []
+        self.run_consumer = True
         logging.debug('started threads')
 
     def produce_queue(self, eye_data):
+        # do logging
         logging.debug('received eye data {0}'.format(eye_data))
         self.queue.put(eye_data)
         qsize = self.queue.qsize()
@@ -56,9 +53,12 @@ class EyeData(object):
         logging.debug('consumed object, size now {0}'.format(qsize))
 
     def consumer(self):
-        """wait for the condition and use the resource"""
+        """wait for the condition and use the resource, we only allow
+        one consumer at a time."""
         logging.debug('Starting consumer thread')
-        while True:
+        # make this loop dependent on whether this consumer is currently
+        # running
+        while self.run_consumer:
             with self.condition:
                 self.condition.wait()
                 self.consume_queue()
@@ -82,13 +82,29 @@ class EyeData(object):
         self.produce_queue(self.fake_data.next())
         return task.cont
 
+    def start_thread(self, thread_name, thread_target):
+        logging.debug('start thread', thread_name)
+        self.threads.append(threading.Thread(name=thread_name, target=thread_target))
+        self.threads[-1].start()
+
+    def end_consumer(self):
+        self.run_consumer = False
+
     def close(self):
+        self.end_consumer()
+        logging.debug('close')
         if self.pydaq:
             self.eye_task.DoneCallback(self.eye_task)
             self.eye_task.StopTask()
             self.eye_task.ClearTask()
-        sys.exit()
+        else:
+            self.base.taskMgr.remove('fake_eye')
+        logging.debug('close finished')
 
 if __name__ == "__main__":
-    ED = EyeData()
+    base = ShowBase()
+    ED = EyeData(base, False)
+    base.exitFunc = ED.close
+    ED.start_thread('producer', ED.producer)
+    ED.start_thread('consumer', ED.consumer)
     ED.base.run()

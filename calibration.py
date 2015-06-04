@@ -10,23 +10,24 @@ from panda3d.core import OrthographicLens, LineSegs
 from Square import Square
 from Logging import Logging
 from positions import visual_angle
+from EyeData import EyeData
 import sys
 import random
 from math import sqrt, radians, cos, sin
 from Photos import Photos
 # don't always use fake_eye_data, but this just loads the function,
 # not the actual data, so no biggie.
-from fake_eye_data import yield_eye_data
+# from fake_eye_data import yield_eye_data
 
-try:
-    sys.path.insert(1, '../pydaq')
-    import pydaq
-    print 'pydaq loaded'
-    LOADED_PYDAQ = True
-except ImportError:
-    pydaq = None
-    print 'Not using PyDaq'
-    LOADED_PYDAQ = False
+# try:
+#     sys.path.insert(1, '../pydaq')
+#     import pydaq
+#     print 'pydaq loaded'
+#     LOADED_PYDAQ = True
+# except ImportError:
+#     pydaq = None
+#     print 'Not using PyDaq'
+#     LOADED_PYDAQ = False
 
 
 def get_distance(p0, p1):
@@ -90,10 +91,6 @@ class World(DirectObject):
             self.unittest = False
             self.use_daq_data = False  # as opposed to fake data
             self.use_daq_reward = True
-            # in case we are not unittesting, but didn't load pydaq
-            if not LOADED_PYDAQ:
-                self.use_daq_reward = False
-                self.use_daq_data = False
 
         # default is not fake data, and don't send signal
         test_data = self.config.setdefault('FAKE_DATA', False)
@@ -185,9 +182,7 @@ class World(DirectObject):
         # create dummy variable for square and logging
         self.square = None
         self.logging = None
-
-        # Eye Data
-        self.eye_data = []
+        self.eye_data = None
 
         # true, clear now, false, plot now, None, do not plot
         self.flag_clear_eyes = None
@@ -197,6 +192,9 @@ class World(DirectObject):
 
         # initialize signal to switch tasks (manual - auto)
         self.flag_task_switch = False
+
+        self.subroutine = False
+        self.call_subroutine = None
 
         # set up daq for eye and reward, if on windows and not testing
         # testing auto mode depends on being able to control eye position
@@ -257,29 +255,13 @@ class World(DirectObject):
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
-        if not self.config['FAKE_DATA']:
-            self.start_eye_task()
-        else:
-            # start fake data yield, if not using eye tracker
-            # start over from zero for testing so we know what
-            # first eye position is.
-            # print 'get fake data'
-            self.fake_data = yield_eye_data((0.0, 0.0))
-            self.base.taskMgr.add(self.get_fake_data_task, 'fake_eye')
 
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
         # print 'end gig'
         # close stuff
-        if not self.config['FAKE_DATA']:
-            # print 'stopping daq tasks'
-            # have to stop tasks before closing files
-            self.eye_task.DoneCallback(self.eye_task)
-            self.eye_task.StopTask()
-            self.eye_task.ClearTask()
-        else:
-            self.base.taskMgr.remove('fake_eye')
+        self.eye_data.close()
         self.logging.close_files()
         # self.square.pos = None
 
@@ -298,47 +280,63 @@ class World(DirectObject):
             self.start_new_loop()
 
     def start_new_loop(self, good_trial=None):
-        # good_trial signifies if there was a reward last loop,
-        # for photos, we only count good trials
-        # print('start loop')
-        # print('time', time())
-        # starts every loop, either at the end of one loop, or after a break
-        # start plotting eye position
-        self.flag_clear_eyes = False
-        # print('time', time())
+        # check to see if manual, no subroutines for manual
         if self.manual:
-            print 'manual'
             self.setup_manual_sequence()
+            self.plot_eye_data(check_eye=False)
             self.manual_sequence.start()
         else:
-            print 'auto start loop'
-            # always start out not fixated
-            self.fixated = False
-            # check to see if we are showing a photo
-            # print('loop count before photo', self.loop_count)
-            print 'checking cross fixation', self.fixation_cross_flag
-            if self.fixation_cross_flag:
-                print 'did fixation, show photo'
-                self.do_photo_loop()
-                return
-            if self.show_photos:
-                print 'check for photo'
-                photo_signal = self.check_photo_loop(good_trial)
-                # if we are showing a photo/cross hair, not going to set up the
-                # next sequence yet.
-                print 'photo signal', photo_signal
-                print self.base.taskMgr
-                if photo_signal:
-                    return
-            print 'show calibration point'
-            # print('loop count after checking/showing photo', self.loop_count)
-            # setup sequences
-            self.setup_auto_sequences()
-            # print 'turn on timer for square on, waiting for fixation'
-            # turn on square and timer
-            self.square_on_parallel.start()
-        print('done start loop')
-        # print('time', time())
+            # check to see if we are doing a subroutine
+            if self.subroutine:
+                self.call_subroutine(good_trial)
+            else:
+                self.setup_auto_sequences()
+                self.plot_eye_data(check_eye=True)
+                self.auto_sequence.start()
+
+    # def start_new_loop(self, good_trial=None):
+    #     # good_trial signifies if there was a reward last loop,
+    #     # for photos, we only count good trials
+    #     # print('start loop')
+    #     # print('time', time())
+    #     # starts every loop, either at the end of one loop, or after a break
+    #     # start plotting eye position
+    #     self.flag_clear_eyes = False
+    #     # print('time', time())
+    #     if self.manual:
+    #         print 'manual'
+    #         self.setup_manual_sequence()
+    #         # start eye plotting task
+    #         self.manual_sequence.start()
+    #     else:
+    #         print 'auto start loop'
+    #         # always start out not fixated
+    #         self.fixated = False
+    #         # check to see if we are showing a photo
+    #         # print('loop count before photo', self.loop_count)
+    #         print 'checking cross fixation', self.fixation_cross_flag
+    #         if self.fixation_cross_flag:
+    #             print 'did fixation, show photo'
+    #             self.do_photo_loop()
+    #             return
+    #         if self.show_photos:
+    #             print 'check for photo'
+    #             photo_signal = self.check_photo_loop(good_trial)
+    #             # if we are showing a photo/cross hair, not going to set up the
+    #             # next sequence yet.
+    #             print 'photo signal', photo_signal
+    #             print self.base.taskMgr
+    #             if photo_signal:
+    #                 return
+    #         print 'show calibration point'
+    #         # print('loop count after checking/showing photo', self.loop_count)
+    #         # setup sequences
+    #         self.setup_auto_sequences()
+    #         # print 'turn on timer for square on, waiting for fixation'
+    #         # turn on square and timer
+    #         self.square_on_parallel.start()
+    #     print('done start loop')
+    #     # print('time', time())
 
     def check_photo_loop(self, good_trial):
         # if returns true, showing a crosshair and then a photo,
@@ -611,7 +609,10 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
         # print('should still not be fixated', self.fixated)
 
-    def plot_eye_data(self, eye_data):
+    def plot_eye_data(self):
+        # get data from producer
+
+
         # convert to pixels for plotting and testing distance,
         # need the eye position from the last run for the starting
         # position for move to position for plotting, and the
@@ -1081,10 +1082,10 @@ class World(DirectObject):
         if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
-        # start fake data yield, if not using eye tracker
-        if self.config['FAKE_DATA']:
-            print 'get fake data'
-            self.fake_data = yield_eye_data((0.0, 0.0))
+
+        # start generating data
+        self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
+
         # start reward capabilities, if using daq
         if self.use_daq_reward:
             # print 'setup reward'
@@ -1103,10 +1104,7 @@ class World(DirectObject):
             self.base.taskMgr.removeTasksMatching('photo_*')
             with open(self.config['file_name'], 'a') as config_file:
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
-        if not self.config['FAKE_DATA']:
-            self.eye_task.DoneCallback(self.eye_task)
-            self.eye_task.StopTask()
-            self.eye_task.ClearTask()
+        self.eye_data.close()
         self.logging.close_files()
         if self.unittest:
             self.ignoreAll()  # ignore everything, so nothing weird happens after deleting it.
