@@ -34,6 +34,8 @@ class EyeData(object):
             self.eye_task = self.pydaq.EOGTask()
         self.threads = []
         self.run_consumer = True
+        self.consumer_limit = None  # used for testing, I think this won't be necessary
+        # when make actual tests...
         logging.debug('started threads')
 
     def produce_queue(self, eye_data):
@@ -43,22 +45,32 @@ class EyeData(object):
         qsize = self.queue.qsize()
         logging.debug('produced object, size now {0}'.format(qsize))
         self.condition.notify_all()
-        if qsize == 32:
-            self.close()
+        # if not being consumed (between tasks), get rid of old data
+        if qsize > 20:
+            self.queue.get()
 
     def consume_queue(self):
         val = self.queue.get()
         logging.debug('object consumed {0}'.format(val))
         qsize = self.queue.qsize()
         logging.debug('consumed object, size now {0}'.format(qsize))
+        return val
 
     def consumer(self):
         """wait for the condition and use the resource, we only allow
         one consumer at a time."""
         logging.debug('Starting consumer thread')
+        logging.debug('limit'.format(self.consumer_limit))
         # make this loop dependent on whether this consumer is currently
         # running
-        while self.run_consumer:
+        if self.consumer_limit:
+            for i in range(self.consumer_limit):
+                print i
+                with self.condition:
+                    self.condition.wait()
+                    self.consume_queue()
+                    logging.debug('Resource is available, consumer waiting')
+        else:
             with self.condition:
                 self.condition.wait()
                 self.consume_queue()
@@ -83,7 +95,7 @@ class EyeData(object):
         return task.cont
 
     def start_thread(self, thread_name, thread_target):
-        logging.debug('start thread', thread_name)
+        logging.debug('start thread {0}'.format(thread_name))
         self.threads.append(threading.Thread(name=thread_name, target=thread_target))
         self.threads[-1].start()
 
@@ -105,6 +117,7 @@ if __name__ == "__main__":
     base = ShowBase()
     ED = EyeData(base, False)
     base.exitFunc = ED.close
+    ED.consumer_limit = 10
     ED.start_thread('producer', ED.producer)
     ED.start_thread('consumer', ED.consumer)
     ED.base.run()

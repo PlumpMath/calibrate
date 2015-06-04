@@ -93,3 +93,7 @@ CROSS_HAIR_FIX = (0.5, 0.75)
 NUM_PHOTOS_IN_SET = 16  # how many photos in each set, 16 standard
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
+
+LAST_PHOTO_INDEX = 16
+LAST_PHOTO_INDEX = 32
+LAST_PHOTO_INDEX = 48

@@ -19,15 +19,13 @@ from Photos import Photos
 # not the actual data, so no biggie.
 # from fake_eye_data import yield_eye_data
 
-# try:
-#     sys.path.insert(1, '../pydaq')
-#     import pydaq
-#     print 'pydaq loaded'
-#     LOADED_PYDAQ = True
-# except ImportError:
-#     pydaq = None
-#     print 'Not using PyDaq'
-#     LOADED_PYDAQ = False
+try:
+    sys.path.insert(1, '../pydaq')
+    import pydaq
+    print 'pydaq loaded'
+except ImportError:
+    pydaq = None
+    print 'Not using PyDaq'
 
 
 def get_distance(p0, p1):
@@ -71,6 +69,8 @@ class World(DirectObject):
         # print('manual', self.manual)
         if not config_file:
             config_file = 'config.py'
+
+        self.pydaq = pydaq
 
         # get configurations from config file
         self.config = {}
@@ -164,7 +164,7 @@ class World(DirectObject):
         # print 'window loaded'
         # empty list for plotting eye nodes
         self.eye_nodes = []
-
+        self.current_eye_data = None
         # initialize file variables
         self.eye_file_name = ''
         self.time_file_name = ''
@@ -255,6 +255,7 @@ class World(DirectObject):
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
+        self.eye_data.start_thread('producer', self.eye_data.producer)
 
     def end_gig(self):
         # used when end in either auto or manual mode,
@@ -283,7 +284,7 @@ class World(DirectObject):
         # check to see if manual, no subroutines for manual
         if self.manual:
             self.setup_manual_sequence()
-            self.plot_eye_data(check_eye=False)
+            self.start_plot_eye_task(check_eye=False)
             self.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
@@ -294,49 +295,9 @@ class World(DirectObject):
                 self.plot_eye_data(check_eye=True)
                 self.auto_sequence.start()
 
-    # def start_new_loop(self, good_trial=None):
-    #     # good_trial signifies if there was a reward last loop,
-    #     # for photos, we only count good trials
-    #     # print('start loop')
-    #     # print('time', time())
-    #     # starts every loop, either at the end of one loop, or after a break
-    #     # start plotting eye position
-    #     self.flag_clear_eyes = False
-    #     # print('time', time())
-    #     if self.manual:
-    #         print 'manual'
-    #         self.setup_manual_sequence()
-    #         # start eye plotting task
-    #         self.manual_sequence.start()
-    #     else:
-    #         print 'auto start loop'
-    #         # always start out not fixated
-    #         self.fixated = False
-    #         # check to see if we are showing a photo
-    #         # print('loop count before photo', self.loop_count)
-    #         print 'checking cross fixation', self.fixation_cross_flag
-    #         if self.fixation_cross_flag:
-    #             print 'did fixation, show photo'
-    #             self.do_photo_loop()
-    #             return
-    #         if self.show_photos:
-    #             print 'check for photo'
-    #             photo_signal = self.check_photo_loop(good_trial)
-    #             # if we are showing a photo/cross hair, not going to set up the
-    #             # next sequence yet.
-    #             print 'photo signal', photo_signal
-    #             print self.base.taskMgr
-    #             if photo_signal:
-    #                 return
-    #         print 'show calibration point'
-    #         # print('loop count after checking/showing photo', self.loop_count)
-    #         # setup sequences
-    #         self.setup_auto_sequences()
-    #         # print 'turn on timer for square on, waiting for fixation'
-    #         # turn on square and timer
-    #         self.square_on_parallel.start()
-    #     print('done start loop')
-    #     # print('time', time())
+    def start_plot_eye_task(self, check_eye=False):
+        self.eye_data.start_thread('consumer', self.eye_data.consumer)
+        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye], appendTask=True)
 
     def check_photo_loop(self, good_trial):
         # if returns true, showing a crosshair and then a photo,
@@ -609,25 +570,25 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
         # print('should still not be fixated', self.fixated)
 
-    def plot_eye_data(self):
+    def plot_eye_data(self, check_eye, task):
         # get data from producer
-
-
+        eye_data = self.eye_data.consume_queue()
+        print 'plot eye data', eye_data
         # convert to pixels for plotting and testing distance,
         # need the eye position from the last run for the starting
         # position for move to position for plotting, and the
         # current eye position for ending position
-        if not self.eye_data:
+        if not self.current_eye_data:
             # print 'use same data for start as finish'
             # if no previous eye, just have same start and
             # end position
             start_eye = self.eye_data_to_pixel(eye_data)
         else:
             # print 'use previous data'
-            start_eye = self.eye_data
+            start_eye = self.current_eye_data
         # print start_eye
         # save current data, so can use it for start position next time
-        self.eye_data = self.eye_data_to_pixel(eye_data)
+        self.current_eye_data = self.eye_data_to_pixel(eye_data)
         # stuff for plotting
         # when unittesting there is no second screen, so
         # impossible to actually plot eye positions or other
@@ -657,6 +618,7 @@ class World(DirectObject):
                     self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
                                        ', ' + str(round(eye_data[1], 3)) + ']')
                 # print 'text set'
+        return task.cont
 
     def plot_eye_trace(self, last_eye):
         # print 'plot trace'
@@ -678,9 +640,9 @@ class World(DirectObject):
         # eye.setThickness(2.0)
         eye.setThickness(2.0)
         # print 'last', last_eye
-        # print 'now', self.eye_data
+        # print 'now', self.current_eye_data
         eye.moveTo(last_eye[0], 55, last_eye[1])
-        eye.drawTo(self.eye_data[0], 55, self.eye_data[1])
+        eye.drawTo(self.current_eye_data[0], 55, self.current_eye_data[1])
         # print('plotted eye', eye_data_to_plot)
         #min, max = eye.getTightBounds()
         #size = max - min
@@ -695,8 +657,8 @@ class World(DirectObject):
         previous_fixation = self.fixated
         # convert tolerance to pixels
         tolerance = self.tolerance / self.deg_per_pixel
-        # send in eye data converted to pixels, self.eye_data
-        self.fixated = check_fixation(self.eye_data, tolerance, target)
+        # send in eye data converted to pixels, self.current_eye_data
+        self.fixated = check_fixation(self.current_eye_data, tolerance, target)
         # print('fixated?', self.fixated)
         # need to check if time to start fixation period or time to end
         # fixation period, otherwise business as usual
@@ -768,7 +730,7 @@ class World(DirectObject):
             # showing a photo, stop timer when not fixating, turn back on when
             # fixating
             # check to see if subject is still looking at photo
-            self.photos.check_fixation(self.eye_data)
+            self.photos.check_fixation(self.current_eye_data)
             # flag_timer lets us know if subject is fixating, and if time
             # should therefor be counted towards total time
             # once check_eye is false,
@@ -1083,7 +1045,7 @@ class World(DirectObject):
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
 
-        # start generating data
+        # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
 
         # start reward capabilities, if using daq
