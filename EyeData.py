@@ -14,7 +14,9 @@ except ImportError:
     pydaq = None
     print 'Not using PyDaq'
 
+log_filename = 'test.out'
 logging.basicConfig(level=logging.DEBUG,
+                    filename=log_filename,
                     format='%(asctime)s (%(threadName)-2s) %(message)s',
                     )
 
@@ -50,7 +52,9 @@ class EyeData(object):
             self.queue.get()
 
     def consume_queue(self):
-        val = self.queue.get()
+        val = []
+        while not self.queue.empty():
+            val.append(self.queue.get())
         logging.debug('object consumed {0}'.format(val))
         qsize = self.queue.qsize()
         logging.debug('consumed object, size now {0}'.format(qsize))
@@ -60,12 +64,11 @@ class EyeData(object):
         """wait for the condition and use the resource, we only allow
         one consumer at a time."""
         logging.debug('Starting consumer thread')
-        logging.debug('limit'.format(self.consumer_limit))
+        logging.debug('limit {0}'.format(self.consumer_limit))
         # make this loop dependent on whether this consumer is currently
         # running
         if self.consumer_limit:
             for i in range(self.consumer_limit):
-                print i
                 with self.condition:
                     self.condition.wait()
                     self.consume_queue()

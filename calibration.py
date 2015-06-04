@@ -508,7 +508,7 @@ class World(DirectObject):
     def set_flag_clear_screen(self):
         # print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
-        self.flag_clear_eyes = True
+
         # remove window around square
         for win in self.eye_window:
             win.detachNode()
@@ -573,54 +573,37 @@ class World(DirectObject):
     def plot_eye_data(self, check_eye, task):
         # get data from producer
         eye_data = self.eye_data.consume_queue()
+        if not eye_data:
+            return task.cont
         print 'plot eye data', eye_data
         # convert to pixels for plotting and testing distance,
         # need the eye position from the last run for the starting
         # position for move to position for plotting, and the
         # current eye position for ending position
         if not self.current_eye_data:
-            # print 'use same data for start as finish'
-            # if no previous eye, just have same start and
-            # end position
-            start_eye = self.eye_data_to_pixel(eye_data)
+            print 'use first data point in this chunk'
+            # if no previous eye, just use first data point
+            start_eye = self.eye_data_to_pixel(eye_data[0])
         else:
-            # print 'use previous data'
+            print 'use previous data'
             start_eye = self.current_eye_data
+        print start_eye
         # print start_eye
-        # save current data, so can use it for start position next time
-        self.current_eye_data = self.eye_data_to_pixel(eye_data)
-        # stuff for plotting
-        # when unittesting there is no second screen, so
-        # impossible to actually plot eye positions or other
-        # stuff to researchers screen
-        if not self.unittest:
-            # print 'plotting'
-            if self.flag_clear_eyes:
-                # print 'clear eyes'
-                # get rid of any eye positions left on screen
-                self.clear_eyes()
-                # don't start plotting until we restart task
-                self.flag_clear_eyes = None
-            elif self.flag_clear_eyes is None:
-                # print 'do not plot eyes'
-                pass
-            else:
-                # print 'plot eyes'
-                # plot new eye segment
-                self.plot_eye_trace(start_eye)
+        # save last data point, so can use it for start position next time
+        self.current_eye_data = self.eye_data_to_pixel(eye_data[-1])
+        self.plot_eye_trace(start_eye, eye_data)
 
-            if eye_data.any() and self.text3:
-                # print 'print text', eye_data
-                if not self.config['FAKE_DATA']:
-                    self.text3.setText('IScan: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-                else:
-                    self.text3.setText('Fake Data: [' + str(round(eye_data[0], 3)) +
-                                       ', ' + str(round(eye_data[1], 3)) + ']')
-                # print 'text set'
+        # print the last eye position
+        if not self.config['FAKE_DATA']:
+            self.text3.setText('IScan: [' + str(round(self.current_eye_data[0], 3)) +
+                               ', ' + str(round(self.current_eye_data[1], 3)) + ']')
+        else:
+            self.text3.setText('Fake Data: [' + str(round(self.current_eye_data[0], 3)) +
+                               ', ' + str(round(self.current_eye_data[1], 3)) + ']')
+            # print 'text set'
         return task.cont
 
-    def plot_eye_trace(self, last_eye):
+    def plot_eye_trace(self, first_eye, eye_data):
         # print 'plot trace'
         # if plotting too many eye positions, things slow down and
         # python goes into lala land. Never need more than 500, and
@@ -641,8 +624,10 @@ class World(DirectObject):
         eye.setThickness(2.0)
         # print 'last', last_eye
         # print 'now', self.current_eye_data
-        eye.moveTo(last_eye[0], 55, last_eye[1])
-        eye.drawTo(self.current_eye_data[0], 55, self.current_eye_data[1])
+        eye.moveTo(first_eye[0], 55, first_eye[1])
+        for data_point in eye_data:
+            converted = self.eye_data_to_pixel(data_point)
+            eye.drawTo(converted[0], 55, converted[1])
         # print('plotted eye', eye_data_to_plot)
         #min, max = eye.getTightBounds()
         #size = max - min
