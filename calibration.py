@@ -261,6 +261,8 @@ class World(DirectObject):
         # used when end in either auto or manual mode,
         # either at start or after switching
         # print 'end gig'
+        # clear screen
+        self.clear_eyes()
         # close stuff
         self.eye_data.close()
         self.logging.close_files()
@@ -508,7 +510,7 @@ class World(DirectObject):
     def set_flag_clear_screen(self):
         # print 'remove eye trace and fixation window, if there is one'
         # get rid of eye trace
-
+        self.clear_eyes()
         # remove window around square
         for win in self.eye_window:
             win.detachNode()
