@@ -168,7 +168,6 @@ class World(DirectObject):
         # starts out not fixated, and not checking for fixation (will
         # check for fixation when stimulus comes on, if we are doing an auto task)
         self.fixated = False
-        self.fixation_check_flag = False
 
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
@@ -247,8 +246,7 @@ class World(DirectObject):
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
-        self.eye_data.start_producer_thread('producer', log_eye=self.logging)
-        self.eye_data.start_consumer_thread('consumer')
+        self.start_eye_data()
 
     def end_gig(self):
         # used when end in either auto or manual mode,
@@ -287,60 +285,6 @@ class World(DirectObject):
             else:
                 self.setup_auto_sequences()
                 self.auto_sequence_one.start()
-
-    def start_plot_eye_task(self, check_eye=False):
-        target = None
-        if check_eye:
-            target, on_interval = self.check_target()
-            self.start_check_auto_fixation(target, on_interval)
-        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
-
-    def check_target(self):
-        if self.subroutine:
-            target = None
-            on_interval = None
-        else:
-            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-            on_interval = random.uniform(*self.interval_list[0])
-        return target, on_interval
-
-    def stop_plot_eye_task(self):
-        self.base.taskMgr.remove('plot_eye')
-
-    def check_photo_loop(self, good_trial):
-        # if returns true, showing a crosshair and then a photo,
-        # otherwise continue on with regular calibration routine
-        if good_trial:
-            self.loop_count += 1
-        # print('good trial, loop count now', self.loop_count)
-        # print('loop count', self.loop_count)
-        # print self.photos.cal_pts_per_photo
-        # check to see if it is time to show a photo
-        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
-            # check to see if we are out of photos
-            self.show_photos = self.photos.get_next_photo()
-            # if there were no photos, continue on to
-            # finish regular calibration
-            if not self.show_photos:
-                return False
-            # start plotting eye positions again
-            self.flag_clear_eyes = False
-            # and start cross hair
-            self.fixation_cross_flag = True
-            print 'call show cross hair'
-            self.photos.show_cross_hair()
-            return True
-        return False
-
-    def do_photo_loop(self):
-        print 'photo loop in calibration'
-        self.fixation_cross_flag = False
-        self.fixation_photo_flag = True
-        # start plotting eye positions again
-        self.flag_clear_eyes = False
-        # print 'called show photo from start_new_loop'
-        self.loop_count = 0
-        self.photos.show_actual_photo()
 
     def cleanup_main_loop(self):
         # print('time', time())
@@ -452,14 +396,22 @@ class World(DirectObject):
         # print 'reward done'
         return task.done
 
-    def fixation_broken_task(self, task):
-        print 'no fixation, time up, restart'
+    def bad_fixation(self, task=None):
+        # this task waits run to run for the on interval, if there is a fixation, initiate_fixation_period
+        # will begin and stop this task (started from plot_eye_data method), if not we start over here
+        # this task is also called if fixation is broken after fixation period has begun. In that case,
+        # we need to remove the auto sequence, but no harm removing non-existant task
+        print 'no fixation or broken fixaiton, restart'
         # print time()
-        # this task will run for the on interval, if there is a fixation, initiate_fixation_period
-        # will begin (started from get_eye_data method), if not we start over here
-        self.restart_auto_loop_bad_fixation()
+        if self.subroutine:
+            # cross hair turns off 1 second, then displayed again
+            pass
+        else:
+            # stop auto_sequence from starting
+            self.base.taskMgr.remove('auto_sequence')
+            # print(self.base.taskMgr)
+            self.restart_auto_loop_bad_fixation()
         # print 'return wait_off_task'
-        return task.done
 
     def start_auto_sequence_two_task(self, task):
         print 'held fixation, start sequence'
@@ -488,18 +440,6 @@ class World(DirectObject):
     def end_fixation_timer(self):
         # print 'remove fixation timer'
         self.base.taskMgr.remove('auto_sequence')
-        
-    def recover_from_broken_fixation(self):
-        print 'recover from broken fixation'
-        # method to recover if fixation is broken
-        if self.subroutine:
-            # cross hair turns off 1 second, then displayed again
-            pass
-        else:
-            # stop auto_sequence from starting
-            self.base.taskMgr.remove('auto_sequence')
-            # print(self.base.taskMgr)
-            self.restart_auto_loop_bad_fixation()
 
     def restart_auto_loop_bad_fixation(self):
         print 'restart auto loop, bad fixation long pause'
@@ -531,7 +471,6 @@ class World(DirectObject):
         return all_intervals
 
     def give_reward(self):
-        # print 'reward, should not check fixation', self.fixation_check_flag
         # if got reward, square can move
         self.square_position = None
         # print 'reward, 3'
@@ -582,7 +521,62 @@ class World(DirectObject):
         self.current_eye_data = None
         # print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
-    
+
+    def start_plot_eye_task(self, check_eye=False):
+        target = None
+        if check_eye:
+            target, on_interval = self.check_target()
+            self.start_check_auto_fixation(target, on_interval)
+        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
+
+    def check_target(self):
+        if self.subroutine:
+            target = None
+            on_interval = None
+        else:
+            # else is going to be regular auto calibrate
+            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
+            on_interval = random.uniform(*self.interval_list[0])
+        return target, on_interval
+
+    def stop_plot_eye_task(self):
+        self.base.taskMgr.remove('plot_eye')
+
+    def check_photo_loop(self, good_trial):
+        # if returns true, showing a crosshair and then a photo,
+        # otherwise continue on with regular calibration routine
+        if good_trial:
+            self.loop_count += 1
+        # print('good trial, loop count now', self.loop_count)
+        # print('loop count', self.loop_count)
+        # print self.photos.cal_pts_per_photo
+        # check to see if it is time to show a photo
+        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
+            # check to see if we are out of photos
+            self.show_photos = self.photos.get_next_photo()
+            # if there were no photos, continue on to
+            # finish regular calibration
+            if not self.show_photos:
+                return False
+            # start plotting eye positions again
+            self.flag_clear_eyes = False
+            # and start cross hair
+            self.fixation_cross_flag = True
+            print 'call show cross hair'
+            self.photos.show_cross_hair()
+            return True
+        return False
+
+    def do_photo_loop(self):
+        print 'photo loop in calibration'
+        self.fixation_cross_flag = False
+        self.fixation_photo_flag = True
+        # start plotting eye positions again
+        self.flag_clear_eyes = False
+        # print 'called show photo from start_new_loop'
+        self.loop_count = 0
+        self.photos.show_actual_photo()
+
     ##### Eye Methods
     def start_check_auto_fixation(self, target, on_interval):
         # print 'check for fixation'
@@ -590,7 +584,7 @@ class World(DirectObject):
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
         # print time()
-        self.base.taskMgr.doMethodLater(on_interval, self.fixation_broken_task, 'auto_off_task')
+        self.base.taskMgr.doMethodLater(on_interval, self.bad_fixation, 'auto_off_task')
         # print('should still not be fixated', self.fixated)
 
     def plot_eye_data(self, check_eye=None, target=None, task=None):
@@ -609,25 +603,22 @@ class World(DirectObject):
             start_eye = self.eye_data_to_pixel(eye_data[0])
         else:
             # print 'use previous data'
-            start_eye = self.current_eye_data
+            start_eye = self.current_eye_data[-1]
+        # print 'eye data in calibration', start_eye
         # print start_eye
-        # print start_eye
-        # save last data point, so can use it for start position next time
-        self.current_eye_data = self.eye_data_to_pixel(eye_data[-1])
-        self.plot_eye_trace(start_eye, eye_data)
-        # and set text
+        # save data
+        self.current_eye_data = [self.eye_data_to_pixel(data_point) for data_point in eye_data]
+        self.plot_eye_trace(start_eye)
+        # and set text to last data point
         if not self.unittest:
-            self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[0], 3)) +
-                               ', ' + str(round(self.current_eye_data[1], 3)) + ']')
+            self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[-1][0], 3)) +
+                               ', ' + str(round(self.current_eye_data[-1][1], 3)) + ']')
         if check_eye:
             # print 'check fixation'
-            fixation = self.evaluate_fixation(target)
-            if not fixation:
-                # lost fixation before target came on
-                self.recover_from_broken_fixation()
+            self.evaluate_fixation(target)
         return task.cont
 
-    def plot_eye_trace(self, first_eye, eye_data):
+    def plot_eye_trace(self, first_eye):
         # print 'plot trace'
         # if plotting too many eye positions, things slow down and
         # python goes into lala land. Never need more than 500, and
@@ -649,13 +640,9 @@ class World(DirectObject):
         # print 'last', last_eye
         # print 'now', self.current_eye_data
         eye.moveTo(first_eye[0], 55, first_eye[1])
-        for data_point in eye_data:
-            converted = self.eye_data_to_pixel(data_point)
-            eye.drawTo(converted[0], 55, converted[1])
+        for data_point in self.current_eye_data:
+            eye.drawTo(data_point[0], 55, data_point[1])
         # print('plotted eye', eye_data_to_plot)
-        #min, max = eye.getTightBounds()
-        #size = max - min
-        # print size[0], size[2]
         node = self.base.render.attachNewNode(eye.create(True))
         node.show(BitMask32.bit(0))
         node.hide(BitMask32.bit(1))
@@ -667,7 +654,10 @@ class World(DirectObject):
         # convert tolerance to pixels
         tolerance = self.tolerance / self.deg_per_pixel
         # send in eye data converted to pixels, self.current_eye_data
-        self.fixated = check_fixation(self.current_eye_data, tolerance, target)
+        fixated = []
+        for data_point in self.current_eye_data:
+            fixated.append(check_fixation(data_point, tolerance, target))
+        self.fixated = all(fixated)
         # print('fixated?', self.fixated)
         # need to check if time to start fixation period or time to end
         # fixation period, otherwise business as usual
@@ -680,10 +670,7 @@ class World(DirectObject):
                 self.initiate_fixation_period()
         elif not self.fixated and previous_fixation:
             print 'broke fixation'
-            # if broke fixation, stop checking for fixation
-            self.fixation_check_flag = False
-            return False
-        return True
+            self.bad_fixation()
 
     def initiate_cross_hair_fixation(self):
         print 'initiate cross hair fixation period'
@@ -709,6 +696,13 @@ class World(DirectObject):
         # at least change the gain by a couple of order of magnitudes
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
+
+    def start_eye_data(self, start_pos=None, variance=None):
+        # if we are sending in variance, then coming from testing and we need to close first
+        if variance is not None:
+            self.eye_data.close()
+        self.eye_data.start_producer_thread('producer', origin=start_pos, variance=variance, log_eye=self.logging)
+        self.eye_data.start_consumer_thread('consumer')
 
     def show_window(self, target_pos):
         # draw line around target representing how close the subject has to be looking to get reward

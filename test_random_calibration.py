@@ -486,7 +486,9 @@ class TestCalibration(unittest.TestCase):
             if self.w.current_task is None:
                 self.w.start_main_loop()
         # make sure looking at right place
+        print 'move eye, I hope'
         self.move_eye_to_get_reward()
+        print 'current task', self.w.current_task
         no_reward = True
         # wait for reward
         while no_reward:
@@ -547,12 +549,13 @@ class TestCalibration(unittest.TestCase):
         self.assertEqual(self.w.current_task, 0)
 
     def move_eye_to_get_reward(self, no_reward=None):
+        print 'Attempting to move eye'
         # find out where the square is...
         # default is stays in fixation window for reward
         square_pos = self.w.square.square.getPos()
-        # print square_pos
+        print square_pos
         variance = 0.001
-        eye_data = (square_pos[0], square_pos[2])
+        start_pos = (square_pos[0], square_pos[2])
         # default is put eye in square
         if no_reward == 'not':
             # put eye way outside of all possible targets
@@ -564,7 +567,8 @@ class TestCalibration(unittest.TestCase):
             variance = 20
         # print 'eye start', eye_data
         # print 'variance', variance
-        self.w.fake_data = fake_eye_data.yield_eye_data(eye_data, variance)
+        self.w.start_eye_data(start_pos, variance)
+        # return start_pos, variance
 
     def tearDown(self):
         print 'tearDown'

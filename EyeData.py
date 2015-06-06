@@ -142,6 +142,6 @@ if __name__ == "__main__":
     ED = EyeData(base, False)
     base.exitFunc = ED.close
     ED.consumer_limit = 10
-    ED.start_thread('producer', ED.producer)
-    ED.start_thread('consumer', ED.consumer)
+    ED.start_producer_thread('producer')
+    ED.start_consumer_thread('consumer')
     ED.base.run()
