@@ -1,5 +1,6 @@
 import random
-import threading, time
+import threading
+import time
 
 next_call = time.time()
 
@@ -24,10 +25,10 @@ def yield_eye_data(origin=None, variance=None):
         (x, y) = origin
     if not variance:
         variance = 0.05
-        #variance = 0.005
+        # variance = 0.005
     while True:
-        #print 'x', x
-        #print 'y', y
+        # print 'x', x
+        # print 'y', y
         yield x, y
         # no drift currently, pure random walk
         x = random.uniform(x + variance, x - variance)

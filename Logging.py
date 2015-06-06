@@ -7,13 +7,13 @@ try:
     sys.path.insert(1, '../pydaq')
     import pydaq
     LOADED_PYDAQ = True
-    #print 'loaded PyDaq'
+    # print 'loaded PyDaq'
 except ImportError:
     LOADED_PYDAQ = False
-    print 'Not using PyDaq'
+    # print 'Not using PyDaq'
 
 
-class Logging():
+class Logging(object):
 
     def __init__(self, config):
         self.config = config

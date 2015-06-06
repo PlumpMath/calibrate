@@ -83,12 +83,10 @@ class World(DirectObject):
             self.gain = [1, 1]
             # print 'test'
             self.unittest = True
-            self.use_daq_data = False
             self.use_daq_reward = False
         else:
             self.unittest = False
-            self.use_daq_data = False  # as opposed to fake data
-            self.use_daq_reward = True
+            self.use_daq_reward = self.config.setdefault('REWARD', True)
 
         # default is not fake data, and don't send signal
         test_data = self.config.setdefault('FAKE_DATA', False)
@@ -116,7 +114,8 @@ class World(DirectObject):
         self.base = ShowBase()
 
         # check to see if we will be showing photos:
-        self.show_photos.self.config.setdefault('PHOTO_PATH', False)
+        # make a new variable, so we can toggle it
+        self.show_photos = self.config.setdefault('PHOTO_PATH', False)
 
         # This will be the photo object, if we are showing photos
         self.photos = None
@@ -179,6 +178,8 @@ class World(DirectObject):
         self.logging = None
         self.eye_data = None
 
+        # if misses fixation, keep position the same
+        self.square_position = None
         # true, clear now, false, plot now, None, do not plot
         self.flag_clear_eyes = None
 
@@ -197,9 +198,8 @@ class World(DirectObject):
 
         self.num_beeps = self.config['NUM_BEEPS']  # number of rewards each time
         self.num_reward = 0  # count number of rewards
-        # first task is square_on, which is zero, but we will increment this
-        # during the task, so needs to be the last task
-        self.next = 0
+        # current task is used for testing, changes at start of each new task
+        self.current_task = None
 
         # Keyboard stuff:
         # initiate
@@ -214,24 +214,23 @@ class World(DirectObject):
         # break_interval - used for auto, how long time out before
         #            next square on, if missed or broke fixation
         # on, fade, reward, move
-        cross_hair_int = self.config.get('CROSS_HAIR_FIX', 0)
+        cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
         self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
                               self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
                               cross_hair_int]
 
         # initiate sequences
         self.manual_sequence = None
-        self.auto_sequence = None
-        self.start_auto_sequence = None
-        self.square_on_parallel = None
+        self.auto_sequence_one = None
+        self.auto_sequence_two = None
 
-        # Corresponding dictionary for writing to file
+        # dictionary for writing to file
         self.sequence_for_file = {
-            0: 'Square on',
-            1: 'Square dims',
-            2: 'Square off',
-            3: 'Reward',
-            4: 'Square moved'
+            0: 'Square moved',
+            1: 'Square on',
+            2: 'Square dims',
+            3: 'Square off',
+            4: 'Reward',
         }
 
     def start_gig(self):
@@ -248,15 +247,15 @@ class World(DirectObject):
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
-        self.eye_data.start_thread('producer', self.eye_data.producer)
-        self.eye_data.start_thread('consumer', self.eye_data.consumer)
+        self.eye_data.start_producer_thread('producer', log_eye=self.logging)
+        self.eye_data.start_consumer_thread('consumer')
 
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
         # print 'end gig'
         # clear screen
-        self.clear_eyes()
+        # self.clear_eyes()
         # close stuff
         self.eye_data.close()
         self.logging.close_files()
@@ -274,9 +273,9 @@ class World(DirectObject):
         # if going from manual to auto, start automatically, otherwise
         # wait for keypress to start.
         if not self.manual:
-            self.start_new_loop()
+            self.start_main_loop()
 
-    def start_new_loop(self, good_trial=None):
+    def start_main_loop(self, good_trial=None):
         # check to see if manual, no subroutines for manual
         if self.manual:
             self.setup_manual_sequence()
@@ -287,11 +286,23 @@ class World(DirectObject):
                 self.call_subroutine(good_trial)
             else:
                 self.setup_auto_sequences()
-                self.plot_eye_data(check_eye=True)
-                self.auto_sequence.start()
+                self.auto_sequence_one.start()
 
     def start_plot_eye_task(self, check_eye=False):
-        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye], appendTask=True)
+        target = None
+        if check_eye:
+            target, on_interval = self.check_target()
+            self.start_check_auto_fixation(target, on_interval)
+        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
+
+    def check_target(self):
+        if self.subroutine:
+            target = None
+            on_interval = None
+        else:
+            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
+            on_interval = random.uniform(*self.interval_list[0])
+        return target, on_interval
 
     def stop_plot_eye_task(self):
         self.base.taskMgr.remove('plot_eye')
@@ -331,10 +342,9 @@ class World(DirectObject):
         self.loop_count = 0
         self.photos.show_actual_photo()
 
-    def cleanup(self):
+    def cleanup_main_loop(self):
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
-        self.next = 0
         good_trial = self.num_reward > 0
         self.num_reward = 0
         # if we change tasks, wait for keypress to start again
@@ -342,40 +352,48 @@ class World(DirectObject):
             # print 'change tasks'
             self.change_tasks()
         else:
+            # unit tests we step through, rather than
+            # run main loop
             if not self.unittest:
                 # print 'start next loop'
-                self.start_new_loop(good_trial)
-                # print('leaving cleanup')
-        # print('done cleanup')
+                self.start_main_loop(good_trial)
+            else:
+                self.current_task = None
+            # print('leaving cleanup_main_loop')
+        # print('done cleanup_main_loop')
 
     def setup_manual_sequence(self):
         # print 'setup manual sequence'
         all_intervals = self.create_intervals()
         # functions to use in sequences:
         plot_eye = Func(self.start_plot_eye_task, check_eye=False)
-        square_on = Func(self.square.turn_on)
-        square_fade = Func(self.square.fade)
-        square_off = Func(self.square.turn_off)
-        give_reward = Func(self.give_reward)
-        clear_screen = Func(self.clear_screen)
         square_move = Func(self.square.move_for_manual_position)
-        write_to_file = Func(self.write_to_file)
-        cleanup = Func(self.cleanup)
+        write_to_file_move = Func(self.write_to_file, 0)
+        square_on = Func(self.square.turn_on)
+        write_to_file_on = Func(self.write_to_file, 1)
+        square_fade = Func(self.square.fade)
+        write_to_file_fade = Func(self.write_to_file, 2)
+        square_off = Func(self.square.turn_off)
+        write_to_file_off = Func(self.write_to_file, 3)
+        give_reward = Func(self.give_reward)
+        write_to_file_reward = Func(self.write_to_file, 4)
+        clear_screen = Func(self.clear_screen)
+        cleanup = Func(self.cleanup_main_loop)
 
         # Parallel does not wait for tasks to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
         # until next trial
 
         self.manual_sequence = Sequence(
-            Parallel(square_on, write_to_file, plot_eye),
+            Parallel(square_move, write_to_file_move, plot_eye),
+            Parallel(square_on, write_to_file_on),
             Wait(all_intervals[0]),
-            Parallel(square_fade, write_to_file),
+            Parallel(square_fade, write_to_file_fade),
             Wait(all_intervals[1]),
-            Parallel(square_off, write_to_file),
+            Parallel(square_off, write_to_file_off),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file, clear_screen),
+            Parallel(give_reward, write_to_file_reward, clear_screen),
             Wait(all_intervals[3]),
-            Parallel(square_move, write_to_file),
             cleanup,
         )
 
@@ -384,19 +402,28 @@ class World(DirectObject):
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
+        # functions used in sequence
+        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
+        watch_eye = Func(self.start_plot_eye_task, check_eye=True)
+        square_move = Func(self.square.move, self.square_position)
+        write_to_file_move = Func(self.write_to_file, 0)
         square_on = Func(self.square.turn_on)
+        write_to_file_on = Func(self.write_to_file, 1)
         end_timer = Func(self.end_fixation_timer)
         square_fade = Func(self.square.fade)
+        write_to_file_fade = Func(self.write_to_file, 2)
         square_off = Func(self.square.turn_off)
+        write_to_file_off = Func(self.write_to_file, 3)
         give_reward = Func(self.give_reward)
+        write_to_file_reward = Func(self.write_to_file, 4)
         clear_screen = Func(self.clear_screen)
-        square_move = Func(self.square.move)
-        write_to_file = Func(self.write_to_file)
-        cleanup = Func(self.cleanup)
+        cleanup = Func(self.cleanup_main_loop)
         # check for fixation and set up auto_task as timer
-        wait_on = Func(self.start_check_fixation)
+        # wait_on = Func(self.start_check_fixation)
 
-        self.square_on_parallel = Parallel(square_on, write_to_file, wait_on)
+        self.auto_sequence_one = Sequence(
+            Parallel(square_move, write_to_file_move),
+            Parallel(square_on, write_to_file_on, watch_eye))
 
         # Parallel does not wait for any doLaterMethods to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
@@ -405,14 +432,13 @@ class World(DirectObject):
         # print('pump delay', self.config['PUMP_DELAY'])
         # print('beeps', self.num_beeps)
 
-        self.auto_sequence = Sequence(
-            Parallel(square_fade, write_to_file, end_timer),
+        self.auto_sequence_two = Sequence(
+            Parallel(square_fade, write_to_file_fade, end_timer, plot_eye),
             Wait(all_intervals[1]),
-            Parallel(square_off, write_to_file),
+            Parallel(square_off, write_to_file_off),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file, clear_screen),
+            Parallel(give_reward, write_to_file_reward, clear_screen),
             Wait(all_intervals[3]),
-            Parallel(square_move, write_to_file),
             cleanup,
         )
 
@@ -426,30 +452,24 @@ class World(DirectObject):
         # print 'reward done'
         return task.done
 
-    def wait_off_task(self, task):
-        # print 'time up, restart'
+    def fixation_broken_task(self, task):
+        print 'no fixation, time up, restart'
         # print time()
         # this task will run for the on interval, if there is a fixation, initiate_fixation_period
         # will begin (started from get_eye_data method), if not we start over here
-        self.restart_auto_loop()
+        self.restart_auto_loop_bad_fixation()
         # print 'return wait_off_task'
         return task.done
 
-    def wait_auto_sequence_task(self, task):
+    def start_auto_sequence_two_task(self, task):
         print 'held fixation, start sequence'
         # made it through fixation, will get reward, stop checking for fixation
-        self.fixation_check_flag = False
+        self.stop_plot_eye_task()
         # so, auto_sequence doesn't return until it has completed the whole
         # sequence, which could mean we have already called the task again before
         # we return. meh. we could remove the task in the sequence, I suppose.
-        print 'wait auto sequence task'
-        self.auto_sequence.start()
-        return task.done
-
-    def wait_cleanup_task(self, task):
-        print 'wait cleanup task'
-        # print time()
-        self.cleanup()
+        print 'part two auto sequence task'
+        self.auto_sequence_two.start()
         return task.done
 
     # auto calibrate methods
@@ -463,49 +483,57 @@ class World(DirectObject):
         # now start the fixation interval
         fixate_interval = random.uniform(*self.interval_list[4])
         # print('fixate interval', fixate_interval)
-        self.base.taskMgr.doMethodLater(fixate_interval, self.wait_auto_sequence_task, 'auto_sequence')
+        self.base.taskMgr.doMethodLater(fixate_interval, self.start_auto_sequence_two_task, 'auto_sequence')
 
     def end_fixation_timer(self):
         # print 'remove fixation timer'
         self.base.taskMgr.remove('auto_sequence')
         
     def recover_from_broken_fixation(self):
-        # print 'recover from broken fixation'
-        # method to restart the task if fixation is broken
-        # stop auto_sequence from starting
-        self.base.taskMgr.remove('auto_sequence')
-        # print(self.base.taskMgr)
-        self.restart_auto_loop()
+        print 'recover from broken fixation'
+        # method to recover if fixation is broken
+        if self.subroutine:
+            # cross hair turns off 1 second, then displayed again
+            pass
+        else:
+            # stop auto_sequence from starting
+            self.base.taskMgr.remove('auto_sequence')
+            # print(self.base.taskMgr)
+            self.restart_auto_loop_bad_fixation()
 
-    def restart_auto_loop(self):
-        print 'restart auto loop, long pause'
+    def restart_auto_loop_bad_fixation(self):
+        print 'restart auto loop, bad fixation long pause'
         # print time()
-        # stop checking fixation
-        self.fixation_check_flag = False
+        # stop plotting and checking eye data
         # make sure there are no tasks waiting
         self.base.taskMgr.removeTasksMatching('auto_*')
         # turn off square
         self.square.turn_off()
+        # keep square postion
+        self.square_position = self.square.square.getPos()
         # write to log
         self.logging.log_event(self.sequence_for_file[2])
         self.logging.log_event('No fixation or broken, restart')
-        self.set_flag_clear_screen()
+        self.clear_screen()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, self.wait_cleanup_task, 'auto_cleanup')
+        self.base.taskMgr.doMethodLater(loop_delay, self.cleanup_main_loop, 'auto_cleanup', extraArgs=[])
         # print(self.base.taskMgr)
 
     # sequence methods for both auto and manual
     def create_intervals(self):
+        # print('interval list', self.interval_list)
         all_intervals = [random.uniform(*i) for i in self.interval_list]
         # print('all intervals', all_intervals)
         return all_intervals
 
     def give_reward(self):
-        print 'reward, should not check fixation', self.fixation_check_flag
+        # print 'reward, should not check fixation', self.fixation_check_flag
+        # if got reward, square can move
+        self.square_position = None
         # print 'reward, 3'
         # print(self.base.taskMgr)
         # give reward for each num_beeps
@@ -524,18 +552,18 @@ class World(DirectObject):
         # print 'give reward returns'
         # print('time', time())
 
-    def write_to_file(self):
-        # print('now', self.next)
-        # print(self.sequence_for_file[self.next])
+    def write_to_file(self, index):
+        # print('now', self.current_task)
+        print(self.sequence_for_file[index])
         # write to file, advance next for next write
-        self.logging.log_event(self.sequence_for_file[self.next])
-        # if this is first time through, write position of square
-        if self.next == 0:
+        self.logging.log_event(self.sequence_for_file[index])
+        # if square is turning on, write position of square
+        if index == 1:
             position = self.square.square.getPos()
             self.logging.log_position(position)
-        # next only affects what we are writing to file,
-        self.next += 1
-        # print('next', self.next)
+        # used for testing
+        self.current_task = index
+        print 'current task from game', self.current_task
 
     def clear_screen(self):
         # We can now stop plotting eye positions,
@@ -551,58 +579,52 @@ class World(DirectObject):
             for eye in self.eye_nodes:
                 if not eye.isEmpty():
                     eye.removeNode()
+        self.current_eye_data = None
         # print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
     
     ##### Eye Methods
-    def start_check_fixation(self):
+    def start_check_auto_fixation(self, target, on_interval):
         # print 'check for fixation'
-        # print('should not be fixated', self.fixated)
-        # show window for tolerance, if auto
-        # and make sure checking for fixation
-        # only used for auto
-        position = self.square.square.getPos()
-        on_interval = random.uniform(*self.interval_list[0])
-        # print('on interval', on_interval)
-        self.show_window(position)
-        self.fixation_check_flag = True
-        # start timing for on task, this runs for square on time and waits for fixation,
+        self.show_window(target)
+        # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
         # print time()
-        self.base.taskMgr.doMethodLater(on_interval, self.wait_off_task, 'auto_off_task')
+        self.base.taskMgr.doMethodLater(on_interval, self.fixation_broken_task, 'auto_off_task')
         # print('should still not be fixated', self.fixated)
 
-    def plot_eye_data(self, check_eye, task):
+    def plot_eye_data(self, check_eye=None, target=None, task=None):
         # get data from producer
         eye_data = self.eye_data.consume_queue()
         if not eye_data:
             return task.cont
-        print 'plot eye data', eye_data
+        # print 'plot eye data', eye_data
         # convert to pixels for plotting and testing distance,
         # need the eye position from the last run for the starting
         # position for move to position for plotting, and the
         # current eye position for ending position
         if not self.current_eye_data:
-            print 'use first data point in this chunk'
+            # print 'use first data point in this chunk'
             # if no previous eye, just use first data point
             start_eye = self.eye_data_to_pixel(eye_data[0])
         else:
-            print 'use previous data'
+            # print 'use previous data'
             start_eye = self.current_eye_data
-        print start_eye
+        # print start_eye
         # print start_eye
         # save last data point, so can use it for start position next time
         self.current_eye_data = self.eye_data_to_pixel(eye_data[-1])
         self.plot_eye_trace(start_eye, eye_data)
-
-        # print the last eye position
-        if not self.config['FAKE_DATA']:
-            self.text3.setText('IScan: [' + str(round(self.current_eye_data[0], 3)) +
+        # and set text
+        if not self.unittest:
+            self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[0], 3)) +
                                ', ' + str(round(self.current_eye_data[1], 3)) + ']')
-        else:
-            self.text3.setText('Fake Data: [' + str(round(self.current_eye_data[0], 3)) +
-                               ', ' + str(round(self.current_eye_data[1], 3)) + ']')
-            # print 'text set'
+        if check_eye:
+            # print 'check fixation'
+            fixation = self.evaluate_fixation(target)
+            if not fixation:
+                # lost fixation before target came on
+                self.recover_from_broken_fixation()
         return task.cont
 
     def plot_eye_trace(self, first_eye, eye_data):
@@ -650,14 +672,14 @@ class World(DirectObject):
         # need to check if time to start fixation period or time to end
         # fixation period, otherwise business as usual
         if self.fixated and not previous_fixation:
-            # print 'fixated, start fixation period'
+            print 'fixated, start fixation period'
             # start fixation period
             if self.fixation_cross_flag:
                 self.initiate_cross_hair_fixation()
             else:
                 self.initiate_fixation_period()
         elif not self.fixated and previous_fixation:
-            # print 'broke fixation'
+            print 'broke fixation'
             # if broke fixation, stop checking for fixation
             self.fixation_check_flag = False
             return False
@@ -677,55 +699,8 @@ class World(DirectObject):
     def end_cross_fixation(self, task):
         print 'end cross fixation'
         self.photos.clear_cross()
-        self.start_new_loop()
+        self.start_main_loop()
         return task.done
-
-    def get_eye_data(self, eye_data):
-        # pydaq calls this method every time it calls back to get eye data,
-        # if testing, self.get_fake_data_task calls this method with fake data
-        # We want to change gain on data being plotted, and
-        # write eye data (as is, no adjustments) and timestamp to file
-        # if we are paused, do not plot eye data (pausing messes up
-        # with cleanup), but still collect the data
-        # print 'log'
-        self.logging.log_eye(eye_data)
-        # when searching for a particular eye data
-        # sometimes useful to not print timestamp
-        # self.eye_data_file.write(str(eye_data).strip('()') + '\n')
-        self.plot_eye_data(eye_data)
-        # check if in window for auto-calibrate
-        if self.fixation_check_flag:
-            # print 'check fixation'
-            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-            fixation = self.evaluate_fixation(target)
-            if not fixation:
-                # abort trial, start again with square in same position
-                self.recover_from_broken_fixation()
-            # if checking fixation here, not showing photos,
-            # so can immediately return
-            return
-        if self.fixation_cross_flag:
-            # cross hair always in center
-            target = (0, 0)
-            fixation = self.evaluate_fixation(target)
-            if not fixation:
-                pass
-                # show cross hair again
-            return
-        if self.fixation_photo_flag:
-            # for photos, only switch the fixation_check_flag when done
-            # showing a photo, stop timer when not fixating, turn back on when
-            # fixating
-            # check to see if subject is still looking at photo
-            self.photos.check_fixation(self.current_eye_data)
-            # flag_timer lets us know if subject is fixating, and if time
-            # should therefor be counted towards total time
-            # once check_eye is false,
-            # time to stop worrying about fixation and drawing eye positions
-            if not self.photos.check_eye:
-                # print 'stop checking fixation'
-                self.fixation_photo_flag = False
-                self.flag_clear_eyes = True
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -735,7 +710,7 @@ class World(DirectObject):
         return [(eye_data[0] + self.offset[0]) * self.gain[0],
                 (eye_data[1] + self.offset[1]) * self.gain[1]]
 
-    def show_window(self, square_pos):
+    def show_window(self, target_pos):
         # draw line around target representing how close the subject has to be looking to get reward
         # print('show window around square', square_pos)
         tolerance = self.tolerance / self.deg_per_pixel
@@ -749,7 +724,7 @@ class World(DirectObject):
             a = angle_radians * i / 49
             y = tolerance * sin(a)
             x = tolerance * cos(a)
-            eye_window.drawTo((x + square_pos[0], 55, y + square_pos[2]))
+            eye_window.drawTo((x + target_pos[0], 55, y + target_pos[1]))
 
         # draw a radius line
         #eye_window.moveTo(square[0], 55, square[2])
@@ -869,7 +844,7 @@ class World(DirectObject):
     def setup_keys(self):
         self.accept("escape", self.close)  # escape
         # starts turning square on
-        self.accept("space", self.start_new_loop)
+        self.accept("space", self.start_main_loop)
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change
@@ -878,7 +853,7 @@ class World(DirectObject):
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
         # done with an outside process, time to cleanup
-        self.accept("cleanup", self.cleanup)
+        self.accept("cleanup", self.cleanup_main_loop)
         self.accept("shift-arrow_up", self.change_gain_or_offset, ['Gain', 1, 1])
         self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['Gain', 1, 1])
         self.accept("shift-arrow_down", self.change_gain_or_offset, ['Gain', 1, -1])

@@ -20,20 +20,20 @@ def is_int_string(s):
 
 
 class TestCalibration(unittest.TestCase):
-# Need to make these tests faster. Since we are testing the logic
-# of moving from one task to the next, probably easiest way is to
-# override the intervals to much smaller amounts.
+    # Need to make these tests faster. Since we are testing the logic
+    # of moving from one task to the next, probably easiest way is to
+    # override the intervals to much smaller amounts.
 
-# self.next advances before the wait period, so for testing
-# we need to use the numbers from calibration advanced by one.
-# square on: 1, square fade: 2, square off: 3,
-# reward: 4, square moves: 5
+    # self.next advances before the wait period, so for testing
+    # we need to use the numbers from calibration advanced by one.
+    # square on: 1, square fade: 2, square off: 3,
+    # reward: 4, square moves: 5
 
     @classmethod
     def setUpClass(cls):
         loadPrcFileData("", "window-type offscreen")
-        #ConfigVariableString("window-type","offscreen").setValue("offscreen")
-        #print 'about to load world'
+        # ConfigVariableString("window-type","offscreen").setValue("offscreen")
+        # print 'about to load world'
         # run in auto, 0
         cls.w = World(0, 'config_test.py')
         cls.w.setup_game()
@@ -42,27 +42,49 @@ class TestCalibration(unittest.TestCase):
         self.config = {}
         execfile('config_test.py', self.config)
         self.w.start_gig()
-        self.w.start_new_loop()
+        self.w.start_main_loop()
+
+    def finish_loop(self):
+        # does a full loop if just ended, finishes the current
+        # loop if you have already started
+        # always ends at cleanup
+        print 'finish loop'
+        taskMgr.step()
+        if self.w.current_task is None:
+            print 'restarted loop'
+            self.w.start_main_loop()
+        now = self.w.current_task
+        first_loop = True
+        print 'now before loop', now
+        # check each time we change tasks
+        while first_loop:
+            taskMgr.step()
+            if self.w.current_task != now:
+                print('took a step', self.w.current_task)
+                now = self.w.current_task
+                if now is None:
+                    first_loop = False
+        print 'end loop'
 
     def test_square_fades(self):
         # we may change the actual colors, so just make sure the
         # color before and after the switch are different
         old_color = self.w.square.square.getColor()
-        #print 'color', old_color
+        # print 'color', old_color
         square_on = True
         on = False
         # need to show the square, and then get to the dim square method
         while square_on:
             taskMgr.step()
-            if self.w.next == 1 and not on:
+            if self.w.current_task == 1 and not on:
                 # make sure we will fade, only want to run this once...
-                #print 'move eye data'
+                # print 'move eye data'
                 self.move_eye_to_get_reward()
                 on = True
-            if self.w.next == 2 and on:
-                #print 'square should be dim'
+            if self.w.current_task == 2 and on:
+                # print 'square should be dim'
                 square_on = False
-        #print self.w.square.square.getColor()
+        # print self.w.square.square.getColor()
         self.assertNotEqual(self.w.square.square.getColor(), old_color)
 
     def test_square_moves_after_fixation(self):
@@ -73,26 +95,25 @@ class TestCalibration(unittest.TestCase):
         # need to show the square, and then get to the move square method
         while square_off:
             taskMgr.step()
-            if self.w.next == 1 and not move:
-                #print 'first square on, move eye'
+            if self.w.current_task == 1 and not move:
+                # print 'first square on, move eye'
                 # find out where the square is...
                 square_pos = self.w.square.square.getPos()
                 self.move_eye_to_get_reward()
                 move = True
-            if self.w.next == 1 and move:
-                #print 'and exit'
+            if self.w.current_task == 1 and move:
+                # print 'and exit'
                 square_off = False
         self.assertNotEqual(self.w.square.square.getPos, square_pos)
 
     def test_square_turns_off_after_breaking_fixation(self):
-       # First get to square on
+        # First get to square on
         square_off = True
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
         # make sure looking at right place (breaks fixation)
         self.move_eye_to_get_reward('break')
@@ -102,28 +123,27 @@ class TestCalibration(unittest.TestCase):
         no_change = True
         while no_change:
             taskMgr.step()
-            if self.w.next == 0:
+            if self.w.current_task == 0:
                 no_change = False
         self.assertFalse(self.w.square.square.getParent())
 
     def test_square_turns_off_after_missed_fixation(self):
-       # First get to square on
+        # First get to square on
         square_off = True
         # make sure looking at right place (not fixation)
         self.move_eye_to_get_reward('not')
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
         # Now wait for 0. This means we should have turned off the square,
         # and next will turn on the square after a missed fixation
         no_change = True
         while no_change:
             taskMgr.step()
-            if self.w.next == 0:
+            if self.w.current_task == 0:
                 no_change = False
         self.assertFalse(self.w.square.square.getParent())
 
@@ -131,26 +151,31 @@ class TestCalibration(unittest.TestCase):
         # First get to square on
         square_off = True
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
+            if self.w.current_task is None:
+                self.w.start_main_loop()
         # find out where the square is...
         square_pos = self.w.square.square.getPos()
-        #print 'about to break, square is ', square_pos
+        # print 'about to break, square is ', square_pos
         # make sure looking at right place (breaks fixation)
         self.move_eye_to_get_reward('break')
-        # now wait for self.w.next to change again, should be
-        # 4, not 2 or 3, since we broke fixation
-        no_change = True
-        while no_change:
-            taskMgr.step()
-            if self.w.next == 0:
-                no_change = False
+        # now force self.w.current_task to change again, should be
+        # None since we broke fixation
+        taskMgr.step()
+        self.assertEqual(self.w.current_task, None)
+        # no_change = True
+        # while no_change:
+        #     taskMgr.step()
+        #     if self.w.current_task == 1:
+        #         no_change = False
+        #     if self.w.current_task is None:
+        #         self.w.start_main_loop()
         new_square_pos = self.w.square.square.getPos()
-        #print 'should be in same place', new_square_pos
+        # print 'should be in same place', new_square_pos
         self.assertEqual(square_pos, new_square_pos)
 
     def test_repeats_same_square_if_no_fixation(self):
@@ -158,51 +183,51 @@ class TestCalibration(unittest.TestCase):
         square_off = True
         # find out where the square is...
         square_pos = self.w.square.square.getPos()
-        #print 'not looking at ', square_pos
+        # print 'not looking at ', square_pos
         # make sure looking at right place (not fixation)
         self.move_eye_to_get_reward('not')
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
-        # Now wait for 0. This means we are about to turn on the square after
+            if self.w.current_task is None:
+                self.w.start_main_loop()
+        # Now wait for None. This means we are about to turn on the square after
         # missed fixation
         no_change = True
         while no_change:
             taskMgr.step()
-            if self.w.next == 0:
+            if self.w.current_task is None:
                 no_change = False
         new_square_pos = self.w.square.square.getPos()
-        #print 'should be in same place', new_square_pos
+        # print 'should be in same place', new_square_pos
         self.assertEqual(square_pos, new_square_pos)
 
     def test_square_turns_on_after_move(self):
         count = 0
         square_off = True
-        last = self.w.next
+        last = self.w.current_task
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
-            #print count
+            # print count
             # need to check for frameTask.now to change to 1 the second time
             # (first time is just the beginning of the task, before moving)
             # if taskTask.now changes to 1, then we have just turned on
             # sometimes, especially with off-screen, the timing isn't accurate,
             # and we have to calls to the same function right in a row. Make sure
             # when frameTask.now is one, it is changing from something else.
-            if self.w.next != last:
-                last = self.w.next
+            if self.w.current_task != last:
+                last = self.w.current_task
                 print last
             if last == 0:
-                #print 'new loop'
+                # print 'new loop'
                 # last will only be 0 the second time around
-                self.w.start_new_loop()
+                self.w.start_main_loop()
                 count = 1
             if last == 1 and count == 1:
-                #print 'square should be on for second time'
+                # print 'square should be on for second time'
                 square_off = False
             if last == 1:
                 self.move_eye_to_get_reward()
@@ -214,11 +239,10 @@ class TestCalibration(unittest.TestCase):
         square_off = True
         a = 0
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 a = datetime.datetime.now()
                 square_off = False
         # make sure looking at right place
@@ -226,17 +250,16 @@ class TestCalibration(unittest.TestCase):
         # now wait for fade:
         square_on = True
         while square_on:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 2:
-                #print 'square should be on'
+            if self.w.current_task == 2:
+                # print 'square should be on'
                 square_on = False
         b = datetime.datetime.now()
         c = b - a
-        #print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
@@ -252,23 +275,23 @@ class TestCalibration(unittest.TestCase):
         square_on = True
         a = 0
         b = 0
-        #print(self.w.square.square.getParent())
-        #print 'start'
+        # print(self.w.square.square.getParent())
+        # print 'start'
         self.move_eye_to_get_reward('not')
         while square_off:
             taskMgr.step()
             a = datetime.datetime.now()
             # if square is parented to render, it is on, otherwise has no parent
             if self.w.square.square.getParent():
-                #print 'square should be on'
+                # print 'square should be on'
                 square_off = False
         # now wait for square to turn back off:
-        #print 'next loop'
+        # print 'next loop'
         while square_on:
             taskMgr.step()
             if not self.w.square.square.getParent():
                 b = datetime.datetime.now()
-                #print 'square should be off'
+                # print 'square should be off'
                 square_on = False
 
         c = b - a
@@ -279,7 +302,7 @@ class TestCalibration(unittest.TestCase):
         # rendering (all others I have 'better?' ways of testing. Hmmm.
         #
         c = c + datetime.timedelta(seconds=0.05)
-        #print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
@@ -292,27 +315,26 @@ class TestCalibration(unittest.TestCase):
         a = 0
         b = 0
         while square_dim:
-        #while time.time() < time_out:
             taskMgr.step()
             a = datetime.datetime.now()
             # if taskTask.now changes to 2, then we have just changed color
-            if self.w.next == 2:
-                #print 'square should be faded'
+            if self.w.current_task == 2:
+                # print 'square should be faded'
                 square_dim = False
         # now wait for fade off:
-        #print 'square should be faded'
+        # print 'square should be faded'
         while square_fade:
             taskMgr.step()
             b = datetime.datetime.now()
             # if taskTask.now changes to 3, then we have just turned off
-            if self.w.next > 2:
-                #print 'square should be off'
+            if self.w.current_task > 2:
+                # print 'square should be off'
                 square_fade = False
         c = b - a
-        #print 'square should be off'
-        #print 'c', c.total_seconds()
+        # print 'square should be off'
+        # print 'c', c.total_seconds()
         # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really off, sanity check
         self.assertFalse(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
@@ -332,30 +354,28 @@ class TestCalibration(unittest.TestCase):
         a = 0
         b = 0
         while square_on:
-            #while time.time() < time_out:
             taskMgr.step()
             a = datetime.datetime.now()
-            if self.w.next == 1 and not fade:
+            if self.w.current_task == 1 and not fade:
                 # if we go on during loop, might not be in correct place
                 self.move_eye_to_get_reward()
                 fade = True
-            if self.w.next > 2 and fade:
+            if self.w.current_task > 2 and fade:
                 # if taskTask.now changes to 3, then we have just turned off
-                #print 'square should be off'
+                # print 'square should be off'
                 square_on = False
                 # now wait for move/on:
         # now wait for reward
 
         while no_reward:
-            #while time.time() < time_out:
             taskMgr.step()
             b = datetime.datetime.now()
             # if taskTask.now changes to 4, then we have just turned on
-            if self.w.next == 0:
-                #print 'square should be off'
+            if self.w.current_task == 0:
+                # print 'square should be off'
                 no_reward = False
         c = b - a
-        #print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         config_time = self.config['REWARD_INTERVAL'][0] + self.config['MOVE_INTERVAL'][0]
@@ -373,33 +393,32 @@ class TestCalibration(unittest.TestCase):
         b = 0
         self.move_eye_to_get_reward()
         while no_reward:
-            #while time.time() < time_out:
             taskMgr.step()
             a = datetime.datetime.now()
             # if taskTask.now changes to 4, then we just gave reward,
             # however we have to wait for all of the reward to be given,
-            if self.w.next == 4:
+            if self.w.current_task == 4:
                 print 'test: reward'
                 no_reward = False
         # now wait for move/on:
-        previous = self.w.next
+        previous = self.w.current_task
         while square_off:
             taskMgr.step()
             b = datetime.datetime.now()
-            if self.w.next != previous:
-                print('test:', self.w.next)
-                previous = self.w.next
-            if self.w.next == 0:
+            if self.w.current_task != previous:
+                print('test:', self.w.current_task)
+                previous = self.w.current_task
+            if self.w.current_task == 0:
                 print 'loop'
-                self.w.start_new_loop()
+                self.w.start_main_loop()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
+            if self.w.current_task == 1:
                 print 'square should be on'
                 square_off = False
         c = b - a
         print 'c', c.total_seconds()
         # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
         self.assertTrue(self.w.square.square.getParent())
         # make sure timing within 1 place, won't be very accurate.
@@ -407,7 +426,6 @@ class TestCalibration(unittest.TestCase):
         # move interval is from start of reward until move, so includes time it takes
         # for reward
         delay = self.config['MOVE_INTERVAL'][0]
-        #delay = self.config['MOVE_INTERVAL'][0]
         self.assertAlmostEqual(c.total_seconds(), delay, 1)
 
     def test_timing_for_time_out_if_missed_fixation(self):
@@ -421,8 +439,8 @@ class TestCalibration(unittest.TestCase):
         # since we can't guarantee there wasn't a fixation before we moved the eye
         # assuming we have done everything correctly in teardown and setup, we should never have
         # anything except next = 0 to start with
-        self.assertTrue(self.w.next == 0)
-        #print('next', last)
+        self.assertTrue(self.w.current_task == 0)
+        # print('next', last)
         square_on = True
         square_off = True
         a = 0
@@ -430,26 +448,26 @@ class TestCalibration(unittest.TestCase):
         while square_on:
             taskMgr.step()
             a = datetime.datetime.now()
-            if self.w.next > 0:
+            if self.w.current_task > 0:
                 if not self.w.square.square.getParent():
                     # square turned off
                     square_on = False
-                    #print 'square off, I think'
-                    #print self.w.next
+                    # print 'square off, I think'
+                    # print self.w.current_task
         # now wait for square to turn back on
-        #print 'next loop'
+        # print 'next loop'
         while square_off:
             taskMgr.step()
             b = datetime.datetime.now()
-            if self.w.next == 0:
-                self.w.start_new_loop()
+            if self.w.current_task == 0:
+                self.w.start_main_loop()
             if self.w.square.square.getParent():
-                #print('square should be back on')
+                # print('square should be back on')
                 square_off = False
         c = b - a
-        #print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # check that time is close
-        #print 'c should be', self.config['MOVE_INTERVAL'][0]
+        # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         # the break is the move interval + break interval
@@ -460,19 +478,21 @@ class TestCalibration(unittest.TestCase):
         # First get to square on
         square_off = True
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
+            if self.w.current_task is None:
+                self.w.start_main_loop()
         # make sure looking at right place
         self.move_eye_to_get_reward()
         no_reward = True
+        # wait for reward
         while no_reward:
             taskMgr.step()
-            # if taskTask.now changes to 2, then we have just faded
-            if self.w.next > 3:
+            # if taskTask.now changes to 4, then getting reward
+            if self.w.current_task > 3:
                 no_reward = False
         self.assertTrue(self.w.num_reward > 1)
 
@@ -483,24 +503,23 @@ class TestCalibration(unittest.TestCase):
         self.move_eye_to_get_reward('not')
         square_off = True
         while square_off:
-        #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
-        # now wait for self.w.next to change again, should be
+        # now wait for self.w.current_task to change again, should be
         # at zero now, started over
         no_change = True
         while no_change:
             taskMgr.step()
-            if self.w.next != 1:
+            if self.w.current_task != 1:
                 no_change = False
         # next step should not be reward or square dims, should be
         # square turns on (without moving)
-        self.assertNotEqual(self.w.next, 2)
-        self.assertNotEqual(self.w.next, 3)
-        self.assertEqual(self.w.next, 0)
+        self.assertNotEqual(self.w.current_task, 2)
+        self.assertNotEqual(self.w.current_task, 3)
+        self.assertEqual(self.w.current_task, 0)
 
     def test_no_reward_if_look_but_break_fixation(self):
         # First get to square on
@@ -509,51 +528,49 @@ class TestCalibration(unittest.TestCase):
         #while time.time() < time_out:
             taskMgr.step()
             # if taskTask.now changes to 1, then we have just turned on
-            if self.w.next == 1:
-                #print 'square should be on'
+            if self.w.current_task == 1:
+                # print 'square should be on'
                 square_off = False
         # make sure looking at right place
         self.move_eye_to_get_reward('break')
-        # now wait for self.w.next to change again, should be
+        # now wait for self.w.current_task to change again, should be
         # 0, not 2 or 3, since we broke fixation
         no_change = True
         while no_change:
             taskMgr.step()
-            if self.w.next != 1:
+            if self.w.current_task != 1:
                 no_change = False
         # next step should not be reward or square dims, should be
         # square turns on (without moving)
-        self.assertNotEqual(self.w.next, 2)
-        self.assertNotEqual(self.w.next, 3)
-        self.assertEqual(self.w.next, 0)
+        self.assertNotEqual(self.w.current_task, 2)
+        self.assertNotEqual(self.w.current_task, 3)
+        self.assertEqual(self.w.current_task, 0)
 
     def move_eye_to_get_reward(self, no_reward=None):
         # find out where the square is...
         # default is stays in fixation window for reward
         square_pos = self.w.square.square.getPos()
-        #print square_pos
+        # print square_pos
         variance = 0.001
         eye_data = (square_pos[0], square_pos[2])
         # default is put eye in square
         if no_reward == 'not':
             # put eye way outside of all possible targets
-            #print 'not'
+            # print 'not'
             eye_data = (2000, 2000)
         elif no_reward == 'break':
-            #print 'break'
+            # print 'break'
             # start out at fixation, but move out quickly
             variance = 20
-        #print 'eye start', eye_data
-        #print 'variance', variance
+        # print 'eye start', eye_data
+        # print 'variance', variance
         self.w.fake_data = fake_eye_data.yield_eye_data(eye_data, variance)
 
     def tearDown(self):
         print 'tearDown'
         # clear out any half-finished tasks
-        if self.w.auto_sequence:
-            self.w.auto_sequence.finish()
-        taskMgr.step()
-        self.w.cleanup()
+        if self.w.current_task is not None:
+            self.finish_loop()
         self.w.end_gig()
 
 
