@@ -212,7 +212,7 @@ class World(DirectObject):
         # fix_interval - used for auto, how long required to fixate
         # break_interval - used for auto, how long time out before
         #            next square on, if missed or broke fixation
-        # on, fade, reward, move
+        # on, fade, reward, move, fix, break
         cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
         self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
                               self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
@@ -230,6 +230,8 @@ class World(DirectObject):
             2: 'Square dims',
             3: 'Square off',
             4: 'Reward',
+            5: 'Fixated',
+            6: 'Bad Fixation',
         }
 
     def start_gig(self):
@@ -287,6 +289,7 @@ class World(DirectObject):
                 self.auto_sequence_one.start()
 
     def cleanup_main_loop(self):
+        print 'cleanup main loop'
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         good_trial = self.num_reward > 0
@@ -353,7 +356,7 @@ class World(DirectObject):
         write_to_file_move = Func(self.write_to_file, 0)
         square_on = Func(self.square.turn_on)
         write_to_file_on = Func(self.write_to_file, 1)
-        end_timer = Func(self.end_fixation_timer)
+        write_to_file_fix = Func(self.write_to_file, 5)
         square_fade = Func(self.square.fade)
         write_to_file_fade = Func(self.write_to_file, 2)
         square_off = Func(self.square.turn_off)
@@ -364,7 +367,12 @@ class World(DirectObject):
         cleanup = Func(self.cleanup_main_loop)
         # check for fixation and set up auto_task as timer
         # wait_on = Func(self.start_check_fixation)
+        # we don't know how long the wait period should be for square on,
+        # because that wait period doesn't start until fixation, and we don't
+        # know when that will happen. So make two sequences, so wait period
+        # is flexible
 
+        # start the first sequence.
         self.auto_sequence_one = Sequence(
             Parallel(square_move, write_to_file_move),
             Parallel(square_on, write_to_file_on, watch_eye))
@@ -377,7 +385,9 @@ class World(DirectObject):
         # print('beeps', self.num_beeps)
 
         self.auto_sequence_two = Sequence(
-            Parallel(square_fade, write_to_file_fade, end_timer, plot_eye),
+            Parallel(write_to_file_fix, watch_eye),
+            Wait(all_intervals[4]),
+            Parallel(square_fade, write_to_file_fade, plot_eye),
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file_off),
             Wait(all_intervals[2]),
@@ -387,7 +397,7 @@ class World(DirectObject):
         )
 
     ### all tasks
-    def wait_between_reward(self, task):
+    def reward_after_pause(self, task):
         # print 'give another reward'
         self.reward_task.pumpOut()
         self.num_reward += 1
@@ -396,64 +406,52 @@ class World(DirectObject):
         # print 'reward done'
         return task.done
 
-    def bad_fixation(self, task=None):
-        # this task waits run to run for the on interval, if there is a fixation, initiate_fixation_period
-        # will begin and stop this task (started from plot_eye_data method), if not we start over here
-        # this task is also called if fixation is broken after fixation period has begun. In that case,
-        # we need to remove the auto sequence, but no harm removing non-existant task
-        print 'no fixation or broken fixaiton, restart'
+    def no_fixation(self, task):
+        # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
+        # will begin and stop this task from running (started from plot_eye_data method), if not we start over here
+        print 'no fixation or broken fixation, restart'
+        self.stop_plot_eye_task()
         # print time()
         if self.subroutine:
             # cross hair turns off 1 second, then displayed again
             pass
         else:
-            # stop auto_sequence from starting
-            self.base.taskMgr.remove('auto_sequence')
-            # print(self.base.taskMgr)
             self.restart_auto_loop_bad_fixation()
         # print 'return wait_off_task'
-
-    def start_auto_sequence_two_task(self, task):
-        print 'held fixation, start sequence'
-        # made it through fixation, will get reward, stop checking for fixation
-        self.stop_plot_eye_task()
-        # so, auto_sequence doesn't return until it has completed the whole
-        # sequence, which could mean we have already called the task again before
-        # we return. meh. we could remove the task in the sequence, I suppose.
-        print 'part two auto sequence task'
-        self.auto_sequence_two.start()
         return task.done
 
-    # auto calibrate methods
-    def initiate_fixation_period(self):
-        print 'initiate fixation period'
-        # subject has fixated, if makes it through fixation interval, will start sequence to get reward, otherwise
-        # will abort and start over
-        # first stop the on interval
-        self.base.taskMgr.remove('auto_off_task')
-        self.logging.log_event('Fixated')
-        # now start the fixation interval
-        fixate_interval = random.uniform(*self.interval_list[4])
-        # print('fixate interval', fixate_interval)
-        self.base.taskMgr.doMethodLater(fixate_interval, self.start_auto_sequence_two_task, 'auto_sequence')
+    def broke_fixation(self):
+        # this task is called if fixation is broken, so during second auto-calibrate sequence
+        # don't need auto task anymore
+        self.base.taskMgr.remove('wait_for_fixation_task')
+        # stop checking the eye
+        self.stop_plot_eye_task()
+        # stop sequence
+        print 'stop sequence'
+        self.auto_sequence_two.finish()
+        print 'restart'
+        self.restart_auto_loop_bad_fixation()
 
-    def end_fixation_timer(self):
-        # print 'remove fixation timer'
-        self.base.taskMgr.remove('auto_sequence')
+    # auto calibrate methods
+    def start_fixation_period(self):
+        print 'We have fixation'
+        # start next sequence. Can still be aborted, if lose fixation
+        # during first interval
+        self.auto_sequence_two.start()
 
     def restart_auto_loop_bad_fixation(self):
         print 'restart auto loop, bad fixation long pause'
         # print time()
         # stop plotting and checking eye data
         # make sure there are no tasks waiting
-        self.base.taskMgr.removeTasksMatching('auto_*')
+        # self.base.taskMgr.removeTasksMatching('auto_*')
         # turn off square
         self.square.turn_off()
-        # keep square postion
+        # keep square position
         self.square_position = self.square.square.getPos()
         # write to log
-        self.logging.log_event(self.sequence_for_file[2])
-        self.logging.log_event('No fixation or broken, restart')
+        self.write_to_file(3)  # square off
+        self.write_to_file(6)  # bad fixation
         self.clear_screen()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
@@ -483,7 +481,7 @@ class World(DirectObject):
             self.num_reward = 1
             self.reward_task.pumpOut()
             # if using actual reward have to wait to give next reward
-            self.base.taskMgr.doMethodLater(self.config['PUMP_DELAY'], self.wait_between_reward, 'reward')
+            self.base.taskMgr.doMethodLater(self.config['PUMP_DELAY'], self.reward_after_pause, 'reward')
         else:
             for i in range(self.num_beeps):
                 # print 'beep'
@@ -492,6 +490,7 @@ class World(DirectObject):
         # print('time', time())
 
     def write_to_file(self, index):
+        print self.base.taskMgr
         # print('now', self.current_task)
         print(self.sequence_for_file[index])
         # write to file, advance next for next write
@@ -525,11 +524,11 @@ class World(DirectObject):
     def start_plot_eye_task(self, check_eye=False):
         target = None
         if check_eye:
-            target, on_interval = self.check_target()
+            target, on_interval = self.check_fixation_target()
             self.start_check_auto_fixation(target, on_interval)
         self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
 
-    def check_target(self):
+    def check_fixation_target(self):
         if self.subroutine:
             target = None
             on_interval = None
@@ -584,7 +583,7 @@ class World(DirectObject):
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
         # print time()
-        self.base.taskMgr.doMethodLater(on_interval, self.bad_fixation, 'auto_off_task')
+        self.base.taskMgr.doMethodLater(on_interval, self.no_fixation, 'wait_for_fixation_task')
         # print('should still not be fixated', self.fixated)
 
     def plot_eye_data(self, check_eye=None, target=None, task=None):
@@ -663,25 +662,25 @@ class World(DirectObject):
         # fixation period, otherwise business as usual
         if self.fixated and not previous_fixation:
             print 'fixated, start fixation period'
+            # end waiting period
+            self.base.removeTask('wait_for_fixation_task')
             # start fixation period
             if self.fixation_cross_flag:
                 self.initiate_cross_hair_fixation()
             else:
-                self.initiate_fixation_period()
+                self.start_fixation_period()
         elif not self.fixated and previous_fixation:
             print 'broke fixation'
-            self.bad_fixation()
+            self.broke_fixation()
 
     def initiate_cross_hair_fixation(self):
         print 'initiate cross hair fixation period'
         # subject has fixated, if makes it through fixation interval, will show picture, otherwise
         # will abort and start over
         # first stop the on interval
-        self.logging.log_event('Fixated')
+        self.write_to_file(5)
         # now start the fixation interval
-        fixate_interval = random.uniform(*self.interval_list[5])
-        print('fixate interval', fixate_interval)
-        self.base.taskMgr.doMethodLater(fixate_interval, self.end_cross_fixation, 'cross_fixation')
+        # self.cross_hair_sequence.start()
 
     def end_cross_fixation(self, task):
         print 'end cross fixation'

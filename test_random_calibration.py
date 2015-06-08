@@ -163,19 +163,20 @@ class TestCalibration(unittest.TestCase):
         # print 'about to break, square is ', square_pos
         # make sure looking at right place (breaks fixation)
         self.move_eye_to_get_reward('break')
-        # now force self.w.current_task to change again, should be
-        # None since we broke fixation
-        taskMgr.step()
+        # now force self.w.current_task to change so fixation breaks
+        no_change = True
+        test = 1
+        while no_change:
+            taskMgr.step()
+            if self.w.current_task != test:
+                if test == 1:
+                    test = self.w.current_task
+                else:
+                    no_change = False
+        print 'current task', self.w.current_task
         self.assertEqual(self.w.current_task, None)
-        # no_change = True
-        # while no_change:
-        #     taskMgr.step()
-        #     if self.w.current_task == 1:
-        #         no_change = False
-        #     if self.w.current_task is None:
-        #         self.w.start_main_loop()
         new_square_pos = self.w.square.square.getPos()
-        # print 'should be in same place', new_square_pos
+        print 'should be in same place', new_square_pos
         self.assertEqual(square_pos, new_square_pos)
 
     def test_repeats_same_square_if_no_fixation(self):
@@ -510,18 +511,19 @@ class TestCalibration(unittest.TestCase):
             if self.w.current_task == 1:
                 # print 'square should be on'
                 square_off = False
-        # now wait for self.w.current_task to change again, should be
-        # at zero now, started over
+        # now wait for self.w.current_task to change again, will run through
+        # turning off, bad fixation and switch to None all at once
         no_change = True
         while no_change:
             taskMgr.step()
             if self.w.current_task != 1:
                 no_change = False
+        # print 'end second loop', self.w.current_task
         # next step should not be reward or square dims, should be
-        # square turns on (without moving)
+        # None, start over
         self.assertNotEqual(self.w.current_task, 2)
         self.assertNotEqual(self.w.current_task, 3)
-        self.assertEqual(self.w.current_task, 0)
+        self.assertEqual(self.w.current_task, None)
 
     def test_no_reward_if_look_but_break_fixation(self):
         # First get to square on
@@ -535,18 +537,23 @@ class TestCalibration(unittest.TestCase):
                 square_off = False
         # make sure looking at right place
         self.move_eye_to_get_reward('break')
-        # now wait for self.w.current_task to change again, should be
-        # 0, not 2 or 3, since we broke fixation
+        # we will fixate, and then break fixation, so wait for
+        # self.w.current_task to change twice, then should be
+        # 6, since we broke fixation
         no_change = True
+        now = 1
         while no_change:
             taskMgr.step()
-            if self.w.current_task != 1:
-                no_change = False
+            if self.w.current_task != now:
+                if self.w.current_task == 5:
+                    now = 5
+                else:
+                    no_change = False
         # next step should not be reward or square dims, should be
         # square turns on (without moving)
         self.assertNotEqual(self.w.current_task, 2)
         self.assertNotEqual(self.w.current_task, 3)
-        self.assertEqual(self.w.current_task, 0)
+        self.assertEqual(self.w.current_task, 6)
 
     def move_eye_to_get_reward(self, no_reward=None):
         print 'Attempting to move eye'
@@ -560,7 +567,7 @@ class TestCalibration(unittest.TestCase):
         if no_reward == 'not':
             # put eye way outside of all possible targets
             # print 'not'
-            eye_data = (2000, 2000)
+            start_pos = (2000, 2000)
         elif no_reward == 'break':
             # print 'break'
             # start out at fixation, but move out quickly
