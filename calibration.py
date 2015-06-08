@@ -406,7 +406,7 @@ class World(DirectObject):
         print 'timed out, no fixation'
         # print 'where eye is', self.current_eye_data
         # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
-        # will begin and stop this task from running (started from plot_eye_data method), if not we start over here
+        # will begin and stop this task from running (started from process_eye_data method), if not we start over here
         self.stop_plot_eye_task()
         # print time()
         if self.subroutine:
@@ -533,9 +533,9 @@ class World(DirectObject):
         if check_eye:
             target, on_interval = self.check_fixation_target()
             if timer:
-                self.start_check_auto_fixation(target, on_interval)
+                self.start_fixation_timer(target, on_interval)
             self.stop_plot_eye_task()
-        self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
+        self.base.taskMgr.add(self.process_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
 
     def stop_plot_eye_task(self):
         self.base.taskMgr.remove('plot_eye')
@@ -551,8 +551,8 @@ class World(DirectObject):
         return target, on_interval
 
     # Eye Methods
-    def start_check_auto_fixation(self, target, on_interval):
-        # print 'check for fixation'
+    def start_fixation_timer(self, target, on_interval):
+        # print 'show fixation window, start timer'
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
@@ -560,7 +560,7 @@ class World(DirectObject):
         self.base.taskMgr.doMethodLater(on_interval, self.no_fixation, 'wait_for_fix')
         # print('should still not be fixated', self.fixated)
 
-    def plot_eye_data(self, check_eye=None, target=None, task=None):
+    def process_eye_data(self, check_eye=None, target=None, task=None):
         # get data from producer
         eye_data = self.eye_data.consume_queue()
         if not eye_data:
