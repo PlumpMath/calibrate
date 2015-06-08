@@ -114,7 +114,7 @@ class EyeData(object):
             # if we have a new log file, empty the queue
             self.logging = log_eye
             self.queue.queue.clear()
-            print('cleared thread')
+            # print('cleared thread')
         self.threads.append(threading.Thread(name=thread_name, target=self.producer))
         self.threads[-1].start()
 

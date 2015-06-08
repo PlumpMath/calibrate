@@ -51,6 +51,7 @@ def check_fixation(eye_data, tolerance, target):
             fixated = False
         else:
             fixated = True
+        # print 'check fixation, verdict is', fixated
         return fixated
 
 
@@ -82,10 +83,10 @@ class World(DirectObject):
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
             # print 'test'
-            self.unittest = True
+            self.testing = True
             self.use_daq_reward = False
         else:
-            self.unittest = False
+            self.testing = False
             self.use_daq_reward = self.config.setdefault('REWARD', True)
 
         # default is not fake data, and don't send signal
@@ -240,7 +241,7 @@ class World(DirectObject):
         # print 'start new gig'
         # set up square positions
         self.square.setup_positions(self.config, self.manual)
-        if not self.unittest:
+        if not self.testing:
             # text4 and text5 change
             self.set_text4()
             self.set_text5()
@@ -294,6 +295,9 @@ class World(DirectObject):
         # end of loop, check to see if we are switching tasks, start again
         good_trial = self.num_reward > 0
         self.num_reward = 0
+        self.fixated = False
+        # for testing, good to know when at end of loop, doesn't affect task at all
+        self.current_task = None
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             # print 'change tasks'
@@ -301,12 +305,9 @@ class World(DirectObject):
         else:
             # unit tests we step through, rather than
             # run main loop
-            if not self.unittest:
+            if not self.testing:
                 # print 'start next loop'
                 self.start_main_loop(good_trial)
-            else:
-                self.current_task = None
-            # print('leaving cleanup_main_loop')
         # print('done cleanup_main_loop')
 
     def setup_manual_sequence(self):
@@ -351,6 +352,7 @@ class World(DirectObject):
         all_intervals = self.create_intervals()
         # functions used in sequence
         plot_eye = Func(self.start_plot_eye_task, check_eye=False)
+        watch_eye_timer = Func(self.start_plot_eye_task, check_eye=True, timer=True)
         watch_eye = Func(self.start_plot_eye_task, check_eye=True)
         square_move = Func(self.square.move, self.square_position)
         write_to_file_move = Func(self.write_to_file, 0)
@@ -375,7 +377,7 @@ class World(DirectObject):
         # start the first sequence.
         self.auto_sequence_one = Sequence(
             Parallel(square_move, write_to_file_move),
-            Parallel(square_on, write_to_file_on, watch_eye))
+            Parallel(square_on, write_to_file_on, watch_eye_timer))
 
         # Parallel does not wait for any doLaterMethods to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
@@ -407,9 +409,10 @@ class World(DirectObject):
         return task.done
 
     def no_fixation(self, task):
+        print 'timed out, no fixation'
+        print 'where eye is', self.current_eye_data
         # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
         # will begin and stop this task from running (started from plot_eye_data method), if not we start over here
-        print 'no fixation or broken fixation, restart'
         self.stop_plot_eye_task()
         # print time()
         if self.subroutine:
@@ -421,9 +424,10 @@ class World(DirectObject):
         return task.done
 
     def broke_fixation(self):
+        print 'broke fixation'
         # this task is called if fixation is broken, so during second auto-calibrate sequence
         # don't need auto task anymore
-        self.base.taskMgr.remove('wait_for_fixation_task')
+        self.base.taskMgr.remove('wait_for_fix')
         # stop checking the eye
         self.stop_plot_eye_task()
         # stop sequence
@@ -460,6 +464,7 @@ class World(DirectObject):
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
         self.base.taskMgr.doMethodLater(loop_delay, self.cleanup_main_loop, 'auto_cleanup', extraArgs=[])
+        print 'delay for broken fixation'
         # print(self.base.taskMgr)
 
     # sequence methods for both auto and manual
@@ -491,11 +496,11 @@ class World(DirectObject):
         # print('time', time())
 
     def write_to_file(self, index):
-        print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
-        print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
+        # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
+        # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
         # print self.base.taskMgr
         # print('now', self.current_task)
-        print(self.sequence_for_file[index])
+        print('write_to_file', self.sequence_for_file[index])
         # write to file, advance next for next write
         self.logging.log_event(self.sequence_for_file[index])
         # if square is turning on, write position of square
@@ -507,6 +512,7 @@ class World(DirectObject):
         print 'current task from game', self.current_task
 
     def clear_screen(self):
+        print 'clear screen'
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
         self.stop_plot_eye_task()
@@ -524,11 +530,14 @@ class World(DirectObject):
         # print 'should be no nodes now', self.eye_nodes
         self.eye_nodes = []
 
-    def start_plot_eye_task(self, check_eye=False):
+    def start_plot_eye_task(self, check_eye=False, timer=False):
+        print 'start plot eye task'
         target = None
         if check_eye:
             target, on_interval = self.check_fixation_target()
-            self.start_check_auto_fixation(target, on_interval)
+            if timer:
+                self.start_check_auto_fixation(target, on_interval)
+            self.stop_plot_eye_task()
         self.base.taskMgr.add(self.plot_eye_data, 'plot_eye', extraArgs=[check_eye, target], appendTask=True)
 
     def check_fixation_target(self):
@@ -581,12 +590,12 @@ class World(DirectObject):
 
     ##### Eye Methods
     def start_check_auto_fixation(self, target, on_interval):
-        # print 'check for fixation'
+        print 'check for fixation'
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
         # print time()
-        self.base.taskMgr.doMethodLater(on_interval, self.no_fixation, 'wait_for_fixation_task')
+        self.base.taskMgr.doMethodLater(on_interval, self.no_fixation, 'wait_for_fix')
         # print('should still not be fixated', self.fixated)
 
     def plot_eye_data(self, check_eye=None, target=None, task=None):
@@ -612,7 +621,7 @@ class World(DirectObject):
         self.current_eye_data = [self.eye_data_to_pixel(data_point) for data_point in eye_data]
         self.plot_eye_trace(start_eye)
         # and set text to last data point
-        if not self.unittest:
+        if not self.testing:
             self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[-1][0], 3)) +
                                ', ' + str(round(self.current_eye_data[-1][1], 3)) + ']')
         if check_eye:
@@ -659,6 +668,7 @@ class World(DirectObject):
         fixated = []
         for data_point in self.current_eye_data:
             fixated.append(check_fixation(data_point, tolerance, target))
+        # print 'fixation array', fixated
         self.fixated = all(fixated)
         # print('fixated?', self.fixated)
         # need to check if time to start fixation period or time to end
@@ -666,7 +676,8 @@ class World(DirectObject):
         if self.fixated and not previous_fixation:
             print 'fixated, start fixation period'
             # end waiting period
-            self.base.removeTask('wait_for_fixation_task')
+            self.base.taskMgr.remove('wait_for_fix')
+            print self.base.taskMgr
             # start fixation period
             if self.fixation_cross_flag:
                 self.initiate_cross_hair_fixation()
@@ -992,7 +1003,7 @@ class World(DirectObject):
         if self.use_daq_reward:
             # print 'setup reward'
             self.start_reward_task()
-        if not self.unittest:
+        if not self.testing:
             self.start_gig()
 
     def close(self):
@@ -1008,7 +1019,7 @@ class World(DirectObject):
                 config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
         self.eye_data.close()
         self.logging.close_files()
-        if self.unittest:
+        if self.testing:
             self.ignoreAll()  # ignore everything, so nothing weird happens after deleting it.
         else:
             sys.exit()
