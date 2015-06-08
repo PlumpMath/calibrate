@@ -428,7 +428,8 @@ class World(DirectObject):
         self.stop_plot_eye_task()
         # stop sequence
         print 'stop sequence'
-        self.auto_sequence_two.finish()
+        self.auto_sequence_two.pause()
+        # self.auto_sequence_two.finish()
         print 'restart'
         self.restart_auto_loop_bad_fixation()
 
@@ -490,7 +491,9 @@ class World(DirectObject):
         # print('time', time())
 
     def write_to_file(self, index):
-        print self.base.taskMgr
+        print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
+        print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
+        # print self.base.taskMgr
         # print('now', self.current_task)
         print(self.sequence_for_file[index])
         # write to file, advance next for next write
