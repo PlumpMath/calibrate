@@ -15,10 +15,13 @@ except ImportError:
     # print 'Not using PyDaq'
 
 log_filename = 'test.out'
-logging.basicConfig(level=logging.DEBUG,
-                    filename=log_filename,
-                    format='%(asctime)s (%(threadName)-2s) %(message)s',
-                    )
+log_level = logging.DEBUG
+# log_level = logging.CRITICAL
+
+# logging.basicConfig(level=log_level,
+#                     filename=log_filename,
+#                     format='%(asctime)s (%(threadName)-2s) %(message)s',
+#                     )
 
 
 class EyeData(object):

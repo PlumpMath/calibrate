@@ -223,7 +223,7 @@ class Photos():
     def timer_task(self, task):
         # print('timer', self.fixation_timer)
         # if looks away, add that time to the timer
-        # this doesn't
+        # this is because we are 
         # task.time is how long this task has been running
         new_time = task.time
         # print('task time beginning', new_time)
