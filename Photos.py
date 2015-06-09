@@ -21,11 +21,10 @@ class Photos():
         self.photo_set = []
         # this variable will change, and then be re-set with the configuration
         self.fixation_timer = config['PHOTO_TIMER']
-        self.flag_timer = False  # starts out assuming fixated
+        self.photo_timer_on = False  # starts out assuming fixated
         self.imageObject = None
         self.photo_gen = None
         # tells calibration routine when it should care about fixation for photos
-        self.check_eye = False  # true means check fixation, false means stop checking
         self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
         self.start_plot_eye_task = None
@@ -111,10 +110,11 @@ class Photos():
         if good_trial:
             self.loop_count += 1
         if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
+            self.loop_count = 0
             # check to see if we are out of photos
             new_photo = self.get_next_photo()
         else:
-            # if not time, return
+            # not time for photos, return
             return False
         if not new_photo:
             # if no more photos, return
@@ -123,6 +123,7 @@ class Photos():
             self.start_plot_eye_task = start_plot_eye_task
             # still here? start the photo loop!
             self.start_photo_loop()
+            return True
 
     def start_photo_loop(self):
         self.setup_photo_sequences()
@@ -153,13 +154,15 @@ class Photos():
             Parallel(photo_on, write_to_file_photo_on, set_photo_timer))
 
     def start_fixation_period(self):
-        print 'We have fixation'
+        print 'We have fixation, in subroutine'
         # start next sequence. Can still be aborted, if lose fixation
         # during first interval
         if self.cross_hair:
-            self.cross_sequence.start()
+            print 'on the cross hair'
+            self.photo_sequence.start()
         else:
-            self.flag_timer = True
+            print 'on the photo'
+            self.photo_timer_on = True
 
     def no_fixation(self, task):
         print 'no fixation or broken, restart cross'
@@ -174,7 +177,7 @@ class Photos():
             self.photo_sequence.pause()
             self.restart_cross_bad_fixation()
         else:
-            self.flag_timer = False
+            self.photo_timer_on = False
 
     def restart_cross_bad_fixation(self):
         self.clear_cross_hair()
@@ -182,8 +185,13 @@ class Photos():
         self.base.taskMgr.doMethodLater(self.config['BREAK_INTERVAL'], self.start_photo_loop, 'start_over', extraArgs=[])
 
     def get_fixation_target(self):
-        target = (0.0, 0.0)  # cross fixation always in center
-        on_interval = self.config['ON_INTERVAL']
+        # for photos, have to do checking of target in Photos
+        # timer irrelevant.
+        target = None
+        on_interval = None
+        if self.cross_hair:
+            target = (0.0, 0.0)  # cross fixation always in center
+            on_interval = random.uniform(*self.config['ON_INTERVAL'])
         return target, on_interval
 
     def show_cross_hair(self):
@@ -199,7 +207,7 @@ class Photos():
         self.base.taskMgr.remove('plot_eye')
 
     def show_photo(self):
-        self.check_eye = True
+        self.photo_timer_on = True
         # print self.photo_path
         # print time()
         # print 'show window'
@@ -215,11 +223,13 @@ class Photos():
     def timer_task(self, task):
         # print('timer', self.fixation_timer)
         # if looks away, add that time to the timer
+        # this doesn't
         # task.time is how long this task has been running
         new_time = task.time
         # print('task time beginning', new_time)
         # if not fixated, and still during fixation period, extend timer
-        if not self.flag_timer:
+        #
+        if not self.photo_timer_on:
             # print 'flagged'
             # print time()
             # print('new time', new_time)
@@ -242,7 +252,6 @@ class Photos():
 
     def set_break_timer(self, task):
         # print('remove photo, on break')
-        self.check_eye = False
         # reset the timer for next time
         self.fixation_timer = self.config['PHOTO_TIMER']
         # print('new timer', self.fixation_timer)
@@ -258,15 +267,16 @@ class Photos():
         return task.done
 
     def check_fixation(self, eye_data):
+        print 'check photo fixation'
         # print('eye', eye_data)
         # print('tolerance', self.tolerance)
         # tolerance is the x, y border that eye_data should
         # be contained in, both should be (x, y) tuple
         # photos are centered, so as long as the absolute value of the eye
         # is less than the absolute value of the tolerance, should be golden
-        self.flag_timer = False
         if abs(eye_data[0]) < abs(self.tolerance[0]) and abs(eye_data[1]) < abs(self.tolerance[1]):
-            self.flag_timer = True
+            return True
+        return False
 
     def show_window(self):
         # draw line around target representing how close the subject has to be looking to get reward
@@ -303,6 +313,7 @@ class Photos():
         self.x_node.hide()
 
     def write_to_file(self, event, photo=None):
+        print 'write to file', event
         self.logging.log_event(event)
         if photo:
             self.logging.log_event(photo)
