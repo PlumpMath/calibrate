@@ -26,7 +26,7 @@ class Photos():
         self.photo_gen = None
         # tells calibration routine when it should care about fixation for photos
         self.photo_window = []  # where we will store the fixation window for photos
-        self.time_stash = 0  # used to keep track of timing
+        self.photo_fix_time = 0  # used to keep track of timing
         self.start_plot_eye_task = None
         self.cross_sequence = None
         self.photo_sequence = None
@@ -57,6 +57,7 @@ class Photos():
         self.cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
         # print('photo tolerance', self.tolerance)
         self.loop_count = 0
+        self.task_timer = 0
 
     def load_all_photos(self):
         # print 'load all photos'
@@ -221,6 +222,18 @@ class Photos():
         # print('started timer task', self.fixation_timer)
 
     def timer_task(self, task):
+        # this task collects time. We will only collect time while subject
+        # is fixating. After we collect enough viewing time, exit task
+        dt = task.time - self.task_timer
+        self.task_timer = task.time
+        if self.photo_timer_on:
+            self.photo_fix_time += dt
+        if self.photo_fix_time >= self.fixation_timer:
+            return task.done
+        else:
+            return task.cont
+
+    def old_timer_task(self, task):
         # print('timer', self.fixation_timer)
         # if looks away, add that time to the timer
         # this is because we are 
