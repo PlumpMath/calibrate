@@ -2,8 +2,10 @@ from __future__ import division
 from direct.gui.OnscreenImage import OnscreenImage
 from direct.showbase.MessengerGlobal import messenger
 from panda3d.core import LineSegs, BitMask32
+from direct.interval.MetaInterval import Parallel, Sequence
+from direct.interval.FunctionInterval import Func, Wait
 import os
-from random import shuffle
+import random
 
 
 class Photos():
@@ -26,6 +28,10 @@ class Photos():
         self.check_eye = False  # true means check fixation, false means stop checking
         self.photo_window = []  # where we will store the fixation window for photos
         self.time_stash = 0  # used to keep track of timing
+        self.start_plot_eye_task = None
+        self.cross_sequence = None
+        self.photo_sequence = None
+        self.cross_hair = False
         total_cal_points = config['POINT_REPEAT'] * config['X_POINTS'] * config['Y_POINTS']
         num_photos_in_set = config['NUM_PHOTOS_IN_SET']
         num_poss_photos = total_cal_points // config['CAL_PTS_PER_PHOTO']
@@ -49,6 +55,7 @@ class Photos():
         # photo_size = [1000, 800]
         self.tolerance = tuple([x/2 for x in photo_size])
         self.draw_cross(deg_per_pixel)
+        self.cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
         # print('photo tolerance', self.tolerance)
         self.loop_count = 0
 
@@ -76,7 +83,7 @@ class Photos():
         # so shuffle list.
         # print 'photos', self.photo_names[start_ind:end_ind]
         self.photo_set = self.photo_names[start_ind:end_ind]
-        shuffle(self.photo_set)
+        random.shuffle(self.photo_set)
         # print self.photo_set
         self.photo_gen = self.get_photo()
         return True
@@ -113,27 +120,85 @@ class Photos():
             # if no more photos, return
             return False
         else:
+            self.start_plot_eye_task = start_plot_eye_task
             # still here? start the photo loop!
-            self.setup_photo_sequence(start_plot_eye_task)
             self.start_photo_loop()
 
-    def show_photo_loop(self, start_plot_eye_task):
+    def start_photo_loop(self):
+        self.setup_photo_sequences()
+        self.cross_hair = True
+        self.cross_sequence.start()
+
+    def setup_photo_sequences(self):
         # start with cross hair, treat like fixation point, so first wait for fixation
-        watch_eye_timer = Func(start_plot_eye_task, check_eye=True, timer=True)
+        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
+        watch_eye = Func(self.start_plot_eye_task, check_eye=True)
+        watch_eye_timer = Func(self.start_plot_eye_task, check_eye=True, timer=True)
+        cross_on = Func(self.show_cross_hair)
+        write_to_file_cross_on = Func(self.write_to_file, 'Cross on')
+        write_to_file_fix = Func(self.write_to_file, 'Fixated')
+        cross_off = Func(self.clear_cross_hair)
+        write_to_file_cross_off = Func(self.write_to_file, 'Cross off')
+        cross_interval = random.uniform(*self.cross_hair_int)
+        photo_on = Func(self.show_photo)
+        write_to_file_photo_on = Func(self.write_to_file, 'Photo on')
+        set_photo_timer = Func(self.set_photo_timer)
 
-        self.cross_sequence = Parallel(cross_on, write_to_file_cross, watch_eye_timer)
-        self.photo_sequence = Parallel(photo_on, write_to_file_photo, watch_eye_timer)
+        self.cross_sequence = Parallel(cross_on, write_to_file_cross_on, watch_eye_timer)
 
+        self.photo_sequence = Sequence(
+            Parallel(write_to_file_fix, watch_eye),
+            Wait(cross_interval),
+            Parallel(cross_off, write_to_file_cross_off, plot_eye),
+            Parallel(photo_on, write_to_file_photo_on, set_photo_timer))
+
+    def start_fixation_period(self):
+        print 'We have fixation'
+        # start next sequence. Can still be aborted, if lose fixation
+        # during first interval
+        if self.cross_hair:
+            self.cross_sequence.start()
+        else:
+            self.flag_timer = True
+
+    def no_fixation(self, task):
+        print 'no fixation or broken, restart cross'
+        self.stop_plot_eye_task()
+        self.restart_cross_bad_fixation()
+
+    def broke_fixation(self):
+        if self.cross_hair:
+            # stop checking the eye
+            self.stop_plot_eye_task()
+            # stop sequence
+            self.photo_sequence.pause()
+            self.restart_cross_bad_fixation()
+        else:
+            self.flag_timer = False
+
+    def restart_cross_bad_fixation(self):
+        self.clear_cross_hair()
+        self.write_to_file('Bad Fixation')
+        self.base.taskMgr.doMethodLater(self.config['BREAK_INTERVAL'], self.start_photo_loop, 'start_over', extraArgs=[])
+
+    def get_fixation_target(self):
+        target = (0.0, 0.0)  # cross fixation always in center
+        on_interval = self.config['ON_INTERVAL']
+        return target, on_interval
 
     def show_cross_hair(self):
         print 'show cross hair'
         self.x_node.show()
 
-    def clear_cross(self):
+    def clear_cross_hair(self):
         print 'clear cross hair'
+        self.cross_hair = False
         self.x_node.hide()
 
-    def show_actual_photo(self):
+    def stop_plot_eye_task(self):
+        self.base.taskMgr.remove('plot_eye')
+
+    def show_photo(self):
         self.check_eye = True
         # print self.photo_path
         # print time()
@@ -141,8 +206,9 @@ class Photos():
         self.show_window()
         # print 'show actual photo'
         self.imageObject = OnscreenImage(self.photo_path, pos=(0, 0, 0), scale=0.75)
-        self.write_to_file('Photo On', self.photo_path)
         # print self.imageObject
+
+    def set_photo_timer(self):
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
         # print('started timer task', self.fixation_timer)
 
@@ -240,6 +306,11 @@ class Photos():
         self.logging.log_event(event)
         if photo:
             self.logging.log_event(photo)
+
+    def close(self):
+        self.base.taskMgr.removeTasksMatching('photo_*')
+        with open(self.config['file_name'], 'a') as config_file:
+            config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.end_index))
 
     @staticmethod
     def send_cleanup(task):

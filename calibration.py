@@ -214,6 +214,8 @@ class World(DirectObject):
         # break_interval - used for auto, how long time out before
         #            next square on, if missed or broke fixation
         # on, fade, reward, move, fix, break
+
+        # get rid of cross hair, only in photos
         cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
         self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
                               self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
@@ -285,9 +287,10 @@ class World(DirectObject):
             # check to see if we are doing a subroutine
             do_subroutine = False
             if self.subroutine:
-                for tasks in self.call_subroutine:
-                    do_subroutine = tasks(good_trial)
+                for index, tasks in self.call_subroutine:
+                    do_subroutine = tasks.check_trial(good_trial)
                     if do_subroutine:
+                        self.subroutine = index
                         break
             if not do_subroutine:
                 self.setup_auto_sequences()
@@ -422,6 +425,8 @@ class World(DirectObject):
         # print 'broke fixation'
         # this task is called if fixation is broken, so during second auto-calibrate sequence
         # don't need auto task anymore
+        print 'should not have to remove wait_for_fix, is it here?'
+        print self.base.taskMgr
         self.base.taskMgr.remove('wait_for_fix')
         # stop checking the eye
         self.stop_plot_eye_task()
@@ -543,8 +548,8 @@ class World(DirectObject):
 
     def check_fixation_target(self):
         if self.subroutine:
-            target = None
-            on_interval = None
+            # would be great if this were more generic, but works for now
+            target, on_interval = self.call_subroutine[self.subroutine].get_fixation_target()
         else:
             # else is going to be regular auto calibrate
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
@@ -642,63 +647,15 @@ class World(DirectObject):
             self.base.taskMgr.remove('wait_for_fix')
             # print self.base.taskMgr
             # start fixation period
-            if self.fixation_cross_flag:
-                self.initiate_cross_hair_fixation()
+            if self.subroutine:
+                self.call_subroutine[self.subroutine].start_fixation_period()
             else:
                 self.start_fixation_period()
         elif not self.fixated and previous_fixation:
+            if self.subroutine:
+                self.call_subroutine[self.subroutine].broke_fixation()
             print 'broke fixation'
             self.broke_fixation()
-
-    def initiate_cross_hair_fixation(self):
-        print 'initiate cross hair fixation period'
-        # subject has fixated, if makes it through fixation interval, will show picture, otherwise
-        # will abort and start over
-        # first stop the on interval
-        self.write_to_file(5)
-        # now start the fixation interval
-        # self.cross_hair_sequence.start()
-
-    def end_cross_fixation(self, task):
-        print 'end cross fixation'
-        self.photos.clear_cross()
-        self.start_main_loop()
-        return task.done
-
-    def check_photo_loop(self, good_trial):
-        # if returns true, showing a crosshair and then a photo,
-        # otherwise continue on with regular calibration routine
-        if good_trial:
-            self.loop_count += 1
-        # print('good trial, loop count now', self.loop_count)
-        # print('loop count', self.loop_count)
-        # print self.photos.cal_pts_per_photo
-        # check to see if it is time to show a photo
-        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
-            # check to see if we are out of photos
-            self.show_photos = self.photos.get_next_photo()
-            # if there were no photos, continue on to
-            # finish regular calibration
-            if not self.show_photos:
-                return False
-            # start plotting eye positions again
-            self.flag_clear_eyes = False
-            # and start cross hair
-            self.fixation_cross_flag = True
-            print 'call show cross hair'
-            self.photos.show_cross_hair()
-            return True
-        return False
-
-    def do_photo_loop(self):
-        print 'photo loop in calibration'
-        self.fixation_cross_flag = False
-        self.fixation_photo_flag = True
-        # start plotting eye positions again
-        self.flag_clear_eyes = False
-        # print 'called show photo from start_new_loop'
-        self.loop_count = 0
-        self.photos.show_actual_photo()
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -991,8 +948,7 @@ class World(DirectObject):
         if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
-        if self.show_photos:
-            self.call_subroutine.append(self.photos.check_trial)
+            self.call_subroutine.append(self.photos)
             self.subroutine = True
         # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
@@ -1011,10 +967,9 @@ class World(DirectObject):
         # make sure eye data is
         # if eye data comes in during closing, clear eyes
         self.flag_clear_eyes = True
-        if self.photos:
-            self.base.taskMgr.removeTasksMatching('photo_*')
-            with open(self.config['file_name'], 'a') as config_file:
-                config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
+        if self.subroutine:
+            for tasks in self.call_subroutine:
+                tasks.close()
         self.eye_data.close()
         self.logging.close_files()
         if self.testing:
