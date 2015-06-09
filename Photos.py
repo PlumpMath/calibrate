@@ -100,7 +100,7 @@ class Photos():
                 return False
         return True
 
-    def check_trial(self, good_trial):
+    def check_trial(self, good_trial, start_plot_eye_task):
         if good_trial:
             self.loop_count += 1
         if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
@@ -113,13 +113,17 @@ class Photos():
             # if no more photos, return
             return False
         else:
-            # still here? show a photo!
+            # still here? start the photo loop!
+            self.setup_photo_sequence(start_plot_eye_task)
             self.start_photo_loop()
 
-    def show_photo_loop(self):
+    def show_photo_loop(self, start_plot_eye_task):
         # start with cross hair, treat like fixation point, so first wait for fixation
-        # watch_eye_timer = Func()
-        pass
+        watch_eye_timer = Func(start_plot_eye_task, check_eye=True, timer=True)
+
+        self.cross_sequence = Parallel(cross_on, write_to_file_cross, watch_eye_timer)
+        self.photo_sequence = Parallel(photo_on, write_to_file_photo, watch_eye_timer)
+
 
     def show_cross_hair(self):
         print 'show cross hair'

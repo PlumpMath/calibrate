@@ -414,11 +414,7 @@ class World(DirectObject):
         # will begin and stop this task from running (started from process_eye_data method), if not we start over here
         self.stop_plot_eye_task()
         # print time()
-        if self.subroutine:
-            # cross hair turns off 1 second, then displayed again
-            pass
-        else:
-            self.restart_auto_loop_bad_fixation()
+        self.restart_auto_loop_bad_fixation()
         # print 'return wait_off_task'
         return task.done
 
