@@ -115,6 +115,10 @@ class World(DirectObject):
 
         # check to see if we will be showing photos:
         # make a new variable, so we can toggle it
+        self.subroutine = False
+
+        self.call_subroutine = []
+
         self.show_photos = self.config.setdefault('PHOTO_PATH', False)
 
         # This will be the photo object, if we are showing photos
@@ -188,9 +192,6 @@ class World(DirectObject):
         # initialize signal to switch tasks (manual - auto)
         self.flag_task_switch = False
 
-        self.subroutine = False
-        self.call_subroutine = None
-
         # set up daq for reward, if on windows and not testing
         # testing auto mode depends on being able to control eye position
         self.reward_task = None
@@ -248,7 +249,7 @@ class World(DirectObject):
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
-        self.start_eye_data()
+        self.eye_data.start_logging(self.logging)
 
     def end_gig(self):
         # used when end in either auto or manual mode,
@@ -257,7 +258,7 @@ class World(DirectObject):
         # clear screen
         # self.clear_eyes()
         # close stuff
-        self.eye_data.close()
+        self.eye_data.stop_logging()
         self.logging.close_files()
         # self.square.pos = None
 
@@ -282,9 +283,13 @@ class World(DirectObject):
             self.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
+            do_subroutine = False
             if self.subroutine:
-                self.call_subroutine(good_trial)
-            else:
+                for tasks in self.call_subroutine:
+                    do_subroutine = tasks(good_trial)
+                    if do_subroutine:
+                        break
+            if not do_subroutine:
                 self.setup_auto_sequences()
                 self.auto_sequence_one.start()
 
@@ -395,7 +400,7 @@ class World(DirectObject):
             cleanup,
         )
 
-    # Fixation Mehtods (auto)
+    # Fixation Methods (auto)
     def start_fixation_period(self):
         print 'We have fixation'
         # start next sequence. Can still be aborted, if lose fixation
@@ -709,9 +714,10 @@ class World(DirectObject):
 
     def start_eye_data(self, start_pos=None, variance=None):
         # if we are sending in variance, then coming from testing and we need to close first
+        # (just stops task producing fake data, so we can restart in different place)
         if variance is not None:
             self.eye_data.close()
-        self.eye_data.start_producer_thread('producer', origin=start_pos, variance=variance, log_eye=self.logging)
+        self.eye_data.start_producer_thread('producer', origin=start_pos, variance=variance)
         self.eye_data.start_consumer_thread('consumer')
 
     def show_window(self, target_pos):
@@ -989,10 +995,12 @@ class World(DirectObject):
         if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
-
+        if self.show_photos:
+            self.call_subroutine.append(self.photos.check_trial)
+            self.subroutine = True
         # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
-
+        self.start_eye_data()
         # start reward capabilities, if using daq
         if self.use_daq_reward:
             # print 'setup reward'

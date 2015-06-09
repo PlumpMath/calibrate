@@ -2,8 +2,8 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-REWARD = None
-FAKE_DATA = True
+REWARD = True
+FAKE_DATA = False
 SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -68,11 +68,11 @@ FIX_INTERVAL = (1.0, 1.0)
 # (in addition to the move interval)
 BREAK_INTERVAL = (1.0, 1.0)
 
-#ON_INTERVAL = (0.7, 1.25)  # Time on
-#ON_INTERVAL = (1.0, 2.0)  # Time on
-#FADE_INTERVAL = (0.35, 0.35)  # Time faded
-#REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
-#MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
+# ON_INTERVAL = (0.7, 1.25)  # Time on
+# ON_INTERVAL = (1.0, 2.0)  # Time on
+# FADE_INTERVAL = (0.35, 0.35)  # Time faded
+# REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
+# MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
 
 ON_INTERVAL = (1.0, 1.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35)  # Time faded

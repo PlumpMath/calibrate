@@ -50,6 +50,7 @@ class Photos():
         self.tolerance = tuple([x/2 for x in photo_size])
         self.draw_cross(deg_per_pixel)
         # print('photo tolerance', self.tolerance)
+        self.loop_count = 0
 
     def load_all_photos(self):
         # print 'load all photos'
@@ -98,6 +99,27 @@ class Photos():
                 # print 'out of photos, cleanup'
                 return False
         return True
+
+    def check_trial(self, good_trial):
+        if good_trial:
+            self.loop_count += 1
+        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
+            # check to see if we are out of photos
+            new_photo = self.get_next_photo()
+        else:
+            # if not time, return
+            return False
+        if not new_photo:
+            # if no more photos, return
+            return False
+        else:
+            # still here? show a photo!
+            self.start_photo_loop()
+
+    def show_photo_loop(self):
+        # start with cross hair, treat like fixation point, so first wait for fixation
+        # watch_eye_timer = Func()
+        pass
 
     def show_cross_hair(self):
         print 'show cross hair'
