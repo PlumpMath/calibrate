@@ -1,14 +1,16 @@
 from __future__ import division
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.interval.FunctionInterval import Func, Wait
-from Square import Square
+from direct.showbase.MessengerGlobal import messenger
 from random import uniform
 
 
 class CalSequences(object):
 
-    def __init__(self, config):
+    def __init__(self, config, square, task_mgr):
         self.config = config
+        self.square = square
+        self.task_mgr = task_mgr
         # Our intervals
         # on_interval - time from on to fade
         # fade_interval - time from fade on to off
@@ -25,38 +27,28 @@ class CalSequences(object):
         self.manual_sequence = None
         self.auto_sequence_one = None
         self.auto_sequence_two = None
-
-        # create square object
-        self.square = Square(self.config, self.keys, self.base)
-
-        # dictionary for writing to file
-        self.sequence_for_file = {
-            0: 'Square moved',
-            1: 'Square on',
-            2: 'Square dims',
-            3: 'Square off',
-            4: 'Reward',
-            5: 'Fixated',
-            6: 'Bad Fixation',
-        }
+        # keep track of square position, in case we have to repeat a position
+        self.square_position = None
+        # used for testing
+        self.current_task = None
 
     def setup_manual_sequence(self):
         # print 'setup manual sequence'
         all_intervals = self.create_intervals()
         # functions to use in sequences:
-        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
+        plot_eye = Func(send_start_plot, check_eye=False)
         square_move = Func(self.square.move_for_manual_position)
-        write_to_file_move = Func(self.write_to_file, 0)
+        write_to_file_move = Func(send_write_to_file, index=0)
         square_on = Func(self.square.turn_on)
-        write_to_file_on = Func(self.write_to_file, 1)
+        write_to_file_on = Func(send_write_to_file, index=1)
         square_fade = Func(self.square.fade)
-        write_to_file_fade = Func(self.write_to_file, 2)
+        write_to_file_fade = Func(send_write_to_file, index=2)
         square_off = Func(self.square.turn_off)
-        write_to_file_off = Func(self.write_to_file, 3)
-        give_reward = Func(self.give_reward)
-        write_to_file_reward = Func(self.write_to_file, 4)
-        clear_screen = Func(self.clear_screen)
-        cleanup = Func(self.cleanup_main_loop)
+        write_to_file_off = Func(send_write_to_file, index=3)
+        give_reward = Func(send_give_reward)
+        write_to_file_reward = Func(send_write_to_file, index=4)
+        clear_screen = Func(send_clear_screen)
+        cleanup = Func(send_cleanup)
 
         # Parallel does not wait for tasks to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
@@ -81,22 +73,22 @@ class CalSequences(object):
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
         # functions used in sequence
-        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
-        watch_eye_timer = Func(self.start_plot_eye_task, check_eye=True, timer=True)
-        watch_eye = Func(self.start_plot_eye_task, check_eye=True)
+        plot_eye = Func(send_start_plot, check_eye=False)
+        watch_eye_timer = Func(send_start_plot, check_eye=True, timer=True)
+        watch_eye = Func(send_start_plot, check_eye=True)
         square_move = Func(self.square.move, self.square_position)
-        write_to_file_move = Func(self.write_to_file, 0)
+        write_to_file_move = Func(send_write_to_file, index=0)
         square_on = Func(self.square.turn_on)
-        write_to_file_on = Func(self.write_to_file, 1)
-        write_to_file_fix = Func(self.write_to_file, 5)
+        write_to_file_on = Func(send_write_to_file, index=1)
+        write_to_file_fix = Func(send_write_to_file, index=5)
         square_fade = Func(self.square.fade)
-        write_to_file_fade = Func(self.write_to_file, 2)
+        write_to_file_fade = Func(send_write_to_file, index=2)
         square_off = Func(self.square.turn_off)
-        write_to_file_off = Func(self.write_to_file, 3)
-        give_reward = Func(self.give_reward)
-        write_to_file_reward = Func(self.write_to_file, 4)
-        clear_screen = Func(self.clear_screen)
-        cleanup = Func(self.cleanup_main_loop)
+        write_to_file_off = Func(send_write_to_file, index=3)
+        give_reward = Func(send_give_reward)
+        write_to_file_reward = Func(send_write_to_file, index=4)
+        clear_screen = Func(send_clear_screen)
+        cleanup = Func(send_cleanup)
         # we don't know how long the wait period should be for square on,
         # because that wait period doesn't start until fixation, and we don't
         # know when that will happen. So make two sequences, so wait period
@@ -138,7 +130,7 @@ class CalSequences(object):
         # print 'where eye is', self.current_eye_data
         # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
         # will begin and stop this task from running (started from process_eye_data method), if not we start over here
-        self.stop_plot_eye_task()
+        self.task_mgr.remove('plot_eye')
         # print time()
         self.restart_auto_loop_bad_fixation()
         # print 'return wait_off_task'
@@ -149,10 +141,10 @@ class CalSequences(object):
         # this task is called if fixation is broken, so during second auto-calibrate sequence
         # don't need auto task anymore
         print 'should not have to remove wait_for_fix, is it here?'
-        print self.base.taskMgr
-        self.base.taskMgr.remove('wait_for_fix')
+        print self.task_mgr
+        self.task_mgr.remove('wait_for_fix')
         # stop checking the eye
-        self.stop_plot_eye_task()
+        self.task_mgr.remove('plot_eye')
         # stop sequence
         # print 'stop sequence'
         self.auto_sequence_two.pause()
@@ -165,23 +157,23 @@ class CalSequences(object):
         # print time()
         # stop plotting and checking eye data
         # make sure there are no tasks waiting
-        # self.base.taskMgr.removeTasksMatching('auto_*')
+        # self.task_mgr.removeTasksMatching('auto_*')
         # turn off square
         self.square.turn_off()
         # keep square position
         self.square_position = self.square.square.getPos()
         # write to log
-        self.write_to_file(3)  # square off
-        self.write_to_file(6)  # bad fixation
-        self.clear_screen()
+        send_write_to_file(index=3)  # square off
+        send_write_to_file(index=6)  # bad fixation
+        send_clear_screen()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, self.cleanup_main_loop, 'auto_cleanup', extraArgs=[])
+        self.task_mgr.doMethodLater(loop_delay, send_cleanup, 'auto_cleanup', extraArgs=[])
         # print 'delay for broken fixation'
-        # print(self.base.taskMgr)
+        # print(self.task_mgr)
 
     # sequence methods for both auto and manual
     def create_intervals(self):
@@ -195,22 +187,31 @@ class CalSequences(object):
         on_interval = uniform(*self.interval_list[0])
         return target, on_interval
 
-    def write_to_file(self, index):
-        # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
-        # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
-        # print self.base.taskMgr
-        # print('now', self.current_task)
-        print('write_to_file', self.sequence_for_file[index])
-        # write to file, advance next for next write
-        self.logging.log_event(self.sequence_for_file[index])
-        # if square is turning on, write position of square
-        if index == 1:
-            position = self.square.square.getPos()
-            self.logging.log_position(position)
-        # used for testing
-        self.current_task = index
-        # print 'current task from game', self.current_task
-
     def prepare_task(self, manual):
         # set up square positions
         self.square.setup_positions(self.config, manual)
+
+
+def send_cleanup():
+    print 'cleanup'
+    messenger.send('cleanup')
+
+
+def send_give_reward():
+    print 'reward'
+    messenger.send('reward')
+
+
+def send_clear_screen():
+    print 'clear'
+    messenger.send('clear')
+
+
+def send_start_plot(check_eye=False, timer=False):
+    print 'plot'
+    messenger.send('plot', [check_eye, timer])
+
+
+def send_write_to_file(index=None):
+    print 'log'
+    messenger.send('log', [index])

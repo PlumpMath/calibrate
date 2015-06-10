@@ -7,6 +7,8 @@ from panda3d.core import OrthographicLens, LineSegs
 from Logging import Logging
 from positions import visual_angle
 from EyeData import EyeData
+from Square import Square
+from CalSequences import CalSequences
 import sys
 from math import sqrt, radians, cos, sin
 from Photos import Photos
@@ -109,12 +111,9 @@ class World(DirectObject):
         # start Panda3d
         self.base = ShowBase()
 
-        # check to see if we will be showing photos:
         # make a new variable, so we can toggle it
         self.sub_index = None
         self.call_subroutine = []
-
-        self.show_photos = self.config.setdefault('PHOTO_PATH', False)
 
         # This will be the photo object, if we are showing photos
         self.photos = None
@@ -169,6 +168,7 @@ class World(DirectObject):
         self.logging = None
         self.eye_data = None
         self.sequences = None
+        self.square = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -187,7 +187,18 @@ class World(DirectObject):
 
         # Keyboard stuff:
         # initiate
-        self.keys = {"switch": 0}
+        self.key_dict = {"switch": 0}
+
+        # dictionary for writing to file
+        self.sequence_for_file = {
+            0: 'Square moved',
+            1: 'Square on',
+            2: 'Square dims',
+            3: 'Square off',
+            4: 'Reward',
+            5: 'Fixated',
+            6: 'Bad Fixation',
+        }
 
     def start_gig(self):
         # used when beginning in either auto or manual mode,
@@ -274,6 +285,22 @@ class World(DirectObject):
                 self.start_main_loop(good_trial)
         # print('done cleanup_main_loop')
 
+    def write_to_file(self, index):
+        # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
+        # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
+        # print self.task_mgr
+        # print('now', self.current_task)
+        print('write_to_file', self.sequence_for_file[index])
+        # write to file, advance next for next write
+        self.logging.log_event(self.sequence_for_file[index])
+        # if square is turning on, write position of square
+        if index == 1:
+            position = self.square.square.getPos()
+            self.logging.log_position(position)
+        # used for testing
+        self.current_task = index
+        # print 'current task from game', self.current_task
+
     def give_reward(self):
         # if got reward, square can move
         # print 'reward, 3'
@@ -353,7 +380,11 @@ class World(DirectObject):
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
         # print time()
-        self.base.taskMgr.doMethodLater(on_interval, self.no_fixation, 'wait_for_fix')
+        if self.sub_index is not None:
+            no_fix_task = self.call_subroutine[self.sub_index].no_fixation
+        else:
+            no_fix_task = self.sequences.no_fixation
+        self.base.taskMgr.doMethodLater(on_interval, no_fix_task, 'wait_for_fix')
         # print('should still not be fixated', self.fixated)
 
     def process_eye_data(self, check_eye=None, target=None, task=None):
@@ -444,13 +475,13 @@ class World(DirectObject):
                 self.call_subroutine[self.sub_index].start_fixation_period()
             else:
                 print 'auto_fix'
-                self.start_fixation_period()
+                self.sequences.start_fixation_period()
         elif not self.fixated and previous_fixation:
             print 'broke fixation'
             if self.sub_index is not None:
                 self.call_subroutine[self.sub_index].broke_fixation()
             else:
-                self.broke_fixation()
+                self.sequences.broke_fixation()
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -589,11 +620,11 @@ class World(DirectObject):
         target = self.sequences.get_fixation_target()
         self.show_window(target[0])
 
-    # As described earlier, this simply sets a key in the self.keys dictionary to
+    # As described earlier, this simply sets a key in the self.key_dict dictionary to
     # the given value
     def set_key(self, key, val):
-        self.keys[key] = val
-        # print 'set key', self.keys[key]
+        self.key_dict[key] = val
+        # print 'set key', self.key_dict[key]
 
     def switch_task_flag(self):
         # print 'switch tasks'
@@ -611,8 +642,6 @@ class World(DirectObject):
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
-        # done with an outside process, time to cleanup
-        self.accept("cleanup", self.cleanup_main_loop)
         self.accept("shift-arrow_up", self.change_gain_or_offset, ['Gain', 1, 1])
         self.accept("shift-arrow_up-repeat", self.change_gain_or_offset, ['Gain', 1, 1])
         self.accept("shift-arrow_down", self.change_gain_or_offset, ['Gain', 1, -1])
@@ -639,9 +668,16 @@ class World(DirectObject):
         self.accept("alt-arrow_down", self.change_tolerance, [-0.5])
         self.accept("alt-arrow_down-repeat", self.change_tolerance, [-0.5])
 
+        # send messages from other classes
+        # done with an outside process, time to cleanup
+        self.accept("cleanup", self.cleanup_main_loop)
+        self.accept("reward", self.give_reward)
+        self.accept("clear", self.clear_screen)
+        self.accept("plot", self.start_plot_eye_task)
         # keys will update the list, and loop will query it
         # to get new position
-        self.keys = {"switch": 0}
+        # why is this a dictionary? It only has one entry?!?!
+        self.key_dict = {"switch": 0}
         # keyboard
         self.accept("1", self.set_key, ["switch", 1])
         self.accept("2", self.set_key, ["switch", 2])
@@ -738,9 +774,11 @@ class World(DirectObject):
         # this only happens once, at beginning
         # set up keys
         self.setup_keys()
-
+        # create square object
+        self.square = Square(self.config, self.key_dict, self.base)
         self.logging = Logging(self.config)
-        if self.show_photos:
+        self.sequences = CalSequences(self.config, self.square, self.base.taskMgr)
+        if self.config.setdefault('PHOTO_PATH', False):
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
             self.call_subroutine.append(self.photos)

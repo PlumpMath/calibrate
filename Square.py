@@ -66,7 +66,7 @@ class Square(object):
         self.square.detachNode()
 
     def move_for_manual_position(self):
-        # used for manual move
+        # used for manual move, called from sequences
         # if a key was pressed, use that for next position
         if self.key_map["switch"]:
             # print 'manual move'

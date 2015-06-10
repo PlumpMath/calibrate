@@ -4,13 +4,15 @@ from direct.showbase.MessengerGlobal import messenger
 from panda3d.core import LineSegs, BitMask32
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.interval.FunctionInterval import Func, Wait
+from CalSequences import CalSequences
 import os
 import random
 
 
-class Photos(object):
+class Photos(CalSequences):
 
     def __init__(self, base, config=None, logging=None, deg_per_pixel=None):
+        CalSequences.__init__()
         # photo location
         self.base = base
         self.config = config
@@ -167,10 +169,11 @@ class Photos(object):
             print 'on the photo'
             self.photo_timer_on = True
 
-    def no_fixation(self, task):
+    def no_fixation(self, task=None):
         print 'no fixation or broken, restart cross'
         self.stop_plot_eye_task()
         self.restart_cross_bad_fixation()
+        return task.done
 
     def broke_fixation(self):
         if self.cross_hair:
