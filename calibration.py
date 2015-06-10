@@ -1,17 +1,13 @@
 from __future__ import division
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.DirectObject import DirectObject
-from direct.interval.MetaInterval import Parallel, Sequence
-from direct.interval.FunctionInterval import Func, Wait
 from panda3d.core import BitMask32
 from panda3d.core import WindowProperties, TextNode
 from panda3d.core import OrthographicLens, LineSegs
-from Square import Square
 from Logging import Logging
 from positions import visual_angle
 from EyeData import EyeData
 import sys
-import random
 from math import sqrt, radians, cos, sin
 from Photos import Photos
 
@@ -169,13 +165,10 @@ class World(DirectObject):
         self.base.setBackgroundColor(115 / 255, 115 / 255, 115 / 255)
         self.base.disableMouse()
 
-        # create dummy variable for square and logging
-        self.square = None
+        # create dummy variable for helper objects
         self.logging = None
         self.eye_data = None
-
-        # if misses fixation, keep position the same
-        self.square_position = None
+        self.sequences = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -200,17 +193,16 @@ class World(DirectObject):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
         # print 'start new gig'
-        # set up square positions
-        self.square.setup_positions(self.config, self.manual)
         if not self.testing:
             # text4 and text5 change
             self.set_text4()
             self.set_text5()
-        # open files and start data stream
+        # open files, start data stream, prepare tasks
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
         self.logging.log_config('Offset', self.offset)
         self.eye_data.start_logging(self.logging)
+        self.sequences.prepare_task(self.manual)
 
     def end_gig(self):
         # used when end in either auto or manual mode,
@@ -221,7 +213,6 @@ class World(DirectObject):
         # close stuff
         self.eye_data.stop_logging()
         self.logging.close_files()
-        # self.square.pos = None
 
     def change_tasks(self):
         # change from manual to auto-calibrate or vise-versa
@@ -240,8 +231,8 @@ class World(DirectObject):
     def start_main_loop(self, good_trial=None):
         # check to see if manual, no subroutines for manual
         if self.manual:
-            self.setup_manual_sequence()
-            self.manual_sequence.start()
+            self.sequences.setup_manual_sequence()
+            self.sequences.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
             print 'new loop, not manual'
@@ -259,8 +250,8 @@ class World(DirectObject):
             print 'after call_subroutine, do_subroutine now', do_subroutine
             if not do_subroutine:
                 print 'show square'
-                self.setup_auto_sequences()
-                self.auto_sequence_one.start()
+                self.sequences.setup_auto_sequences()
+                self.sequences.auto_sequence_one.start()
 
     def cleanup_main_loop(self):
         print 'cleanup main loop'
@@ -283,159 +274,8 @@ class World(DirectObject):
                 self.start_main_loop(good_trial)
         # print('done cleanup_main_loop')
 
-    def setup_manual_sequence(self):
-        # print 'setup manual sequence'
-        all_intervals = self.create_intervals()
-        # functions to use in sequences:
-        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
-        square_move = Func(self.square.move_for_manual_position)
-        write_to_file_move = Func(self.write_to_file, 0)
-        square_on = Func(self.square.turn_on)
-        write_to_file_on = Func(self.write_to_file, 1)
-        square_fade = Func(self.square.fade)
-        write_to_file_fade = Func(self.write_to_file, 2)
-        square_off = Func(self.square.turn_off)
-        write_to_file_off = Func(self.write_to_file, 3)
-        give_reward = Func(self.give_reward)
-        write_to_file_reward = Func(self.write_to_file, 4)
-        clear_screen = Func(self.clear_screen)
-        cleanup = Func(self.cleanup_main_loop)
-
-        # Parallel does not wait for tasks to return before returning itself, which
-        # works out pretty awesome, since move interval is suppose to be time from reward start
-        # until next trial
-
-        self.manual_sequence = Sequence(
-            Parallel(square_move, write_to_file_move, plot_eye),
-            Parallel(square_on, write_to_file_on),
-            Wait(all_intervals[0]),
-            Parallel(square_fade, write_to_file_fade),
-            Wait(all_intervals[1]),
-            Parallel(square_off, write_to_file_off),
-            Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file_reward, clear_screen),
-            Wait(all_intervals[3]),
-            cleanup,
-        )
-
-    def setup_auto_sequences(self):
-        # print 'setup auto sequences'
-        # making two "sequences", although one is just a parallel task
-        # auto sequence is going to start with square fading
-        all_intervals = self.create_intervals()
-        # functions used in sequence
-        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
-        watch_eye_timer = Func(self.start_plot_eye_task, check_eye=True, timer=True)
-        watch_eye = Func(self.start_plot_eye_task, check_eye=True)
-        square_move = Func(self.square.move, self.square_position)
-        write_to_file_move = Func(self.write_to_file, 0)
-        square_on = Func(self.square.turn_on)
-        write_to_file_on = Func(self.write_to_file, 1)
-        write_to_file_fix = Func(self.write_to_file, 5)
-        square_fade = Func(self.square.fade)
-        write_to_file_fade = Func(self.write_to_file, 2)
-        square_off = Func(self.square.turn_off)
-        write_to_file_off = Func(self.write_to_file, 3)
-        give_reward = Func(self.give_reward)
-        write_to_file_reward = Func(self.write_to_file, 4)
-        clear_screen = Func(self.clear_screen)
-        cleanup = Func(self.cleanup_main_loop)
-        # we don't know how long the wait period should be for square on,
-        # because that wait period doesn't start until fixation, and we don't
-        # know when that will happen. So make two sequences, so wait period
-        # is flexible
-
-        # create the first sequence.
-        self.auto_sequence_one = Sequence(
-            Parallel(square_move, write_to_file_move),
-            Parallel(square_on, write_to_file_on, watch_eye_timer))
-
-        # Parallel does not wait for any doLaterMethods to return before returning itself, which
-        # works out pretty awesome, since move interval is suppose to be time from reward start
-        # until next trial. This would be a problem if there was so much reward that it took up
-        # all of the time for the move_interval, but that would be a lot of reward
-        # print('pump delay', self.config['PUMP_DELAY'])
-        # print('beeps', self.num_beeps)
-
-        self.auto_sequence_two = Sequence(
-            Parallel(write_to_file_fix, watch_eye),
-            Wait(all_intervals[4]),
-            Parallel(square_fade, write_to_file_fade, plot_eye),
-            Wait(all_intervals[1]),
-            Parallel(square_off, write_to_file_off),
-            Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file_reward, clear_screen),
-            Wait(all_intervals[3]),
-            cleanup,
-        )
-
-    # Fixation Methods (auto)
-    def start_fixation_period(self):
-        print 'We have fixation, auto'
-        # start next sequence. Can still be aborted, if lose fixation
-        # during first interval
-        self.auto_sequence_two.start()
-
-    def no_fixation(self, task):
-        print 'timed out, no fixation'
-        # print 'where eye is', self.current_eye_data
-        # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
-        # will begin and stop this task from running (started from process_eye_data method), if not we start over here
-        self.stop_plot_eye_task()
-        # print time()
-        self.restart_auto_loop_bad_fixation()
-        # print 'return wait_off_task'
-        return task.done
-
-    def broke_fixation(self):
-        # print 'broke fixation'
-        # this task is called if fixation is broken, so during second auto-calibrate sequence
-        # don't need auto task anymore
-        print 'should not have to remove wait_for_fix, is it here?'
-        print self.base.taskMgr
-        self.base.taskMgr.remove('wait_for_fix')
-        # stop checking the eye
-        self.stop_plot_eye_task()
-        # stop sequence
-        # print 'stop sequence'
-        self.auto_sequence_two.pause()
-        # self.auto_sequence_two.finish()
-        # print 'restart'
-        self.restart_auto_loop_bad_fixation()
-
-    def restart_auto_loop_bad_fixation(self):
-        print 'restart auto loop, bad fixation long pause'
-        # print time()
-        # stop plotting and checking eye data
-        # make sure there are no tasks waiting
-        # self.base.taskMgr.removeTasksMatching('auto_*')
-        # turn off square
-        self.square.turn_off()
-        # keep square position
-        self.square_position = self.square.square.getPos()
-        # write to log
-        self.write_to_file(3)  # square off
-        self.write_to_file(6)  # bad fixation
-        self.clear_screen()
-        # now wait, and then start over again.
-        all_intervals = self.create_intervals()
-        # loop delay is normal time between trials + added delay
-        loop_delay = all_intervals[5] + all_intervals[3]
-        # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, self.cleanup_main_loop, 'auto_cleanup', extraArgs=[])
-        # print 'delay for broken fixation'
-        # print(self.base.taskMgr)
-
-    # sequence methods for both auto and manual
-    def create_intervals(self):
-        # print('interval list', self.interval_list)
-        all_intervals = [random.uniform(*i) for i in self.interval_list]
-        # print('all intervals', all_intervals)
-        return all_intervals
-
     def give_reward(self):
         # if got reward, square can move
-        self.square_position = None
         # print 'reward, 3'
         # print(self.base.taskMgr)
         # give reward for each num_beeps
@@ -462,22 +302,6 @@ class World(DirectObject):
             return task.again
         # print 'reward done'
         return task.done
-
-    def write_to_file(self, index):
-        # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
-        # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
-        # print self.base.taskMgr
-        # print('now', self.current_task)
-        print('write_to_file', self.sequence_for_file[index])
-        # write to file, advance next for next write
-        self.logging.log_event(self.sequence_for_file[index])
-        # if square is turning on, write position of square
-        if index == 1:
-            position = self.square.square.getPos()
-            self.logging.log_position(position)
-        # used for testing
-        self.current_task = index
-        # print 'current task from game', self.current_task
 
     def clear_screen(self):
         # print 'clear screen'
@@ -519,8 +343,7 @@ class World(DirectObject):
             print target, on_interval
         else:
             # else is going to be regular auto calibrate
-            target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
-            on_interval = random.uniform(*self.interval_list[0])
+            target, on_interval = self.sequences.get_fixation_target()
         return target, on_interval
 
     # Eye Methods
@@ -763,7 +586,8 @@ class World(DirectObject):
             win.detachNode()
         # self.eye_window.detachNode()
         # print 'square changing tolerance', self.square.square.getPos()
-        self.show_window((self.square.square.getPos()[0], self.square.square.getPos()[2]))
+        target = self.sequences.get_fixation_target()
+        self.show_window(target[0])
 
     # As described earlier, this simply sets a key in the self.keys dictionary to
     # the given value
@@ -914,8 +738,7 @@ class World(DirectObject):
         # this only happens once, at beginning
         # set up keys
         self.setup_keys()
-        # create square object
-        self.square = Square(self.config, self.keys, self.base)
+
         self.logging = Logging(self.config)
         if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
