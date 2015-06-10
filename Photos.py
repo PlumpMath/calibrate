@@ -14,6 +14,7 @@ class Photos(object):
         # photo location
         self.base = base
         self.config = config
+        self.config.setdefault('RANDOM_PHOTOS', True)
         self.logging = logging
         self.x_node = None
         self.photo_path = None
@@ -62,7 +63,7 @@ class Photos(object):
     def load_all_photos(self):
         # print 'load all photos'
         for file_name in os.listdir(self.config['PHOTO_PATH']):
-            # print file_name
+            print file_name
             if file_name.endswith('.bmp'):
                 self.photo_names.append(os.path.join(self.config['PHOTO_PATH'], file_name))
         if self.index_list[-1] > len(self.photo_names):
@@ -79,11 +80,12 @@ class Photos(object):
         except IndexError:
             # print 'end of index!'
             return False
-        # want photos presented in different order second time,
-        # so shuffle list.
-        # print 'photos', self.photo_names[start_ind:end_ind]
+        # check to see if photos should be presented in
+        # different order second time,
+        print 'photos', self.photo_names[start_ind:end_ind]
         self.photo_set = self.photo_names[start_ind:end_ind]
-        random.shuffle(self.photo_set)
+        if self.config['RANDOM_PHOTOS']:
+            random.shuffle(self.photo_set)
         # print self.photo_set
         self.photo_gen = self.get_photo()
         return True
@@ -93,7 +95,7 @@ class Photos(object):
             yield photo
 
     def get_next_photo(self):
-        # print 'show photo and tolerance'
+        print 'show photo and tolerance'
         self.photo_path = None
         try:
             self.photo_path = self.photo_gen.next()
@@ -143,7 +145,7 @@ class Photos(object):
         write_to_file_cross_off = Func(self.write_to_file, 'Cross off')
         cross_interval = random.uniform(*self.cross_hair_int)
         photo_on = Func(self.show_photo)
-        write_to_file_photo_on = Func(self.write_to_file, 'Photo on')
+        write_to_file_photo_on = Func(self.write_to_file, self.photo_path)
         set_photo_timer = Func(self.set_photo_timer)
 
         self.cross_sequence = Parallel(cross_on, write_to_file_cross_on, watch_eye_timer)
@@ -183,7 +185,8 @@ class Photos(object):
     def restart_cross_bad_fixation(self):
         self.clear_cross_hair()
         self.write_to_file('Bad Fixation')
-        self.base.taskMgr.doMethodLater(self.config['BREAK_INTERVAL'], self.start_photo_loop, 'start_over', extraArgs=[])
+        break_interval = random.uniform(*self.config['BREAK_INTERVAL'])
+        self.base.taskMgr.doMethodLater(break_interval, self.start_photo_loop, 'start_over', extraArgs=[])
 
     def get_fixation_target(self):
         # for photos, have to do checking of target in Photos
@@ -314,13 +317,11 @@ class Photos(object):
         return task.done
 
 
-def create_index_list(num_photos, num_sets, first_index=None):
+def create_index_list(num_photos, num_sets, first_index=0):
     # because of indexing starting at zero and using range,
     # num_sets makes one set if num_sets is zero, which doesn't make
     # much sense from a user point of view, so subtract off one
     num_sets -= 1
-    if not first_index:
-        first_index = 0
     # last photo is first + num_photos
     last_index = first_index + num_photos
     index_list = [first_index, last_index] * 2
