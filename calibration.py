@@ -123,12 +123,6 @@ class World(DirectObject):
         # This will be the photo object, if we are showing photos
         self.photos = None
 
-        # if no photos, this will always be false, otherwise
-        # will switch when showing a photo
-        self.fixation_photo_flag = False
-        # same here, for cross hair
-        self.fixation_cross_flag = False
-
         # initialize text before setting up second window.
         # text will be overridden there.
         # text only happens on second window
@@ -182,8 +176,6 @@ class World(DirectObject):
 
         # if misses fixation, keep position the same
         self.square_position = None
-        # true, clear now, false, plot now, None, do not plot
-        self.flag_clear_eyes = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -203,38 +195,6 @@ class World(DirectObject):
         # Keyboard stuff:
         # initiate
         self.keys = {"switch": 0}
-
-        # Our intervals
-        # on_interval - time from on to fade
-        # fade_interval - time from fade on to off
-        # reward_interval - time from off to reward
-        # move_interval - time from reward to move/on
-        # fix_interval - used for auto, how long required to fixate
-        # break_interval - used for auto, how long time out before
-        #            next square on, if missed or broke fixation
-        # on, fade, reward, move, fix, break
-
-        # get rid of cross hair, only in photos
-        cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
-        self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
-                              self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
-                              cross_hair_int]
-
-        # initiate sequences
-        self.manual_sequence = None
-        self.auto_sequence_one = None
-        self.auto_sequence_two = None
-
-        # dictionary for writing to file
-        self.sequence_for_file = {
-            0: 'Square moved',
-            1: 'Square on',
-            2: 'Square dims',
-            3: 'Square off',
-            4: 'Reward',
-            5: 'Fixated',
-            6: 'Bad Fixation',
-        }
 
     def start_gig(self):
         # used when beginning in either auto or manual mode,
@@ -873,7 +833,7 @@ class World(DirectObject):
     def setup_window2(self):
         # print 'second window, for researcher'
         props = WindowProperties()
-        #props.setForeground(True)
+        # props.setForeground(True)
         props.setCursorHidden(True)
         try:
             self.base.win.requestProperties(props)
@@ -977,8 +937,6 @@ class World(DirectObject):
         # if we close during a photo showing or photo break, will interrupt task
         # also want to keep track of where we ended. Move this to Photos.
         # make sure eye data is
-        # if eye data comes in during closing, clear eyes
-        self.flag_clear_eyes = True
         # close any subroutines
         if self.call_subroutine:
             for tasks in self.call_subroutine:
