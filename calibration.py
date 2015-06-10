@@ -45,7 +45,7 @@ def check_fixation(eye_data, tolerance, target):
         distance = get_distance(eye_data, target)
         # print 'distance', distance
         # okay, this works if tolerance is a radius from the center,
-        # but not going to work when tolerance is a square.
+        # but not going to work when/if tolerance is a square
         if distance > tolerance:
             fixated = False
         else:
