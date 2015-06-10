@@ -8,7 +8,7 @@ import os
 import random
 
 
-class Photos():
+class Photos(object):
 
     def __init__(self, base, config=None, logging=None, deg_per_pixel=None):
         # photo location
@@ -232,36 +232,6 @@ class Photos():
             return task.done
         else:
             return task.cont
-
-    def old_timer_task(self, task):
-        # print('timer', self.fixation_timer)
-        # if looks away, add that time to the timer
-        # this is because we are 
-        # task.time is how long this task has been running
-        new_time = task.time
-        # print('task time beginning', new_time)
-        # if not fixated, and still during fixation period, extend timer
-        #
-        if not self.photo_timer_on:
-            # print 'flagged'
-            # print time()
-            # print('new time', new_time)
-            # print('stashed time', self.time_stash)
-            old_time = self.time_stash
-            dt = new_time - old_time  # get delta that passed with no fixation
-            # print('time adjustment', dt)
-            self.fixation_timer += dt  # add that to the timer
-            # print('numframes', task.frame)
-            # print('current timer', self.fixation_timer)
-            # print('total time', task.time)
-        self.time_stash = new_time  # set time for next check
-        if task.time < self.fixation_timer:
-            return task.cont
-        self.time_stash = 0
-        # print('timer was', self.fixation_timer)
-        # print('task time was', task.time)
-        # done fixating
-        return task.done
 
     def set_break_timer(self, task):
         # print('remove photo, on break')
