@@ -11,7 +11,7 @@ import random
 
 class Photos(CalSequences):
 
-    def __init__(self, base, config=None, logging=None, deg_per_pixel=None):
+    def __init__(self, config, base, logging, deg_per_pixel=None):
         CalSequences.__init__()
         # photo location
         self.base = base
@@ -294,10 +294,10 @@ class Photos(CalSequences):
         # cross hair is 1/2 degree visual angle,
         # so go 1/4 on each side
         dist_from_center = 0.25 / deg_per_pixel
-        cross.move_to(0 + dist_from_center, 55, 0)
-        cross.draw_to(0 - dist_from_center, 55, 0)
-        cross.move_to(0, 55, 0 - dist_from_center)
-        cross.draw_to(0, 55, 0 + dist_from_center)
+        cross.moveTo(0 + dist_from_center, 55, 0)
+        cross.drawTo(0 - dist_from_center, 55, 0)
+        cross.moveTo(0, 55, 0 - dist_from_center)
+        cross.drawTo(0, 55, 0 + dist_from_center)
         self.x_node = self.base.render.attachNewNode(cross.create(True))
         self.x_node.hide()
 

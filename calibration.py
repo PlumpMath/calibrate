@@ -7,7 +7,6 @@ from panda3d.core import OrthographicLens, LineSegs
 from Logging import Logging
 from positions import visual_angle
 from EyeData import EyeData
-from Square import Square
 from CalSequences import CalSequences
 import sys
 from math import sqrt, radians, cos, sin
@@ -168,7 +167,6 @@ class World(DirectObject):
         self.logging = None
         self.eye_data = None
         self.sequences = None
-        self.square = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -188,17 +186,6 @@ class World(DirectObject):
         # Keyboard stuff:
         # initiate
         self.key_dict = {"switch": 0}
-
-        # dictionary for writing to file
-        self.sequence_for_file = {
-            0: 'Square moved',
-            1: 'Square on',
-            2: 'Square dims',
-            3: 'Square off',
-            4: 'Reward',
-            5: 'Fixated',
-            6: 'Bad Fixation',
-        }
 
     def start_gig(self):
         # used when beginning in either auto or manual mode,
@@ -261,7 +248,7 @@ class World(DirectObject):
             print 'after call_subroutine, do_subroutine now', do_subroutine
             if not do_subroutine:
                 print 'show square'
-                self.sequences.setup_auto_sequences()
+                self.sequences.setup_auto_sequences(good_trial)
                 self.sequences.auto_sequence_one.start()
 
     def cleanup_main_loop(self):
@@ -284,22 +271,6 @@ class World(DirectObject):
                 # print 'start next loop'
                 self.start_main_loop(good_trial)
         # print('done cleanup_main_loop')
-
-    def write_to_file(self, index):
-        # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
-        # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
-        # print self.task_mgr
-        # print('now', self.current_task)
-        print('write_to_file', self.sequence_for_file[index])
-        # write to file, advance next for next write
-        self.logging.log_event(self.sequence_for_file[index])
-        # if square is turning on, write position of square
-        if index == 1:
-            position = self.square.square.getPos()
-            self.logging.log_position(position)
-        # used for testing
-        self.current_task = index
-        # print 'current task from game', self.current_task
 
     def give_reward(self):
         # if got reward, square can move
@@ -616,7 +587,6 @@ class World(DirectObject):
         for win in self.eye_window:
             win.detachNode()
         # self.eye_window.detachNode()
-        # print 'square changing tolerance', self.square.square.getPos()
         target = self.sequences.get_fixation_target()
         self.show_window(target[0])
 
@@ -774,12 +744,10 @@ class World(DirectObject):
         # this only happens once, at beginning
         # set up keys
         self.setup_keys()
-        # create square object
-        self.square = Square(self.config, self.key_dict, self.base)
         self.logging = Logging(self.config)
-        self.sequences = CalSequences(self.config, self.square, self.base.taskMgr)
+        self.sequences = CalSequences(self.config, self.logging, self.base, self.key_dict)
         if self.config.setdefault('PHOTO_PATH', False):
-            self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
+            self.photos = Photos(self.config, self.base, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
             self.call_subroutine.append(self.photos)
             print 'call_subroutine', self.call_subroutine
