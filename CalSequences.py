@@ -8,7 +8,7 @@ from random import uniform
 
 class CalSequences(object):
 
-    def __init__(self, config, logging, base, key_dict=None):
+    def __init__(self, config, base, logging, key_dict=None):
         self.config = config
         self.logging = logging
         self.base = base

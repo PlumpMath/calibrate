@@ -4,15 +4,13 @@ from direct.showbase.MessengerGlobal import messenger
 from panda3d.core import LineSegs, BitMask32
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.interval.FunctionInterval import Func, Wait
-from CalSequences import CalSequences
 import os
 import random
 
 
-class Photos(CalSequences):
+class Photos(object):
 
     def __init__(self, config, base, logging, deg_per_pixel=None):
-        CalSequences.__init__()
         # photo location
         self.base = base
         self.config = config
@@ -23,7 +21,7 @@ class Photos(CalSequences):
         self.photo_names = []
         self.photo_set = []
         # this variable will change, and then be re-set with the configuration
-        self.fixation_timer = config['PHOTO_TIMER']
+        self.fixation_timer = self.config['PHOTO_TIMER']
         self.photo_timer_on = False  # starts out assuming fixated
         self.imageObject = None
         self.photo_gen = None
@@ -34,9 +32,9 @@ class Photos(CalSequences):
         self.cross_sequence = None
         self.photo_sequence = None
         self.cross_hair = False
-        total_cal_points = config['POINT_REPEAT'] * config['X_POINTS'] * config['Y_POINTS']
-        num_photos_in_set = config['NUM_PHOTOS_IN_SET']
-        num_poss_photos = total_cal_points // config['CAL_PTS_PER_PHOTO']
+        total_cal_points = self.config['POINT_REPEAT'] * self.config['X_POINTS'] * self.config['Y_POINTS']
+        num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
+        num_poss_photos = total_cal_points // self.config['CAL_PTS_PER_PHOTO']
         num_sets = num_poss_photos // num_photos_in_set
         # print num_sets
         # show each set twice, so just need half that many
@@ -44,7 +42,7 @@ class Photos(CalSequences):
         num_sets = 1
         # print num_sets
         try:
-            last_index = config['LAST_PHOTO_INDEX']
+            last_index = self.config['LAST_PHOTO_INDEX']
         except KeyError:
             last_index = 0
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)

@@ -745,7 +745,7 @@ class World(DirectObject):
         # set up keys
         self.setup_keys()
         self.logging = Logging(self.config)
-        self.sequences = CalSequences(self.config, self.logging, self.base, self.key_dict)
+        self.sequences = CalSequences(self.config, self.base, self.logging, self.key_dict)
         if self.config.setdefault('PHOTO_PATH', False):
             self.photos = Photos(self.config, self.base, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
