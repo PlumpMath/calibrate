@@ -115,20 +115,13 @@ class World(DirectObject):
 
         # check to see if we will be showing photos:
         # make a new variable, so we can toggle it
-        self.subroutine = False
-
+        self.sub_index = None
         self.call_subroutine = []
 
         self.show_photos = self.config.setdefault('PHOTO_PATH', False)
 
         # This will be the photo object, if we are showing photos
         self.photos = None
-
-        # if no photos, this will always be false, otherwise
-        # will switch when showing a photo
-        self.fixation_photo_flag = False
-        # same here, for cross hair
-        self.fixation_cross_flag = False
 
         # initialize text before setting up second window.
         # text will be overridden there.
@@ -183,8 +176,6 @@ class World(DirectObject):
 
         # if misses fixation, keep position the same
         self.square_position = None
-        # true, clear now, false, plot now, None, do not plot
-        self.flag_clear_eyes = None
 
         # initialize list for eye window
         self.eye_window = []
@@ -204,36 +195,6 @@ class World(DirectObject):
         # Keyboard stuff:
         # initiate
         self.keys = {"switch": 0}
-
-        # Our intervals
-        # on_interval - time from on to fade
-        # fade_interval - time from fade on to off
-        # reward_interval - time from off to reward
-        # move_interval - time from reward to move/on
-        # fix_interval - used for auto, how long required to fixate
-        # break_interval - used for auto, how long time out before
-        #            next square on, if missed or broke fixation
-        # on, fade, reward, move, fix, break
-        cross_hair_int = self.config.get('CROSS_HAIR_FIX', (0, 0))
-        self.interval_list = [self.config['ON_INTERVAL'], self.config['FADE_INTERVAL'], self.config['REWARD_INTERVAL'],
-                              self.config['MOVE_INTERVAL'], self.config['FIX_INTERVAL'], self.config['BREAK_INTERVAL'],
-                              cross_hair_int]
-
-        # initiate sequences
-        self.manual_sequence = None
-        self.auto_sequence_one = None
-        self.auto_sequence_two = None
-
-        # dictionary for writing to file
-        self.sequence_for_file = {
-            0: 'Square moved',
-            1: 'Square on',
-            2: 'Square dims',
-            3: 'Square off',
-            4: 'Reward',
-            5: 'Fixated',
-            6: 'Bad Fixation',
-        }
 
     def start_gig(self):
         # used when beginning in either auto or manual mode,
@@ -283,18 +244,26 @@ class World(DirectObject):
             self.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
+            print 'new loop, not manual'
             do_subroutine = False
-            if self.subroutine:
-                for tasks in self.call_subroutine:
-                    do_subroutine = tasks(good_trial)
+            if self.call_subroutine:
+                print 'check subroutines'
+                for index, tasks in enumerate(self.call_subroutine):
+                    do_subroutine = tasks.check_trial(good_trial, self.start_plot_eye_task)
                     if do_subroutine:
+                        print 'show photo'
+                        self.sub_index = index
                         break
+                    else:
+                        self.sub_index = None
+            print 'after call_subroutine, do_subroutine now', do_subroutine
             if not do_subroutine:
+                print 'show square'
                 self.setup_auto_sequences()
                 self.auto_sequence_one.start()
 
     def cleanup_main_loop(self):
-        # print 'cleanup main loop'
+        print 'cleanup main loop'
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         good_trial = self.num_reward > 0
@@ -402,7 +371,7 @@ class World(DirectObject):
 
     # Fixation Methods (auto)
     def start_fixation_period(self):
-        print 'We have fixation'
+        print 'We have fixation, auto'
         # start next sequence. Can still be aborted, if lose fixation
         # during first interval
         self.auto_sequence_two.start()
@@ -422,6 +391,8 @@ class World(DirectObject):
         # print 'broke fixation'
         # this task is called if fixation is broken, so during second auto-calibrate sequence
         # don't need auto task anymore
+        print 'should not have to remove wait_for_fix, is it here?'
+        print self.base.taskMgr
         self.base.taskMgr.remove('wait_for_fix')
         # stop checking the eye
         self.stop_plot_eye_task()
@@ -433,7 +404,7 @@ class World(DirectObject):
         self.restart_auto_loop_bad_fixation()
 
     def restart_auto_loop_bad_fixation(self):
-        # print 'restart auto loop, bad fixation long pause'
+        print 'restart auto loop, bad fixation long pause'
         # print time()
         # stop plotting and checking eye data
         # make sure there are no tasks waiting
@@ -542,9 +513,10 @@ class World(DirectObject):
         self.base.taskMgr.remove('plot_eye')
 
     def check_fixation_target(self):
-        if self.subroutine:
-            target = None
-            on_interval = None
+        if self.sub_index is not None:
+            # would be great if this were more generic, but works for now
+            target, on_interval = self.call_subroutine[self.sub_index].get_fixation_target()
+            print target, on_interval
         else:
             # else is going to be regular auto calibrate
             target = (self.square.square.getPos()[0], self.square.square.getPos()[2])
@@ -629,6 +601,9 @@ class World(DirectObject):
         tolerance = self.tolerance / self.deg_per_pixel
         # send in eye data converted to pixels, self.current_eye_data
         fixated = []
+        if target is None:
+            for data_point in self.current_eye_data:
+                fixated.append(self.call_subroutine[self.sub_index].check_fixation(data_point))
         for data_point in self.current_eye_data:
             fixated.append(check_fixation(data_point, tolerance, target))
         # print 'fixation array', fixated
@@ -637,68 +612,22 @@ class World(DirectObject):
         # need to check if time to start fixation period or time to end
         # fixation period, otherwise business as usual
         if self.fixated and not previous_fixation:
-            # print 'fixated, start fixation period'
+            print 'fixated, start fixation period'
             # end waiting period
             self.base.taskMgr.remove('wait_for_fix')
-            # print self.base.taskMgr
             # start fixation period
-            if self.fixation_cross_flag:
-                self.initiate_cross_hair_fixation()
+            if self.sub_index is not None:
+                print 'subroutine'
+                self.call_subroutine[self.sub_index].start_fixation_period()
             else:
+                print 'auto_fix'
                 self.start_fixation_period()
         elif not self.fixated and previous_fixation:
             print 'broke fixation'
-            self.broke_fixation()
-
-    def initiate_cross_hair_fixation(self):
-        print 'initiate cross hair fixation period'
-        # subject has fixated, if makes it through fixation interval, will show picture, otherwise
-        # will abort and start over
-        # first stop the on interval
-        self.write_to_file(5)
-        # now start the fixation interval
-        # self.cross_hair_sequence.start()
-
-    def end_cross_fixation(self, task):
-        print 'end cross fixation'
-        self.photos.clear_cross()
-        self.start_main_loop()
-        return task.done
-
-    def check_photo_loop(self, good_trial):
-        # if returns true, showing a crosshair and then a photo,
-        # otherwise continue on with regular calibration routine
-        if good_trial:
-            self.loop_count += 1
-        # print('good trial, loop count now', self.loop_count)
-        # print('loop count', self.loop_count)
-        # print self.photos.cal_pts_per_photo
-        # check to see if it is time to show a photo
-        if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
-            # check to see if we are out of photos
-            self.show_photos = self.photos.get_next_photo()
-            # if there were no photos, continue on to
-            # finish regular calibration
-            if not self.show_photos:
-                return False
-            # start plotting eye positions again
-            self.flag_clear_eyes = False
-            # and start cross hair
-            self.fixation_cross_flag = True
-            print 'call show cross hair'
-            self.photos.show_cross_hair()
-            return True
-        return False
-
-    def do_photo_loop(self):
-        print 'photo loop in calibration'
-        self.fixation_cross_flag = False
-        self.fixation_photo_flag = True
-        # start plotting eye positions again
-        self.flag_clear_eyes = False
-        # print 'called show photo from start_new_loop'
-        self.loop_count = 0
-        self.photos.show_actual_photo()
+            if self.sub_index is not None:
+                self.call_subroutine[self.sub_index].broke_fixation()
+            else:
+                self.broke_fixation()
 
     def eye_data_to_pixel(self, eye_data):
         # change the offset and gain as necessary, so eye data looks
@@ -904,7 +833,7 @@ class World(DirectObject):
     def setup_window2(self):
         # print 'second window, for researcher'
         props = WindowProperties()
-        #props.setForeground(True)
+        # props.setForeground(True)
         props.setCursorHidden(True)
         try:
             self.base.win.requestProperties(props)
@@ -991,9 +920,8 @@ class World(DirectObject):
         if self.show_photos:
             self.photos = Photos(self.base, self.config, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
-        if self.show_photos:
-            self.call_subroutine.append(self.photos.check_trial)
-            self.subroutine = True
+            self.call_subroutine.append(self.photos)
+            print 'call_subroutine', self.call_subroutine
         # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
         self.start_eye_data()
@@ -1009,12 +937,10 @@ class World(DirectObject):
         # if we close during a photo showing or photo break, will interrupt task
         # also want to keep track of where we ended. Move this to Photos.
         # make sure eye data is
-        # if eye data comes in during closing, clear eyes
-        self.flag_clear_eyes = True
-        if self.photos:
-            self.base.taskMgr.removeTasksMatching('photo_*')
-            with open(self.config['file_name'], 'a') as config_file:
-                config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.photos.end_index))
+        # close any subroutines
+        if self.call_subroutine:
+            for tasks in self.call_subroutine:
+                tasks.close()
         self.eye_data.close()
         self.logging.close_files()
         if self.testing:

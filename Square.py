@@ -4,7 +4,7 @@ from positions import Positions
 from direct.showbase.MessengerGlobal import messenger
 
 
-class Square():
+class Square(object):
 
     def __init__(self, config, key_map, base):
         self.key_map = key_map
@@ -55,30 +55,15 @@ class Square():
         self.square.setColor(150 / 255, 150 / 255, 150 / 255, 1.0)
         # and render
         self.square.reparentTo(self.base.render)
-        # make sure in correct color
-        # print self.square.getColor()
-        # min, max = self.square.getTightBounds()
-        # size = max - min
-        # print size[0], size[2]
-        # print self.square.getPos()
-        # print 'square is now on'
-        # print 'actually turned on square'
-        # print('time', time())
 
     def fade(self):
         # print 'square fade'
-        # heading = self.square.getPos() + (0.05, 0, 0)
-        # self.square.setPos(heading)
-        # self.square.setColor(175/255, 175/255, 130/255, 1.0)
         self.square.setColor(0.9, 0.9, 0.6, 1.0)
 
     def turn_off(self):
         # print 'square off'
-        # print 'parent 1', self.square.getParent()
         self.square.clearColor()
         self.square.detachNode()
-        # print 'actually turned off square'
-        # print('time', time())
 
     def move_for_manual_position(self):
         # used for manual move
