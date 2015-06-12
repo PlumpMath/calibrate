@@ -231,26 +231,26 @@ class World(DirectObject):
             self.sequences.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
-            print 'new loop, not manual'
+            # print 'new loop, not manual'
             do_subroutine = False
             if self.call_subroutine:
-                print 'check subroutines'
+                # print 'check subroutines'
                 for index, tasks in enumerate(self.call_subroutine):
                     do_subroutine = tasks.check_trial(good_trial, self.start_plot_eye_task)
                     if do_subroutine:
-                        print 'show photo'
+                        # print 'show photo'
                         self.sub_index = index
                         break
                     else:
                         self.sub_index = None
-            print 'after call_subroutine, do_subroutine now', do_subroutine
+            # print 'after call_subroutine, do_subroutine now', do_subroutine
             if not do_subroutine:
-                print 'show square'
+                # print 'show square'
                 self.sequences.setup_auto_sequences(good_trial)
                 self.sequences.auto_sequence_one.start()
 
     def cleanup_main_loop(self):
-        print 'cleanup main loop'
+        # print 'cleanup main loop'
         # print('time', time())
         # end of loop, check to see if we are switching tasks, start again
         good_trial = self.num_reward > 0
@@ -334,7 +334,7 @@ class World(DirectObject):
         if self.sub_index is not None:
             # would be great if this were more generic, but works for now
             target, on_interval = self.call_subroutine[self.sub_index].get_fixation_target()
-            print target, on_interval
+            # print target, on_interval
         else:
             # else is going to be regular auto calibrate
             target, on_interval = self.sequences.get_fixation_target()
@@ -439,18 +439,18 @@ class World(DirectObject):
         # need to check if time to start fixation period or time to end
         # fixation period, otherwise business as usual
         if self.fixated and not previous_fixation:
-            print 'fixated, start fixation period'
+            # print 'fixated, start fixation period'
             # end waiting period
             self.base.taskMgr.remove('wait_for_fix')
             # start fixation period
             if self.sub_index is not None:
-                print 'subroutine'
+                # print 'subroutine'
                 self.call_subroutine[self.sub_index].start_fixation_period()
             else:
-                print 'auto_fix'
+                # print 'auto_fix'
                 self.sequences.start_fixation_period()
         elif not self.fixated and previous_fixation:
-            print 'broke fixation'
+            # print 'broke fixation'
             if self.sub_index is not None:
                 self.call_subroutine[self.sub_index].broke_fixation()
             else:
@@ -752,7 +752,7 @@ class World(DirectObject):
             self.photos = Photos(self.config, self.base, self.logging, self.deg_per_pixel)
             self.photos.load_all_photos()
             self.call_subroutine.append(self.photos)
-            print 'call_subroutine', self.call_subroutine
+            # print 'call_subroutine', self.call_subroutine
         # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
         self.start_eye_data()

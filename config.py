@@ -2,8 +2,8 @@
 SUBJECT = 'Maria'
 #SUBJECT = 'JN'
 
-REWARD = False
-FAKE_DATA = True
+REWARD = True
+FAKE_DATA = False
 SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
@@ -85,13 +85,16 @@ NUM_BEEPS = 3
 PUMP_DELAY = 0.2  # time in seconds between each pulse of the pump
 
 # Stuff for photos
-# PHOTO_PATH = 'photos/'  # if path is none, not using photos
-PHOTO_PATH = False
+PHOTO_PATH = 'photos/'  # if path is none, not using photos
+# PHOTO_PATH = False
 # how long to show each photo, only counting fixation time
 PHOTO_TIMER = 5  # 5 is standard for Buffalo Lab
 PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point, 1 standard
 CROSS_HAIR_FIX = (0.5, 0.75)
-NUM_PHOTOS_IN_SET = 18  # how many photos in each set, 16 standard
+NUM_PHOTOS_IN_SET = 36  # how many photos in one round of calibration, 16 standard (shown twice)
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
 RANDOM_PHOTOS = False
+SHOW_PHOTOS_TWICE = False
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
+
+LAST_PHOTO_INDEX = 36

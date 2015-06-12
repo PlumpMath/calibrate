@@ -4,6 +4,7 @@ from direct.showbase.MessengerGlobal import messenger
 from panda3d.core import LineSegs, BitMask32
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.interval.FunctionInterval import Func, Wait
+import datetime
 import os
 import random
 
@@ -32,20 +33,20 @@ class Photos(object):
         self.cross_sequence = None
         self.photo_sequence = None
         self.cross_hair = False
-        total_cal_points = self.config['POINT_REPEAT'] * self.config['X_POINTS'] * self.config['Y_POINTS']
         num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
-        num_poss_photos = total_cal_points // self.config['CAL_PTS_PER_PHOTO']
-        num_sets = num_poss_photos // num_photos_in_set
-        # print num_sets
+        # was originally going to determine automatically how many sets we could show,
+        # but now we always determine how many to show based on fitting in one calibration
+        # routine
+        # total_cal_points = self.config['POINT_REPEAT'] * self.config['X_POINTS'] * self.config['Y_POINTS']
+        # num_poss_photos = total_cal_points // self.config['CAL_PTS_PER_PHOTO']
+        # num_sets = num_poss_photos // num_photos_in_set
         # show each set twice, so just need half that many
-        num_sets //= 2
+        twice = self.config.setdefault('SHOW_PHOTOS_TWICE', False)
+        # only show one set per calibration routine
         num_sets = 1
         # print num_sets
-        try:
-            last_index = self.config['LAST_PHOTO_INDEX']
-        except KeyError:
-            last_index = 0
-        self.index_list = create_index_list(num_photos_in_set, num_sets, last_index)
+        last_index = self.config.get('LAST_PHOTO_INDEX', 0)
+        self.index_list = create_index_list(num_photos_in_set, num_sets, last_index, twice)
         # print('index list', self.index_list)
         self.end_index = 0
         # photo_size = [1280, 800]
@@ -59,11 +60,12 @@ class Photos(object):
         # print('photo tolerance', self.tolerance)
         self.loop_count = 0
         self.task_timer = 0
+        self.verify_timer = None
 
     def load_all_photos(self):
         # print 'load all photos'
         for file_name in os.listdir(self.config['PHOTO_PATH']):
-            print file_name
+            # print file_name
             if file_name.endswith('.bmp'):
                 self.photo_names.append(os.path.join(self.config['PHOTO_PATH'], file_name))
         if self.index_list[-1] > len(self.photo_names):
@@ -95,7 +97,7 @@ class Photos(object):
             yield photo
 
     def get_next_photo(self):
-        print 'show photo and tolerance'
+        # print 'show photo and tolerance'
         self.photo_path = None
         try:
             self.photo_path = self.photo_gen.next()
@@ -116,6 +118,7 @@ class Photos(object):
             self.loop_count = 0
             # check to see if we are out of photos
             new_photo = self.get_next_photo()
+            # print 'stop showing photos?', new_photo
         else:
             # not time for photos, return
             return False
@@ -157,18 +160,18 @@ class Photos(object):
             Parallel(photo_on, write_to_file_photo_on, set_photo_timer))
 
     def start_fixation_period(self):
-        print 'We have fixation, in subroutine'
+        # print 'We have fixation, in subroutine'
         # start next sequence. Can still be aborted, if lose fixation
         # during first interval
         if self.cross_hair:
-            print 'on the cross hair'
+            # print 'on the cross hair'
             self.photo_sequence.start()
         else:
-            print 'on the photo'
+            # print 'on the photo'
             self.photo_timer_on = True
 
     def no_fixation(self, task=None):
-        print 'no fixation or broken, restart cross'
+        # print 'no fixation or broken, restart cross'
         self.stop_plot_eye_task()
         self.restart_cross_bad_fixation()
         return task.done
@@ -200,11 +203,11 @@ class Photos(object):
         return target, on_interval
 
     def show_cross_hair(self):
-        print 'show cross hair'
+        # print 'show cross hair'
         self.x_node.show()
 
     def clear_cross_hair(self):
-        print 'clear cross hair'
+        # print 'clear cross hair'
         self.cross_hair = False
         self.x_node.hide()
 
@@ -222,6 +225,10 @@ class Photos(object):
         # print self.imageObject
 
     def set_photo_timer(self):
+        self.a = datetime.datetime.now()
+        print 'add timer task'
+        self.photo_fix_time = 0
+        self.task_timer = 0
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
         # print('started timer task', self.fixation_timer)
 
@@ -230,9 +237,15 @@ class Photos(object):
         # is fixating. After we collect enough viewing time, exit task
         dt = task.time - self.task_timer
         self.task_timer = task.time
+        # dt = datetime.datetime.now() - self.task_timer
+        # self.task_timer = datetime.datetime.now()
         if self.photo_timer_on:
             self.photo_fix_time += dt
+            # print 'current timer', self.photo_fix_time
+        else:
+            print 'not fixated'
         if self.photo_fix_time >= self.fixation_timer:
+            print datetime.datetime.now() - self.a
             return task.done
         else:
             return task.cont
@@ -254,7 +267,7 @@ class Photos(object):
         return task.done
 
     def check_fixation(self, eye_data):
-        print 'check photo fixation'
+        # print 'check photo fixation'
         # print('eye', eye_data)
         # print('tolerance', self.tolerance)
         # tolerance is the x, y border that eye_data should
@@ -313,19 +326,22 @@ class Photos(object):
     @staticmethod
     def send_cleanup(task):
         # print time()
-        print('after photo cleanup, start next loop')
+        # print('after photo cleanup, start next loop')
         messenger.send('cleanup')
         return task.done
 
 
-def create_index_list(num_photos, num_sets, first_index=0):
+def create_index_list(num_photos, num_sets, first_index=0, twice=True):
     # because of indexing starting at zero and using range,
     # num_sets makes one set if num_sets is zero, which doesn't make
     # much sense from a user point of view, so subtract off one
+    # default is to run each set twice
     num_sets -= 1
     # last photo is first + num_photos
     last_index = first_index + num_photos
-    index_list = [first_index, last_index] * 2
+    index_list = [first_index, last_index]
+    if twice:
+        index_list *= 2
     # print('index_list', index_list)
     last_set = index_list
     for i in range(num_sets):
