@@ -59,10 +59,10 @@ class CalSequences(object):
         write_to_file_fade = Func(self.write_to_file, index=2)
         square_off = Func(self.square.turn_off)
         write_to_file_off = Func(self.write_to_file, index=3)
-        give_reward = Func(send_give_reward)
+        give_reward = Func(send_message, 'reward')
         write_to_file_reward = Func(self.write_to_file, index=4)
-        clear_screen = Func(send_clear_screen)
-        cleanup = Func(send_cleanup)
+        clear_screen = Func(send_message, 'clear')
+        cleanup = Func(self.cleanup)
 
         # Parallel does not wait for tasks to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
@@ -82,12 +82,15 @@ class CalSequences(object):
         )
 
     def setup_auto_sequences(self, good_trial):
-        # print 'setup auto sequences'
+        print 'setup auto sequences'
+        print self.square.square.getPos()
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
         if good_trial:
             self.square_position = None
+        print 'good trial? ', good_trial
+        print 'did square position change? ', self.square_position
         # functions used in sequence
         plot_eye = Func(send_start_plot, check_eye=False)
         watch_eye_timer = Func(send_start_plot, check_eye=True, timer=True)
@@ -101,10 +104,10 @@ class CalSequences(object):
         write_to_file_fade = Func(self.write_to_file, index=2)
         square_off = Func(self.square.turn_off)
         write_to_file_off = Func(self.write_to_file, index=3)
-        give_reward = Func(send_give_reward)
+        give_reward = Func(send_message, 'reward')
         write_to_file_reward = Func(self.write_to_file, index=4)
-        clear_screen = Func(send_clear_screen)
-        cleanup = Func(send_cleanup)
+        clear_screen = Func(send_message, 'clear')
+        cleanup = Func(self.cleanup)
         # we don't know how long the wait period should be for square on,
         # because that wait period doesn't start until fixation, and we don't
         # know when that will happen. So make two sequences, so wait period
@@ -178,16 +181,17 @@ class CalSequences(object):
         self.square.turn_off()
         # keep square position
         self.square_position = self.square.square.getPos()
+        print self.square_position
         # write to log
         self.write_to_file(index=3)  # square off
         self.write_to_file(index=6)  # bad fixation
-        send_clear_screen()
+        send_message('clear')
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, send_cleanup, 'auto_cleanup', extraArgs=[])
+        self.base.taskMgr.doMethodLater(loop_delay, self.cleanup, 'auto_cleanup', extraArgs=[])
         # print 'delay for broken fixation'
         # print(self.base.taskMgr)
 
@@ -197,6 +201,7 @@ class CalSequences(object):
         # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
         # print self.base.taskMgr
         print('write_to_file', self.sequence_for_file[index])
+        print('square position', self.square.square.getPos())
         # if square is turning on, write position of square
         if index == 1:
             position = self.square.square.getPos()
@@ -223,20 +228,15 @@ class CalSequences(object):
         self.square = Square(self.config, self.key_dict, self.base)
         self.square.setup_positions(self.config, manual)
 
-
-def send_cleanup():
-    print 'cleanup'
-    messenger.send('cleanup')
-
-
-def send_give_reward():
-    print 'reward'
-    messenger.send('reward')
+    def cleanup(self):
+        # for testing, good to know when at end of loop, doesn't affect task at all
+        self.current_task = None
+        send_message('cleanup')
 
 
-def send_clear_screen():
-    print 'clear'
-    messenger.send('clear')
+def send_message(message):
+    print message
+    messenger.send(message)
 
 
 def send_start_plot(check_eye=False, timer=False):

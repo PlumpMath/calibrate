@@ -180,8 +180,6 @@ class World(DirectObject):
 
         self.num_beeps = self.config['NUM_BEEPS']  # number of rewards each time
         self.num_reward = 0  # count number of rewards
-        # current task is used for testing, changes at start of each new task
-        self.current_task = None
 
         # Keyboard stuff:
         # initiate
@@ -258,8 +256,6 @@ class World(DirectObject):
         good_trial = self.num_reward > 0
         self.num_reward = 0
         self.fixated = False
-        # for testing, good to know when at end of loop, doesn't affect task at all
-        self.current_task = None
         # if we change tasks, wait for keypress to start again
         if self.flag_task_switch:
             # print 'change tasks'
@@ -346,7 +342,8 @@ class World(DirectObject):
 
     # Eye Methods
     def start_fixation_timer(self, target, on_interval):
-        # print 'show fixation window, start timer'
+        print 'show fixation window, start timer'
+        print on_interval
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
@@ -384,6 +381,7 @@ class World(DirectObject):
         if not self.testing:
             self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[-1][0], 3)) +
                                ', ' + str(round(self.current_eye_data[-1][1], 3)) + ']')
+        # print 'check_eye', check_eye
         if check_eye:
             # print 'check fixation'
             self.evaluate_fixation(target)
@@ -421,16 +419,20 @@ class World(DirectObject):
         # print 'end plot trace'
 
     def evaluate_fixation(self, target):
+        # print 'evaluate'
         previous_fixation = self.fixated
         # convert tolerance to pixels
         tolerance = self.tolerance / self.deg_per_pixel
         # send in eye data converted to pixels, self.current_eye_data
         fixated = []
+        # print 'target', target
         if target is None:
             for data_point in self.current_eye_data:
                 fixated.append(self.call_subroutine[self.sub_index].check_fixation(data_point))
-        for data_point in self.current_eye_data:
-            fixated.append(check_fixation(data_point, tolerance, target))
+        else:
+            for data_point in self.current_eye_data:
+                # print 'actual data', data_point
+                fixated.append(check_fixation(data_point, tolerance, target))
         # print 'fixation array', fixated
         self.fixated = all(fixated)
         # print('fixated?', self.fixated)
