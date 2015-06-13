@@ -319,6 +319,8 @@ class World(DirectObject):
     # Eye plotting
     def start_plot_eye_task(self, check_eye=False, timer=False):
         # print 'start plot eye task'
+        # print 'check_eye', check_eye
+        # print 'timer', timer
         target = None
         if check_eye:
             target, on_interval = self.check_fixation_target()
@@ -342,7 +344,7 @@ class World(DirectObject):
 
     # Eye Methods
     def start_fixation_timer(self, target, on_interval):
-        print 'show fixation window, start timer'
+        # print 'show fixation window, start timer'
         print on_interval
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
@@ -379,10 +381,11 @@ class World(DirectObject):
         self.plot_eye_trace(start_eye)
         # and set text to last data point
         if not self.testing:
-            self.text3.setText(self.eye_data.data_type + str(round(self.current_eye_data[-1][0], 3)) +
-                               ', ' + str(round(self.current_eye_data[-1][1], 3)) + ']')
+            self.text3.setText(self.eye_data.data_type + str(round(eye_data[-1][0], 3)) +
+                               ', ' + str(round(eye_data[-1][1], 3)) + ']')
         # print 'check_eye', check_eye
         if check_eye:
+            # print 'check eye', check_eye
             # print 'check fixation'
             self.evaluate_fixation(target)
         return task.cont
@@ -427,7 +430,10 @@ class World(DirectObject):
         fixated = []
         # print 'target', target
         if target is None:
+            # target is none if we are using a subroutine's check_fixation
+            # (usually means fixation area is square instead of round)
             for data_point in self.current_eye_data:
+                # print 'use sub routine check_fixation'
                 fixated.append(self.call_subroutine[self.sub_index].check_fixation(data_point))
         else:
             for data_point in self.current_eye_data:

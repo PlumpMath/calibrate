@@ -98,3 +98,4 @@ SHOW_PHOTOS_TWICE = False
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
 
 LAST_PHOTO_INDEX = 36
+LAST_PHOTO_INDEX = 72

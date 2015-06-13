@@ -21,8 +21,6 @@ class Photos(object):
         self.photo_path = None
         self.photo_names = []
         self.photo_set = []
-        # this variable will change, and then be re-set with the configuration
-        self.fixation_timer = self.config['PHOTO_TIMER']
         self.photo_timer_on = False  # starts out assuming fixated
         self.imageObject = None
         self.photo_gen = None
@@ -156,7 +154,8 @@ class Photos(object):
         self.photo_sequence = Sequence(
             Parallel(write_to_file_fix, watch_eye),
             Wait(cross_interval),
-            Parallel(cross_off, write_to_file_cross_off, plot_eye),
+            Func(self.stop_plot_eye_task),
+            Parallel(cross_off, write_to_file_cross_off, watch_eye),
             Parallel(photo_on, write_to_file_photo_on, set_photo_timer))
 
     def start_fixation_period(self):
@@ -226,11 +225,10 @@ class Photos(object):
 
     def set_photo_timer(self):
         self.a = datetime.datetime.now()
-        print 'add timer task'
+        print 'add photo timer task'
         self.photo_fix_time = 0
         self.task_timer = 0
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
-        # print('started timer task', self.fixation_timer)
 
     def timer_task(self, task):
         # this task collects time. We will only collect time while subject
@@ -244,7 +242,7 @@ class Photos(object):
             # print 'current timer', self.photo_fix_time
         else:
             print 'not fixated'
-        if self.photo_fix_time >= self.fixation_timer:
+        if self.photo_fix_time >= self.config['PHOTO_TIMER']:
             print datetime.datetime.now() - self.a
             return task.done
         else:
@@ -252,9 +250,6 @@ class Photos(object):
 
     def set_break_timer(self, task):
         # print('remove photo, on break')
-        # reset the timer for next time
-        self.fixation_timer = self.config['PHOTO_TIMER']
-        # print('new timer', self.fixation_timer)
         self.imageObject.destroy()
         self.write_to_file('Photo Off')
         for line in self.photo_window:
@@ -274,7 +269,9 @@ class Photos(object):
         # be contained in, both should be (x, y) tuple
         # photos are centered, so as long as the absolute value of the eye
         # is less than the absolute value of the tolerance, should be golden
-        if abs(eye_data[0]) < abs(self.tolerance[0]) and abs(eye_data[1]) < abs(self.tolerance[1]):
+        # if abs(eye_data[0]) < abs(self.tolerance[0]) and abs(eye_data[1]) < abs(self.tolerance[1]):
+        # hack for giuseppe:
+        if abs(eye_data[0]) < abs(self.tolerance[0]) and -self.tolerance[1] - 100 < eye_data[1] < self.tolerance[1]:
             return True
         return False
 
@@ -286,9 +283,11 @@ class Photos(object):
         photo_window.setColor(1, 0, 0, 1)
         photo_window.moveTo(self.tolerance[0], 55, self.tolerance[1])
         # print photo_window.getCurrentPosition()
-        photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1] - 100)
+        # photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1] - 100)
+        photo_window.drawTo(self.tolerance[0], 55, -self.tolerance[1])
         # print photo_window.getCurrentPosition()
-        photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1] - 100)
+        # photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1] - 100)
+        photo_window.drawTo(-self.tolerance[0], 55, -self.tolerance[1])
         # print photo_window.getCurrentPosition()
         photo_window.drawTo(-self.tolerance[0], 55, self.tolerance[1])
         # print photo_window.getCurrentPosition()
@@ -323,8 +322,8 @@ class Photos(object):
         with open(self.config['file_name'], 'a') as config_file:
             config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.end_index))
 
-    @staticmethod
-    def send_cleanup(task):
+    def send_cleanup(self, task):
+        self.stop_plot_eye_task()
         # print time()
         # print('after photo cleanup, start next loop')
         messenger.send('cleanup')

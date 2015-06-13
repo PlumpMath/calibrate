@@ -62,7 +62,7 @@ class CalSequences(object):
         give_reward = Func(send_message, 'reward')
         write_to_file_reward = Func(self.write_to_file, index=4)
         clear_screen = Func(send_message, 'clear')
-        cleanup = Func(self.cleanup)
+        cleanup = Func(self.send_cleanup)
 
         # Parallel does not wait for tasks to return before returning itself, which
         # works out pretty awesome, since move interval is suppose to be time from reward start
@@ -76,9 +76,9 @@ class CalSequences(object):
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file_off),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file_reward, clear_screen),
+            Parallel(give_reward, write_to_file_reward),
             Wait(all_intervals[3]),
-            cleanup,
+            Parallel(clear_screen, cleanup),
         )
 
     def setup_auto_sequences(self, good_trial):
@@ -107,7 +107,7 @@ class CalSequences(object):
         give_reward = Func(send_message, 'reward')
         write_to_file_reward = Func(self.write_to_file, index=4)
         clear_screen = Func(send_message, 'clear')
-        cleanup = Func(self.cleanup)
+        cleanup = Func(self.send_cleanup)
         # we don't know how long the wait period should be for square on,
         # because that wait period doesn't start until fixation, and we don't
         # know when that will happen. So make two sequences, so wait period
@@ -128,6 +128,7 @@ class CalSequences(object):
         self.auto_sequence_two = Sequence(
             Parallel(write_to_file_fix, watch_eye),
             Wait(all_intervals[4]),
+            Func(self.stop_plot_eye_task),
             Parallel(square_fade, write_to_file_fade, plot_eye),
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file_off),
@@ -191,7 +192,7 @@ class CalSequences(object):
         # loop delay is normal time between trials + added delay
         loop_delay = all_intervals[5] + all_intervals[3]
         # wait for loop delay, then cleanup and start over
-        self.base.taskMgr.doMethodLater(loop_delay, self.cleanup, 'auto_cleanup', extraArgs=[])
+        self.base.taskMgr.doMethodLater(loop_delay, self.send_cleanup, 'auto_cleanup', extraArgs=[])
         # print 'delay for broken fixation'
         # print(self.base.taskMgr)
 
@@ -228,7 +229,11 @@ class CalSequences(object):
         self.square = Square(self.config, self.key_dict, self.base)
         self.square.setup_positions(self.config, manual)
 
-    def cleanup(self):
+    def stop_plot_eye_task(self):
+        self.base.taskMgr.remove('plot_eye')
+
+    def send_cleanup(self):
+        self.stop_plot_eye_task()
         # for testing, good to know when at end of loop, doesn't affect task at all
         self.current_task = None
         send_message('cleanup')
