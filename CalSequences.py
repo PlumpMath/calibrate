@@ -82,15 +82,15 @@ class CalSequences(object):
         )
 
     def setup_auto_sequences(self, good_trial):
-        print 'setup auto sequences'
-        print self.square.square.getPos()
+        # print 'setup auto sequences'
+        # print self.square.square.getPos()
         # making two "sequences", although one is just a parallel task
         # auto sequence is going to start with square fading
         all_intervals = self.create_intervals()
         if good_trial:
             self.square_position = None
-        print 'good trial? ', good_trial
-        print 'did square position change? ', self.square_position
+        # print 'good trial? ', good_trial
+        # print 'did square position change? ', self.square_position
         # functions used in sequence
         plot_eye = Func(send_start_plot, check_eye=False)
         watch_eye_timer = Func(send_start_plot, check_eye=True, timer=True)
@@ -106,6 +106,7 @@ class CalSequences(object):
         write_to_file_off = Func(self.write_to_file, index=3)
         give_reward = Func(send_message, 'reward')
         write_to_file_reward = Func(self.write_to_file, index=4)
+        clear_fix = Func(send_message, 'clear_fix')
         clear_screen = Func(send_message, 'clear')
         cleanup = Func(self.send_cleanup)
         # we don't know how long the wait period should be for square on,
@@ -133,20 +134,20 @@ class CalSequences(object):
             Wait(all_intervals[1]),
             Parallel(square_off, write_to_file_off),
             Wait(all_intervals[2]),
-            Parallel(give_reward, write_to_file_reward, clear_screen),
+            Parallel(give_reward, write_to_file_reward, clear_fix),
             Wait(all_intervals[3]),
-            cleanup,
+            Parallel(clear_screen, cleanup)
         )
 
     # Fixation Methods (auto)
     def start_fixation_period(self):
-        print 'We have fixation, auto'
+        # print 'We have fixation, auto'
         # start next sequence. Can still be aborted, if lose fixation
         # during first interval
         self.auto_sequence_two.start()
 
     def no_fixation(self, task):
-        print 'timed out, no fixation'
+        # print 'timed out, no fixation'
         # print 'where eye is', self.current_eye_data
         # this task waits run to run for the on interval, if there is a fixation, start_fixation_period
         # will begin and stop this task from running (started from process_eye_data method), if not we start over here
@@ -159,10 +160,6 @@ class CalSequences(object):
     def broke_fixation(self):
         # print 'broke fixation'
         # this task is called if fixation is broken, so during second auto-calibrate sequence
-        # don't need auto task anymore
-        print 'should not have to remove wait_for_fix, is it here?'
-        print self.base.taskMgr
-        self.base.taskMgr.remove('wait_for_fix')
         # stop checking the eye
         self.base.taskMgr.remove('plot_eye')
         # stop sequence
@@ -173,7 +170,7 @@ class CalSequences(object):
         self.restart_auto_loop_bad_fixation()
 
     def restart_auto_loop_bad_fixation(self):
-        print 'restart auto loop, bad fixation long pause'
+        # print 'restart auto loop, bad fixation long pause'
         # print time()
         # stop plotting and checking eye data
         # make sure there are no tasks waiting
@@ -182,11 +179,13 @@ class CalSequences(object):
         self.square.turn_off()
         # keep square position
         self.square_position = self.square.square.getPos()
-        print self.square_position
+        # print self.square_position
         # write to log
         self.write_to_file(index=3)  # square off
         self.write_to_file(index=6)  # bad fixation
         send_message('clear')
+        # plot eye, but not checking for fixation
+        send_start_plot()
         # now wait, and then start over again.
         all_intervals = self.create_intervals()
         # loop delay is normal time between trials + added delay
@@ -201,8 +200,8 @@ class CalSequences(object):
         # print 'first auto sequence is stopped', self.auto_sequence_one.isStopped()
         # print 'second auto sequence is stopped', self.auto_sequence_two.isStopped()
         # print self.base.taskMgr
-        print('write_to_file', self.sequence_for_file[index])
-        print('square position', self.square.square.getPos())
+        # print('write_to_file', self.sequence_for_file[index])
+        # print('square position', self.square.square.getPos())
         # if square is turning on, write position of square
         if index == 1:
             position = self.square.square.getPos()
@@ -240,10 +239,10 @@ class CalSequences(object):
 
 
 def send_message(message):
-    print message
+    # print message
     messenger.send(message)
 
 
 def send_start_plot(check_eye=False, timer=False):
-    print 'plot'
+    # print 'plot'
     messenger.send('plot', [check_eye, timer])

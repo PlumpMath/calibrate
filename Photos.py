@@ -82,7 +82,7 @@ class Photos(object):
             return False
         # check to see if photos should be presented in
         # different order second time,
-        print 'photos', self.photo_names[start_ind:end_ind]
+        # print 'photos', self.photo_names[start_ind:end_ind]
         self.photo_set = self.photo_names[start_ind:end_ind]
         if self.config['RANDOM_PHOTOS']:
             random.shuffle(self.photo_set)
@@ -146,7 +146,7 @@ class Photos(object):
         write_to_file_cross_off = Func(self.write_to_file, 'Cross off')
         cross_interval = random.uniform(*self.cross_hair_int)
         photo_on = Func(self.show_photo)
-        write_to_file_photo_on = Func(self.write_to_file, self.photo_path)
+        write_to_file_photo_on = Func(self.write_to_file, 'Photo on', self.photo_path)
         set_photo_timer = Func(self.set_photo_timer)
 
         self.cross_sequence = Parallel(cross_on, write_to_file_cross_on, watch_eye_timer)
@@ -214,6 +214,8 @@ class Photos(object):
         self.base.taskMgr.remove('plot_eye')
 
     def show_photo(self):
+        # is definitely fixating at start, otherwise
+        # photo wouldn't come on
         self.photo_timer_on = True
         # print self.photo_path
         # print time()
@@ -225,7 +227,7 @@ class Photos(object):
 
     def set_photo_timer(self):
         self.a = datetime.datetime.now()
-        print 'add photo timer task'
+        # print 'add photo timer task'
         self.photo_fix_time = 0
         self.task_timer = 0
         self.base.taskMgr.add(self.timer_task, 'photo_timer_task', uponDeath=self.set_break_timer)
@@ -233,17 +235,20 @@ class Photos(object):
     def timer_task(self, task):
         # this task collects time. We will only collect time while subject
         # is fixating. After we collect enough viewing time, exit task
-        dt = task.time - self.task_timer
+        # first data point does not count, because photo wasn't up yet.
+        if self.task_timer != 0:
+            dt = task.time - self.task_timer
+        else:
+            dt = 0
         self.task_timer = task.time
         # dt = datetime.datetime.now() - self.task_timer
         # self.task_timer = datetime.datetime.now()
         if self.photo_timer_on:
+            # print dt
             self.photo_fix_time += dt
             # print 'current timer', self.photo_fix_time
-        else:
-            print 'not fixated'
         if self.photo_fix_time >= self.config['PHOTO_TIMER']:
-            print datetime.datetime.now() - self.a
+            # print datetime.datetime.now() - self.a
             return task.done
         else:
             return task.cont
@@ -251,7 +256,7 @@ class Photos(object):
     def set_break_timer(self, task):
         # print('remove photo, on break')
         self.imageObject.destroy()
-        self.write_to_file('Photo Off')
+        self.write_to_file('Photo off')
         for line in self.photo_window:
             line.detachNode()
         # print time()
@@ -312,7 +317,7 @@ class Photos(object):
         self.x_node.hide()
 
     def write_to_file(self, event, photo=None):
-        print 'write to file', event
+        # print 'write to file', event
         self.logging.log_event(event)
         if photo:
             self.logging.log_event(photo)

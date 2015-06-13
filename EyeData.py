@@ -115,7 +115,7 @@ class EyeData(object):
 
     def start_producer_thread(self, thread_name, origin=None, variance=None):
         logging.debug('start thread {0}'.format(thread_name))
-        print 'in producer', origin, variance
+        # print 'in producer', origin, variance
         if origin:
             self.origin = origin
         if variance:
@@ -137,7 +137,7 @@ class EyeData(object):
         self.log_now = False
 
     def start_logging(self, log_object):
-        print 'start logging eye data'
+        # print 'start logging eye data'
         self.log_now = True
         self.logging = log_object
 

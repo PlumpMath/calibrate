@@ -297,14 +297,17 @@ class World(DirectObject):
         # print 'reward done'
         return task.done
 
+    def clear_fix_window(self):
+        # remove threshold window around square
+        for win in self.eye_window:
+            win.detachNode()
+
     def clear_screen(self):
         # print 'clear screen'
         # We can now stop plotting eye positions,
         # and get rid of old eye positions.
         self.stop_plot_eye_task()
-        # remove threshold window around square
-        for win in self.eye_window:
-            win.detachNode()
+        self.clear_fix_window()
         if self.eye_nodes:
             # print self.eye_nodes
             # can do this in a loop, since does not
@@ -345,7 +348,7 @@ class World(DirectObject):
     # Eye Methods
     def start_fixation_timer(self, target, on_interval):
         # print 'show fixation window, start timer'
-        print on_interval
+        # print on_interval
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial
@@ -651,6 +654,7 @@ class World(DirectObject):
         self.accept("cleanup", self.cleanup_main_loop)
         self.accept("reward", self.give_reward)
         self.accept("clear", self.clear_screen)
+        self.accept("clear_fix", self.clear_fix_window)
         self.accept("plot", self.start_plot_eye_task)
         # keys will update the list, and loop will query it
         # to get new position
