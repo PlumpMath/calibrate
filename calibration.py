@@ -349,6 +349,7 @@ class World(DirectObject):
     def start_fixation_timer(self, target, on_interval):
         # print 'show fixation window, start timer'
         # print on_interval
+        # print target
         self.show_window(target)
         # start timing for on task, this runs for target on time and waits for fixation,
         # if no fixation, method runs to abort trial

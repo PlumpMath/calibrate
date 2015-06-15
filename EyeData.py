@@ -97,12 +97,14 @@ class EyeData(object):
     def producer(self):
         """set up the resource to be used by the consumer"""
         logging.debug('Starting producer thread')
+        # print 'in producer thread'
         with self.condition:
             if self.pydaq:
                 logging.debug('starting eye data task')
                 self.eye_task.SetCallback(self.produce_queue)
                 self.eye_task.StartTask()
             else:
+                # print 'start fake data'
                 logging.debug('start fake eye data task')
                 # start fake data at 0,0 for testing
                 self.fake_data = yield_eye_data(self.origin, self.variance)
@@ -114,17 +116,20 @@ class EyeData(object):
         return task.cont
 
     def start_producer_thread(self, thread_name, origin=None, variance=None):
+        # print 'start producer thread', self.producer_thread
         logging.debug('start thread {0}'.format(thread_name))
         # print 'in producer', origin, variance
         if origin:
             self.origin = origin
         if variance:
             self.variance = variance
-
             # print('cleared thread')
         if not self.producer_thread:
             self.producer_thread = threading.Thread(name=thread_name, target=self.producer)
             self.producer_thread.start()
+        else:
+            self.fake_data = yield_eye_data(self.origin, self.variance)
+            self.base.taskMgr.add(self.get_fake_data_task, 'fake_eye')
 
     def start_consumer_thread(self, thread_name, new=True):
         # can have more than one consumer
