@@ -54,7 +54,7 @@ BREAK_INTERVAL = (0.5, 0.5)
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.
 # ON_INTERVAL = (0.75, 0.75)  # Time on
-ON_INTERVAL = (5, 5)  # Time on
+ON_INTERVAL = (0.5, 0.5)  # Time on
 FADE_INTERVAL = (0.20, 0.20)  # Time faded
 REWARD_INTERVAL = (0.1, 0.1)  # Time from off to reward, this is zero for
 # our task, but this means it happens so fast we skip a next number in testing.

@@ -47,23 +47,23 @@ class TestCalibration(unittest.TestCase):
         # does a full loop if just ended, finishes the current
         # loop if you have already started
         # always ends at cleanup
-        print 'finish loop'
+        # print 'finish loop'
         taskMgr.step()
         if self.w.sequences.current_task is None:
-            print 'restarted loop'
+            # print 'restarted loop'
             self.w.start_main_loop()
         now = self.w.sequences.current_task
         first_loop = True
-        print 'now before loop', now
+        # print 'now before loop', now
         # check each time we change tasks
         while first_loop:
             taskMgr.step()
             if self.w.sequences.current_task != now:
-                print('took a step', self.w.sequences.current_task)
+                # print('took a step', self.w.sequences.current_task)
                 now = self.w.sequences.current_task
                 if now is None:
                     first_loop = False
-        print 'end loop'
+        # print 'end loop'
 
     def test_square_fades(self):
         # we may change the actual colors, so just make sure the
@@ -72,28 +72,28 @@ class TestCalibration(unittest.TestCase):
         # print 'color', old_color
         square_on = True
         on = False
-        print 'start loop'
+        # print 'start loop'
         check = self.w.sequences.current_task
         # need to show the square, and then get to the dim square method
         while square_on:
             taskMgr.step()
             if self.w.sequences.current_task != check:
                 check = self.w.sequences.current_task
-                print 'new task', check
-                print 'square now at', self.w.sequences.square.square.getPos()
+                # print 'new task', check
+                # print 'square now at', self.w.sequences.square.square.getPos()
             if self.w.sequences.current_task == 1 and not on:
                 # make sure we will fade, only want to run this once...
-                print 'move eye data'
+                # print 'move eye data'
                 self.move_eye_to_get_reward()
                 on = True
-                print 'moved eye'
+                # print 'moved eye'
             if self.w.sequences.current_task is None:
                 # in case we missed the fixation interval
                 self.w.start_main_loop()
             if self.w.sequences.current_task == 2 and on:
-                print 'square now at', self.w.sequences.square.square.getPos()
-                print 'square should be dim'
-                square_on = False
+                # print 'square now at', self.w.sequences.square.square.getPos()
+                # print 'square should be dim'
+                sq2uare_on = False
         # print self.w.sequences.square.square.getColor()
         self.assertNotEqual(self.w.sequences.square.square.getColor(), old_color)
 
@@ -137,7 +137,7 @@ class TestCalibration(unittest.TestCase):
         self.assertFalse(self.w.sequences.square.square.getParent())
 
     def test_square_turns_off_after_missed_fixation(self):
-        print 'square turns off after missed fixation'
+        # print 'square turns off after missed fixation'
         # First get to square on
         square_off = True
         # make sure looking at right place (not fixation)
@@ -148,7 +148,7 @@ class TestCalibration(unittest.TestCase):
             if self.w.sequences.current_task == 1:
                 # print 'square should be on'
                 square_off = False
-        print 'first loop over'
+        # print 'first loop over'
         # Now wait for 5, bad fixation. We should now have turned off the square,
         # and next will turn on the square after a missed fixation
         no_change = True
@@ -184,11 +184,11 @@ class TestCalibration(unittest.TestCase):
                     test = self.w.sequences.current_task
                 else:
                     no_change = False
-        print 'current task', self.w.sequences.current_task
+        # print 'current task', self.w.sequences.current_task
         # 6 is broken fixation
-        self.assertEqual(self.w.sequences.current_task, None)
+        self.assertEqual(self.w.sequences.current_task, 6)
         new_square_pos = self.w.sequences.square.square.getPos()
-        print 'should be in same place', new_square_pos
+        # print 'should be in same place', new_square_pos
         self.assertEqual(square_pos, new_square_pos)
 
     def test_repeats_same_square_if_no_fixation(self):
@@ -236,9 +236,9 @@ class TestCalibration(unittest.TestCase):
             # when frameTask.now is one, it is changing from something else.
             if self.w.sequences.current_task != last:
                 last = self.w.sequences.current_task
-                print last
+                # print last
             if last is None:
-                print 'None, restart'
+                # print 'None, restart'
                 # last will only be None at end
                 self.w.start_main_loop()
                 count = 1
@@ -325,19 +325,21 @@ class TestCalibration(unittest.TestCase):
         self.assertAlmostEqual(c.total_seconds(), self.config['ON_INTERVAL'][0], 1)
 
     def test_timing_fade_on_to_off(self):
-        self.move_eye_to_get_reward()
         # First get to fade on
-        square_dim = True
+        square_bright = True
         square_fade = True
         a = 0
         b = 0
-        while square_dim:
+        now = 1
+        while square_bright:
             taskMgr.step()
+            if self.w.sequences.current_task == now:
+                self.move_eye_to_get_reward()
+                now = 0
             a = datetime.datetime.now()
             # if taskTask.now changes to 2, then we have just changed color
             if self.w.sequences.current_task == 2:
-                # print 'square should be faded'
-                square_dim = False
+                square_bright = False
         # now wait for fade off:
         # print 'square should be faded'
         while square_fade:
@@ -383,7 +385,7 @@ class TestCalibration(unittest.TestCase):
                 square_on = False
                 # now wait for move/on:
         # now wait for reward
-        print 'wait for '
+        # print 'wait for reward'
         while no_reward:
             taskMgr.step()
             b = datetime.datetime.now()
@@ -392,7 +394,7 @@ class TestCalibration(unittest.TestCase):
                 # print 'reward'
                 no_reward = False
         c = b - a
-        print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # make sure timing within 1 place, won't be very accurate.
         # but close enough to have correct interval
         config_time = self.config['REWARD_INTERVAL'][0]
@@ -421,26 +423,26 @@ class TestCalibration(unittest.TestCase):
             # however we have to wait for all of the reward to be given,
             # but for testing this should be zero, since not using pydaq
             if self.w.sequences.current_task == 4:
-                print 'test: reward'
+                # print 'test: reward'
                 no_reward = False
         # now wait for move/on:
-        print 'reward'
+        # print 'reward'
         previous = self.w.sequences.current_task
         while square_off:
             taskMgr.step()
             b = datetime.datetime.now()
             if self.w.sequences.current_task != previous:
-                print('test:', self.w.sequences.current_task)
+                # print('test:', self.w.sequences.current_task)
                 previous = self.w.sequences.current_task
             if self.w.sequences.current_task is None:
-                print 'loop'
+                # print 'loop'
                 self.w.start_main_loop()
             # if taskTask.now changes to 1, then we have just turned on
             if self.w.sequences.current_task == 1:
-                print 'square should be on'
+                # print 'square should be on'
                 square_off = False
         c = b - a
-        print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # check that time is close
         # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure really on, sanity check
@@ -463,7 +465,7 @@ class TestCalibration(unittest.TestCase):
         # since we can't guarantee there wasn't a fixation before we moved the eye
         # assuming we have done everything correctly in teardown and setup, we should never have
         # anything except next = 0 to start with
-        print 'where we are', self.w.sequences.current_task
+        # print 'where we are', self.w.sequences.current_task
         self.assertTrue(self.w.sequences.current_task is None)
         # print('next', last)
         square_on = True
@@ -480,7 +482,7 @@ class TestCalibration(unittest.TestCase):
                     # print 'square off, I think'
                     # print self.w.sequences.current_task
         # now wait for square to turn back on
-        print 'next loop'
+        # print 'next loop'
         while square_off:
             taskMgr.step()
             b = datetime.datetime.now()
@@ -490,7 +492,7 @@ class TestCalibration(unittest.TestCase):
                 # print('square should be back on')
                 square_off = False
         c = b - a
-        print 'c', c.total_seconds()
+        # print 'c', c.total_seconds()
         # check that time is close
         # print 'c should be', self.config['MOVE_INTERVAL'][0]
         # make sure timing within 1 place, won't be very accurate.
@@ -508,12 +510,14 @@ class TestCalibration(unittest.TestCase):
             if self.w.sequences.current_task == 1:
                 # print 'square should be on'
                 square_off = False
+                # print 'move eye, I hope'
+                self.move_eye_to_get_reward()
             if self.w.sequences.current_task is None:
                 self.w.start_main_loop()
         # make sure looking at right place
-        print 'move eye, I hope'
-        self.move_eye_to_get_reward()
-        print 'current task', self.w.sequences.current_task
+        # print 'move eye, I hope'
+        # self.move_eye_to_get_reward()
+        # print 'current task', self.w.sequences.current_task
         no_reward = True
         now = self.w.sequences.current_task
         # wait for reward
@@ -521,7 +525,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if now != self.w.sequences.current_task:
                 now = self.w.sequences.current_task
-                print 'now', now
+                # print 'now', now
             # if taskTask.now changes to 4, then getting reward
             if self.w.sequences.current_task == 4:
                 no_reward = False
@@ -546,7 +550,7 @@ class TestCalibration(unittest.TestCase):
             taskMgr.step()
             if self.w.sequences.current_task != 1:
                 no_change = False
-        print 'end second loop', self.w.sequences.current_task
+        # print 'end second loop', self.w.sequences.current_task
         # next step should not be reward or square dims, should be
         # 6, bad fixation
         self.assertNotEqual(self.w.sequences.current_task, 2)
@@ -583,11 +587,11 @@ class TestCalibration(unittest.TestCase):
         self.assertEqual(self.w.sequences.current_task, 6)
 
     def move_eye_to_get_reward(self, no_reward=None):
-        print 'Attempting to move eye'
+        # print 'Attempting to move eye'
         # find out where the square is...
         # default is stays in fixation window for reward
         square_pos = self.w.sequences.square.square.getPos()
-        print square_pos
+        # print square_pos
         variance = 0.001
         start_pos = (square_pos[0], square_pos[2])
         # default is put eye in square
@@ -599,18 +603,18 @@ class TestCalibration(unittest.TestCase):
             # print 'break'
             # start out at fixation, but move out quickly
             variance = 20
-        print 'eye start', start_pos
+        # print 'eye start', start_pos
         # print 'variance', variance
         self.w.start_eye_data(start_pos, variance)
-        print 'moved eye'
+        # print 'moved eye'
 
     def tearDown(self):
-        print 'tearDown'
+        # print 'tearDown'
         # clear out any half-finished tasks
         if self.w.sequences.current_task is not None:
             self.finish_loop()
         self.w.end_gig()
-        print 'task mgr at tear down', self.w.base.taskMgr
+        # print 'task mgr at tear down', self.w.base.taskMgr
 
 
 def suite():
@@ -621,10 +625,10 @@ def suite():
 if __name__ == "__main__":
     # make a suite if running from file
     if len(sys.argv) == 2 and is_int_string(sys.argv[1]):
-        print 'suite'
+        # print 'suite'
         result = unittest.TextTestRunner(verbosity=2).run(suite())
         if not result.wasSuccessful():
             sys.exit(1)
     else:
-        print 'not suite'
+        # print 'not suite'
         unittest.main(verbosity=2)
