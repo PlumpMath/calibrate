@@ -121,9 +121,11 @@ class Logging(object):
             'Reward': 103,
             'Square moved': 104,
             'Fixated': 105,
-            'No fixation or broken, restart': 106,
-            'Photo On': 107,
-            'Photo Off': 108}
+            'Bad fixation': 106,
+            'Photo on': 107,
+            'Photo off': 108,
+            'Cross on': 109,
+            'Cross off': 110}
 
     # Closing methods
     def close_files(self):

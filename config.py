@@ -90,11 +90,12 @@ PHOTO_PATH = 'photos/'  # if path is none, not using photos
 # how long to show each photo, only counting fixation time
 PHOTO_TIMER = 5  # 5 is standard for Buffalo Lab
 PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point, 1 standard
-CROSS_HAIR_FIX = (0.5, 0.75)
+CROSS_HAIR_FIX = (0.5, 0.75)  # time in seconds must fixate on cross hair
 NUM_PHOTOS_IN_SET = 36  # how many photos in one round of calibration, 16 standard (shown twice)
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
-RANDOM_PHOTOS = False
-SHOW_PHOTOS_TWICE = False
+# RANDOM_PHOTOS = False
+# SHOW_PHOTOS_TWICE = False
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.
 
 LAST_PHOTO_INDEX = 36
+LAST_PHOTO_INDEX = 72

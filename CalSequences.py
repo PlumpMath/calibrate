@@ -32,7 +32,7 @@ class CalSequences(object):
             3: 'Square off',
             4: 'Reward',
             5: 'Fixated',
-            6: 'Bad Fixation',
+            6: 'Bad fixation',
         }
 
         # initiate sequences
@@ -202,7 +202,9 @@ class CalSequences(object):
         # print self.base.taskMgr
         # print('write_to_file', self.sequence_for_file[index])
         # print('square position', self.square.square.getPos())
+
         # if square is turning on, write position of square
+        # print index
         if index == 1:
             position = self.square.square.getPos()
             self.logging.log_position(position)
