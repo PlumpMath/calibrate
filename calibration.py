@@ -75,7 +75,7 @@ class World(DirectObject):
         print 'Calibration file is', config_file
         # if subject is test, doing unit tests
         if self.config['SUBJECT'] == 'test':
-            # doing unittests so use fake eye data and testing configuration.
+            # doing tests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
             self.gain = [1, 1]
             # print 'test'
@@ -86,11 +86,9 @@ class World(DirectObject):
             self.use_daq_reward = self.config.setdefault('REWARD', True)
 
         # default is not fake data, and don't send signal
-        test_data = self.config.setdefault('FAKE_DATA', False)
-        self.config.setdefault('SEND_DATA', False)
-
-        if test_data:
+        if self.config.setdefault('FAKE_DATA', False):
             print('using fake data')
+        self.config.setdefault('SEND_DATA', False)
 
         self.loop_count = 0
         # seems like we can adjust the offset completely in ISCAN,
@@ -110,7 +108,7 @@ class World(DirectObject):
         # start Panda3d
         self.base = ShowBase()
 
-        # make a new variable, so we can toggle it
+        # default is no subroutines, will fill in later, if using
         self.sub_index = None
         self.call_subroutine = []
 
@@ -120,11 +118,12 @@ class World(DirectObject):
         # initialize text before setting up second window.
         # text will be overridden there.
         # text only happens on second window
-        self.text = None
-        self.text2 = None
-        self.text3 = None
-        self.text4 = None
-        self.text5 = None
+        self.text_nodes = []
+        self.text_dict = {'Gain': 0,
+                          'Offset': 1,
+                          'data_type': 2,
+                          'Tolerance': 3,
+                          'task_type': 4}
 
         # print base.pipe.getDisplayWidth()
         # print base.pipe.getDisplayHeight()
@@ -134,10 +133,20 @@ class World(DirectObject):
         # otherwise keep going...
 
         if self.config['WIN_RES'] != 'Test':
+            # only set up second window if not testing
             self.gain = self.config['GAIN']
-            eye_res = self.setup_window2()
-            # text only happens on second window
-            self.setup_text(eye_res)
+            self.setup_window2()
+            eye_res = self.config['EYE_RES']
+            default_eye = '[0, 0]'
+            # always start with Manual and eye in the center
+            plot_variables = [self.gain, self.offset, default_eye, self.tolerance, 'Manual']
+            position = [(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
+                        (0, 0, eye_res[1]/2 - eye_res[1]/16),
+                        (0 + eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
+                        (0, 0, eye_res[1]/2 - eye_res[1] * 2 / 16),
+                        (-eye_res[0]/2 + eye_res[0] * 1 / 16, 0, eye_res[1]/2 - eye_res[1] * 1 / 16)]
+            for k, v in self.text_dict.items():
+                self.text_nodes.append(self.setup_text(k, plot_variables[v], position[v]))
         else:
             # resolution in file equal to test, so use the projector screen
             # value for determining pixels size. In this case, accuracy is not
@@ -191,8 +200,12 @@ class World(DirectObject):
         # print 'start new gig'
         if not self.testing:
             # text4 and text5 change
-            self.set_text4()
-            self.set_text5()
+            if self.manual:
+                text_notice = 'Manual'
+            else:
+                text_notice = 'Auto'
+                self.update_text('Tolerance', self.tolerance)
+            self.update_text('task_type', text_notice)
         # open files, start data stream, prepare tasks
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
@@ -385,8 +398,9 @@ class World(DirectObject):
         self.plot_eye_trace(start_eye)
         # and set text to last data point
         if not self.testing:
-            self.text3.setText(self.eye_data.data_type + str(round(eye_data[-1][0], 3)) +
-                               ', ' + str(round(eye_data[-1][1], 3)) + ']')
+            node = self.text_dict['data_type']
+            self.text_nodes[node].setText(self.eye_data.data_type + str(round(eye_data[-1][0], 3)) +
+                                          ', ' + str(round(eye_data[-1][1], 3)) + ']')
         # print 'check_eye', check_eye
         if check_eye:
             # print 'check eye', check_eye
@@ -508,38 +522,55 @@ class World(DirectObject):
         self.eye_window.append(node)
 
     # Setup Functions
-    def setup_text(self, res_eye):
-        # print 'make text'
-        self.text = TextNode('gain')
-        self.text.setText('Gain: ' + str(self.gain))
-        # text_nodepath = aspect2d.attachNewNode(self.text)
-        text_node_path = self.base.render.attachNewNode(self.text)
+    # def setup_text(self, eye_res):
+    #     # print 'make text'
+    #     self.text = TextNode('gain')
+    #     self.text.setText('Gain: ' + str(self.gain))
+    #     # text_nodepath = aspect2d.attachNewNode(self.text)
+    #     text_node_path = self.base.render.attachNewNode(self.text)
+    #     text_node_path.setScale(25)
+    #     text_node_path.setPos(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16)
+    #     text_node_path.show(BitMask32.bit(0))
+    #     text_node_path.hide(BitMask32.bit(1))
+    #
+    #     # if decide to use it again, need to move IScan text down
+    #     self.text2 = TextNode('offset')
+    #     self.text2.setText('Offset: ' + str(self.offset))
+    #     text2_node_path = self.base.render.attachNewNode(self.text2)
+    #     text2_node_path.setScale(25)
+    #     text2_node_path.setPos(0, 0, eye_res[1]/2 - eye_res[1]/16)
+    #     text2_node_path.show(BitMask32.bit(0))
+    #     text2_node_path.hide(BitMask32.bit(1))
+    #
+    #     self.text3 = TextNode('IScan')
+    #     self.text3.setText('IScan: ' + '[0, 0]')
+    #     text3_node_path = self.base.render.attachNewNode(self.text3)
+    #     text3_node_path.setScale(25)
+    #     text3_node_path.setPos(0 + eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16)
+    #     text3_node_path.show(BitMask32.bit(0))
+    #     text3_node_path.hide(BitMask32.bit(1))
+    #
+    #     self.set_text4(eye_res)
+    #     self.set_text5(eye_res)
+
+    def setup_text(self, name, text_frag, position):
+        text_node = TextNode(name)
+        text_node.setText(name + ': ' + str(text_frag))
+        text_node_path = self.base.render.attach_new_node(text_node)
         text_node_path.setScale(25)
-        text_node_path.setPos(0 - res_eye[0]/4, 0, res_eye[1]/2 - res_eye[1]/16)
-        text_node_path.show(BitMask32.bit(0))
-        text_node_path.hide(BitMask32.bit(1))
+        text_node_path.setPos(position)
+        return text_node
 
-        # if decide to use it again, need to move IScan text down
-        self.text2 = TextNode('offset')
-        self.text2.setText('Offset: ' + str(self.offset))
-        text2_node_path = self.base.render.attachNewNode(self.text2)
-        text2_node_path.setScale(25)
-        text2_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1]/16)
-        text2_node_path.show(BitMask32.bit(0))
-        text2_node_path.hide(BitMask32.bit(1))
+    def update_text(self, ch_type, change):
+        if ch_type == 'Tolerance':
+            degree = unichr(176).encode('utf-8')
+            update_string = ch_type + ': ' + str(change) + degree + ' V.A., \n alt-arrow to adjust'
+        else:
+            update_string = ch_type + ': ' + str(change)
+        node = self.text_dict[ch_type]
+        self.text_nodes[node].setText(update_string)
 
-        self.text3 = TextNode('IScan')
-        self.text3.setText('IScan: ' + '[0, 0]')
-        text3_node_path = self.base.render.attachNewNode(self.text3)
-        text3_node_path.setScale(25)
-        text3_node_path.setPos(0 + res_eye[0]/4, 0, res_eye[1]/2 - res_eye[1]/16)
-        text3_node_path.show(BitMask32.bit(0))
-        text3_node_path.hide(BitMask32.bit(1))
-
-        self.set_text4(res_eye)
-        self.set_text5(res_eye)
-
-    def set_text4(self, res_eye=None):
+    def set_text4(self, eye_res=None):
         degree = unichr(176).encode('utf-8')
         # set up text, if it hasn't been done before
         if not self.text4:
@@ -548,7 +579,7 @@ class World(DirectObject):
             text4_node_path = self.base.camera.attachNewNode(self.text4)
             text4_node_path.setScale(25)
             # text4_node_path.setPos(0, 0, 270)
-            text4_node_path.setPos(0, 0, res_eye[1]/2 - res_eye[1] * 2 / 16)
+            text4_node_path.setPos(0, 0, eye_res[1]/2 - eye_res[1] * 2 / 16)
             text4_node_path.show(BitMask32.bit(0))
             text4_node_path.hide(BitMask32.bit(1))
 
@@ -558,13 +589,13 @@ class World(DirectObject):
         else:
             self.text4.setText('')
 
-    def set_text5(self, res_eye=None):
+    def set_text5(self, eye_res=None):
         if not self.text5:
             self.text5 = TextNode('task_type')
             text5_node_path = self.base.camera.attachNewNode(self.text5)
             text5_node_path.setScale(25)
             # text5_node_path.setPos(-600, 0, 350)
-            text5_node_path.setPos(-res_eye[0]/2 + res_eye[0] * 1 / 16, 0, res_eye[1]/2 - res_eye[1] * 1 / 16)
+            text5_node_path.setPos(-eye_res[0]/2 + eye_res[0] * 1 / 16, 0, eye_res[1]/2 - eye_res[1] * 1 / 16)
             text5_node_path.show(BitMask32.bit(0))
             text5_node_path.hide(BitMask32.bit(1))
         if self.manual:
@@ -581,21 +612,26 @@ class World(DirectObject):
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
         if ch_type == 'Gain':
             self.gain[x_or_y] += ch_amount
-            self.text.setText('Gain:' + str(self.gain))
+            node = self.text_dict[ch_type]
+            self.text_nodes[node].setText(ch_type + ': ' + str(self.gain))
+            # self.text.setText('Gain:' + str(self.gain))
             self.logging.log_change(ch_type, self.gain)
 
         else:
             self.offset[x_or_y] += ch_amount
-            self.text2.setText('Offset:' + str(self.offset))
+            node = self.text_dict[ch_type]
+            self.text_nodes[node].setText(ch_type + ': ' + str(self.offset))
+            # self.text2.setText('Offset:' + str(self.offset))
             self.logging.log_change(ch_type, self.offset)
 
     def change_tolerance(self, direction):
         # print 'change tolerance'
         self.tolerance += direction
         self.logging.log_change('Tolerance', self.tolerance)
-        self.set_text4()
+        self.update_text('Tolerance', self.tolerance)
         # self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
         # self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
+        # erase any window up currently
         for win in self.eye_window:
             win.detachNode()
         # self.eye_window.detachNode()
@@ -694,18 +730,18 @@ class World(DirectObject):
         window2.setClearColor((115 / 255, 115 / 255, 115 / 255, 1))
         # resolution of window for actual calibration
         resolution = self.config['WIN_RES']
-        res_eye = self.config['EYE_RES']
+        eye_res = self.config['EYE_RES']
         # if resolution given, set the appropriate resolution
         # otherwise assume want small windows
         if resolution is not None:
             # resolution for main window, subjects monitor
             self.set_resolution(resolution)
             # properties for second window
-            props.setOrigin(-int(res_eye[0]), 0)
+            props.setOrigin(-int(eye_res[0]), 0)
             # props.setOrigin(0, 0)
             # resolution for second window, one for plotting eye data
             # props.setSize(1024, 768)
-            props.setSize(int(res_eye[0]), int(res_eye[1]))
+            props.setSize(int(eye_res[0]), int(eye_res[1]))
         else:
             props.setOrigin(600, 200)  # make it so windows aren't on top of each other
             resolution = [800, 600]  # if no resolution given, assume normal panda window
@@ -739,7 +775,7 @@ class World(DirectObject):
         # set bit mask for eye positions
         camera.node().setCameraMask(BitMask32.bit(1))
         camera2.node().setCameraMask(BitMask32.bit(0))
-        return res_eye
+        return eye_res
 
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)

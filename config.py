@@ -2,7 +2,7 @@
 SUBJECT = 'Maria'
 # SUBJECT = 'JN'
 
-REWARD = True
+REWARD = False
 FAKE_DATA = False
 SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
