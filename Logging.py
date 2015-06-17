@@ -9,6 +9,7 @@ try:
     LOADED_PYDAQ = True
     # print 'loaded PyDaq'
 except ImportError:
+    pydaq = None
     LOADED_PYDAQ = False
     # print 'Not using PyDaq'
 
@@ -37,7 +38,7 @@ class Logging(object):
         else:
             self.eye_file_name = data_dir + '/eye_cal2_' + datetime.now().strftime("%y_%m_%d_%H_%M")
             self.time_file_name = data_dir + '/time_cal2_' + datetime.now().strftime("%y_%m_%d_%H_%M")
-        #print('open', self.eye_file_name)
+        # print('open', self.eye_file_name)
         # open file for recording eye positions
         self.eye_data_file = open(self.eye_file_name, 'w')
         self.eye_data_file.write('timestamp, x_position, y_position, for subject: ' + subject + '\n')
@@ -58,14 +59,14 @@ class Logging(object):
         # and I haven't figured out a pretty way to get rid of the extra crap.
         # Honestly, the best thing may be to just make a copy of the original damn file.
         # maybe look to see how pandaepl handles this
-        #config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
+        # config_file_name = data_dir + '/config_cal_' + datetime.datetime.now().strftime("%y_%m_%d_%H_%M")
 
-        #w = csv.writer(open(config_file_name, 'w'))
-        #for name, value in config.items():
-        #    w.writerow([name, value])
+        # w = csv.writer(open(config_file_name, 'w'))
+        # for name, value in config.items():
+        #     w.writerow([name, value])
 
-        #for name, value in config.items():
-        #    print name, value
+        # for name, value in config.items():
+        #     print name, value
         # if you want to see the frame rate
         # window.setFrameRateMeter(True)
 
@@ -77,13 +78,18 @@ class Logging(object):
         # log an event found in log_key
         self.time_data_file.write(str(time()) + ', ' + event + '\n')
         if self.pydaq_dict:
-            #print self.pydaq_dict
+            # print self.pydaq_dict
             if event in self.pydaq_dict:
-                #print('event code is: ',self.pydaq_dict[event])
+                # print('event code is: ',self.pydaq_dict[event])
                 self.send_events.send_signal(self.pydaq_dict[event])
             else:
-                #print('should be photo ', event)
-                self.send_events.send_signal(int(event[11:13]))
+                pass
+                # because Seth is using a naming scheme that sometimes involves
+                # letters at the end of the names, total pain to send the photo
+                # numbers, and this is not a timing event, and is saved to the
+                # local log file anyway, so not sending to the NI board.
+                # print('should be photo ', event)
+                # self.send_events.send_signal(int(event[11:13]))
             self.send_strobe.send_signal()
 
     def log_position(self, position):
@@ -93,7 +99,7 @@ class Logging(object):
     def log_change(self, change_type, change):
         # was going to try to make this smart, but always either send in a list of 2
         # or a single number, so this turns out to be least complicated way to do it.
-        #print(change_type, change)
+        # print(change_type, change)
         if isinstance(change, list):
             self.time_data_file.write(str(time()) +
                                       ', Change ' + change_type + ', ' +
@@ -129,7 +135,7 @@ class Logging(object):
 
     # Closing methods
     def close_files(self):
-        #print('close', self.eye_file_name)
+        # print('close', self.eye_file_name)
         self.eye_data_file.close()
         self.time_data_file.close()
         if self.pydaq_dict:
