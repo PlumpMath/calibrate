@@ -88,12 +88,13 @@ class TestCalibration(unittest.TestCase):
                 on = True
                 # print 'moved eye'
             if self.w.sequences.current_task is None:
+                # print 'restarted loop'
                 # in case we missed the fixation interval
                 self.w.start_main_loop()
             if self.w.sequences.current_task == 2 and on:
                 # print 'square now at', self.w.sequences.square.square.getPos()
                 # print 'square should be dim'
-                sq2uare_on = False
+                square_on = False
         # print self.w.sequences.square.square.getColor()
         self.assertNotEqual(self.w.sequences.square.square.getColor(), old_color)
 

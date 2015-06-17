@@ -136,7 +136,6 @@ class Photos(object):
 
     def setup_photo_sequences(self):
         # start with cross hair, treat like fixation point, so first wait for fixation
-        plot_eye = Func(self.start_plot_eye_task, check_eye=False)
         watch_eye = Func(self.start_plot_eye_task, check_eye=True)
         watch_eye_timer = Func(self.start_plot_eye_task, check_eye=True, timer=True)
         cross_on = Func(self.show_cross_hair)

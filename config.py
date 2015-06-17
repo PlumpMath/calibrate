@@ -1,6 +1,6 @@
-#SUBJECT = 'test'
+# SUBJECT = 'test'
 SUBJECT = 'Maria'
-#SUBJECT = 'JN'
+# SUBJECT = 'JN'
 
 REWARD = True
 FAKE_DATA = False
@@ -10,18 +10,18 @@ SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # unless you also change screen and view_dist appropriately, but for testing, should be ok
 # WIN_RES is the resolution for the window that we are using for the actual calibration,
 # the one used for determining visual angle. Resolution for the second window, set below
-#WIN_RES = None
+# WIN_RES = None
 WIN_RES = [1024, 768]
-#WIN_RES = [1280, 800]
+# WIN_RES = [1280, 800]
 # Screen size, again for actual calibration, so size of image on projector screen (mm)
 SCREEN = [1235, 940]  # at 1024x768
-#SCREEN = [1467, 902]
-#SCREEN = [1337, 991]
+# SCREEN = [1467, 902]
+# SCREEN = [1337, 991]
 # mm distance from subject to screen
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-#EYE_RES = [1280, 800]
+# EYE_RES = [1280, 800]
 EYE_RES = [1024, 768]
 
 # the voltage from the eye tracker runs from about 5 to -5 volts,
@@ -33,7 +33,7 @@ GAIN = [150, 100]
 # size of square, scale is in degree of visual angle
 # (scales both length and width)
 SQUARE_SCALE = 0.5  # default 0.5
-#SQUARE_SCALE = 5
+# SQUARE_SCALE = 5
 
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? Use number of degrees of visual angle from outside border of square,
