@@ -1,26 +1,27 @@
-#SUBJECT = 'test'
+# SUBJECT = 'test'
 SUBJECT = 'Maria'
-#SUBJECT = 'JN'
+# SUBJECT = 'JN'
 
+REWARD = False
 FAKE_DATA = False
-SEND_DATA = True  # send digital signals to Blackrock or Plexon
+SEND_DATA = False  # send digital signals to Blackrock or Plexon
 # window resolution, can be a resolution or None for normal panda3d window
 # if using normal panda3d window, visual angle calculations will be off,
 # unless you also change screen and view_dist appropriately, but for testing, should be ok
 # WIN_RES is the resolution for the window that we are using for the actual calibration,
 # the one used for determining visual angle. Resolution for the second window, set below
-#WIN_RES = None
+# WIN_RES = None
 WIN_RES = [1024, 768]
-#WIN_RES = [1280, 800]
+# WIN_RES = [1280, 800]
 # Screen size, again for actual calibration, so size of image on projector screen (mm)
 SCREEN = [1235, 940]  # at 1024x768
-#SCREEN = [1467, 902]
-#SCREEN = [1337, 991]
+# SCREEN = [1467, 902]
+# SCREEN = [1337, 991]
 # mm distance from subject to screen
 VIEW_DIST = 1219
 
 # resolution for screen presenting eye data
-#EYE_RES = [1280, 800]
+# EYE_RES = [1280, 800]
 EYE_RES = [1024, 768]
 
 # the voltage from the eye tracker runs from about 5 to -5 volts,
@@ -32,7 +33,7 @@ GAIN = [150, 100]
 # size of square, scale is in degree of visual angle
 # (scales both length and width)
 SQUARE_SCALE = 0.5  # default 0.5
-#SQUARE_SCALE = 5
+# SQUARE_SCALE = 5
 
 # How close to the stimulus does the eye position have to be to get reward in
 # auto mode? Use number of degrees of visual angle from outside border of square,
@@ -67,11 +68,11 @@ FIX_INTERVAL = (1.0, 1.0)
 # (in addition to the move interval)
 BREAK_INTERVAL = (1.0, 1.0)
 
-#ON_INTERVAL = (0.7, 1.25)  # Time on
-#ON_INTERVAL = (1.0, 2.0)  # Time on
-#FADE_INTERVAL = (0.35, 0.35)  # Time faded
-#REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
-#MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
+# ON_INTERVAL = (0.7, 1.25)  # Time on
+# ON_INTERVAL = (1.0, 2.0)  # Time on
+# FADE_INTERVAL = (0.35, 0.35)  # Time faded
+# REWARD_INTERVAL = (0.0, 0.0)  # Time from off to reward - make go off when turns off
+# MOVE_INTERVAL = (2.0, 2.0)  # Time from reward until on in new place
 
 ON_INTERVAL = (1.0, 1.0)  # Time on
 FADE_INTERVAL = (0.35, 0.35)  # Time faded
@@ -89,6 +90,9 @@ PHOTO_PATH = False
 # how long to show each photo, only counting fixation time
 PHOTO_TIMER = 5  # 5 is standard for Buffalo Lab
 PHOTO_BREAK_TIMER = 1  # time in seconds between photo off and next fixation point, 1 standard
-NUM_PHOTOS_IN_SET = 16  # how many photos in each set, 16 standard
+CROSS_HAIR_FIX = (0.5, 0.75)  # time in seconds must fixate on cross hair
+NUM_PHOTOS_IN_SET = 36  # how many photos in one round of calibration, 16 standard (shown twice)
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
+# RANDOM_PHOTOS = False
+# SHOW_PHOTOS_TWICE = False
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.

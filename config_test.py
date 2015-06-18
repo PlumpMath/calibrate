@@ -48,11 +48,13 @@ Y_POINTS = 3
 # How long must fixate before square changes color
 FIX_INTERVAL = (0.2, 0.2)
 # How long to wait until next square if break fixation
-BREAK_INTERVAL = (1.0, 1.0)
+BREAK_INTERVAL = (0.5, 0.5)
+# BREAK_INTERVAL = (1.0, 1.0)
 # All intervals represent min and max for a uniform random distribution
 # give it equal min and max, and each unique, so we can test intervals.
 # Assume random.uniform really works for intervals.
-ON_INTERVAL = (0.75, 0.75)  # Time on
+# ON_INTERVAL = (0.75, 0.75)  # Time on
+ON_INTERVAL = (0.5, 0.5)  # Time on
 FADE_INTERVAL = (0.20, 0.20)  # Time faded
 REWARD_INTERVAL = (0.1, 0.1)  # Time from off to reward, this is zero for
 # our task, but this means it happens so fast we skip a next number in testing.
