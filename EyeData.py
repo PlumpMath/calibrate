@@ -35,12 +35,12 @@ class EyeData(object):
             self.variance = None
             self.fake_data = None
             self.pydaq = None
-            self.data_type = 'Fake Data: ['
+            self.data_type = 'Fake Data'
         else:
             self.fake_data = None
             self.pydaq = pydaq
             self.eye_task = self.pydaq.EOGTask()
-            self.data_type = 'IScan: ['
+            self.data_type = 'IScan'
         self.producer_thread = None
         self.consumer_thread = []
         self.consumer_limit = None  # used for testing, I think this won't be necessary

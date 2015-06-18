@@ -86,8 +86,10 @@ class World(DirectObject):
             self.use_daq_reward = self.config.setdefault('REWARD', True)
 
         # default is not fake data, and don't send signal
-        if self.config.setdefault('FAKE_DATA', False):
+        data_type = 'IScan'
+        if self.config.setdefault('FAKE_DATA', False) or not self.pydaq:
             print('using fake data')
+            data_type = 'Fake Data'
         self.config.setdefault('SEND_DATA', False)
 
         self.loop_count = 0
@@ -118,13 +120,9 @@ class World(DirectObject):
         # initialize text before setting up second window.
         # text will be overridden there.
         # text only happens on second window
-        self.text_nodes = []
-        self.text_dict = {'Gain': 0,
-                          'Offset': 1,
-                          'data_type': 2,
-                          'Tolerance': 3,
-                          'task_type': 4}
-
+        self.text_nodes = [None] * 5
+        self.text_dict = dict(Gain=0, Offset=1, Tolerance=3, Manual=4)
+        self.text_dict[data_type] = 2
         # print base.pipe.getDisplayWidth()
         # print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
@@ -139,14 +137,15 @@ class World(DirectObject):
             eye_res = self.config['EYE_RES']
             default_eye = '[0, 0]'
             # always start with Manual and eye in the center
-            plot_variables = [self.gain, self.offset, default_eye, self.tolerance, 'Manual']
+            plot_variables = [self.gain, self.offset, default_eye, self.tolerance, '']
             position = [(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0 + eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0, 0, eye_res[1]/2 - eye_res[1] * 2 / 16),
                         (-eye_res[0]/2 + eye_res[0] * 1 / 16, 0, eye_res[1]/2 - eye_res[1] * 1 / 16)]
             for k, v in self.text_dict.items():
-                self.text_nodes.append(self.setup_text(k, plot_variables[v], position[v]))
+                self.text_nodes[v] = (self.setup_text(k, plot_variables[v], position[v]))
+            self.text_dict['Auto'] = 4
         else:
             # resolution in file equal to test, so use the projector screen
             # value for determining pixels size. In this case, accuracy is not
@@ -201,11 +200,11 @@ class World(DirectObject):
         if not self.testing:
             # text4 and text5 change
             if self.manual:
-                text_notice = 'Manual'
+                text_label = 'Manual'
             else:
-                text_notice = 'Auto'
-                self.update_text('Tolerance', self.tolerance)
-            self.update_text('task_type', text_notice)
+                text_label = 'Auto'
+            self.update_text('Tolerance', self.tolerance)
+            self.update_text(text_label)
         # open files, start data stream, prepare tasks
         self.logging.open_files(self.manual, self.tolerance)
         self.logging.log_config('Gain', self.gain)
@@ -398,8 +397,11 @@ class World(DirectObject):
         self.plot_eye_trace(start_eye)
         # and set text to last data point
         if not self.testing:
-            node = self.text_dict['data_type']
-            self.text_nodes[node].setText(self.eye_data.data_type + str(round(eye_data[-1][0], 3)) +
+            node = self.text_dict[self.eye_data.data_type]
+            # print self.text_dict
+            # print self.eye_data.data_type
+            # print node
+            self.text_nodes[node].setText(self.eye_data.data_type + ' [' + str(round(eye_data[-1][0], 3)) +
                                           ', ' + str(round(eye_data[-1][1], 3)) + ']')
         # print 'check_eye', check_eye
         if check_eye:
@@ -521,88 +523,34 @@ class World(DirectObject):
         node.hide(BitMask32.bit(1))
         self.eye_window.append(node)
 
-    # Setup Functions
-    # def setup_text(self, eye_res):
-    #     # print 'make text'
-    #     self.text = TextNode('gain')
-    #     self.text.setText('Gain: ' + str(self.gain))
-    #     # text_nodepath = aspect2d.attachNewNode(self.text)
-    #     text_node_path = self.base.render.attachNewNode(self.text)
-    #     text_node_path.setScale(25)
-    #     text_node_path.setPos(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16)
-    #     text_node_path.show(BitMask32.bit(0))
-    #     text_node_path.hide(BitMask32.bit(1))
-    #
-    #     # if decide to use it again, need to move IScan text down
-    #     self.text2 = TextNode('offset')
-    #     self.text2.setText('Offset: ' + str(self.offset))
-    #     text2_node_path = self.base.render.attachNewNode(self.text2)
-    #     text2_node_path.setScale(25)
-    #     text2_node_path.setPos(0, 0, eye_res[1]/2 - eye_res[1]/16)
-    #     text2_node_path.show(BitMask32.bit(0))
-    #     text2_node_path.hide(BitMask32.bit(1))
-    #
-    #     self.text3 = TextNode('IScan')
-    #     self.text3.setText('IScan: ' + '[0, 0]')
-    #     text3_node_path = self.base.render.attachNewNode(self.text3)
-    #     text3_node_path.setScale(25)
-    #     text3_node_path.setPos(0 + eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16)
-    #     text3_node_path.show(BitMask32.bit(0))
-    #     text3_node_path.hide(BitMask32.bit(1))
-    #
-    #     self.set_text4(eye_res)
-    #     self.set_text5(eye_res)
-
     def setup_text(self, name, text_frag, position):
         text_node = TextNode(name)
-        text_node.setText(name + ': ' + str(text_frag))
+        if not text_frag:
+            text_node.setText(name)
+        elif name == 'Tolerance':
+            # always start in manual, so tolerance meaningless
+            text_node.setText('')
+        else:
+            text_node.setText(name + ': ' + str(text_frag))
         text_node_path = self.base.render.attach_new_node(text_node)
         text_node_path.setScale(25)
         text_node_path.setPos(position)
         return text_node
 
-    def update_text(self, ch_type, change):
-        if ch_type == 'Tolerance':
-            degree = unichr(176).encode('utf-8')
-            update_string = ch_type + ': ' + str(change) + degree + ' V.A., \n alt-arrow to adjust'
+    def update_text(self, ch_type, change=''):
+        # print 'update', ch_type
+        if not change:
+            update_string = ch_type
         else:
-            update_string = ch_type + ': ' + str(change)
+            update_string = change
+        if ch_type == 'Tolerance':
+            if self.manual:
+                update_string = ''
+            else:
+                degree = unichr(176).encode('utf-8')
+                update_string = ch_type + ': ' + str(change) + degree + ' V.A., \n alt-arrow to adjust'
         node = self.text_dict[ch_type]
         self.text_nodes[node].setText(update_string)
-
-    def set_text4(self, eye_res=None):
-        degree = unichr(176).encode('utf-8')
-        # set up text, if it hasn't been done before
-        if not self.text4:
-            self.text4 = TextNode('tolerance')
-            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-            text4_node_path = self.base.camera.attachNewNode(self.text4)
-            text4_node_path.setScale(25)
-            # text4_node_path.setPos(0, 0, 270)
-            text4_node_path.setPos(0, 0, eye_res[1]/2 - eye_res[1] * 2 / 16)
-            text4_node_path.show(BitMask32.bit(0))
-            text4_node_path.hide(BitMask32.bit(1))
-
-        # if we are in manual mode, show nothing, otherwise show tolerance.
-        if not self.manual:
-            self.text4.setText('Tolerance: ' + str(self.tolerance) + degree + ' V.A., \n alt-arrow to adjust')
-        else:
-            self.text4.setText('')
-
-    def set_text5(self, eye_res=None):
-        if not self.text5:
-            self.text5 = TextNode('task_type')
-            text5_node_path = self.base.camera.attachNewNode(self.text5)
-            text5_node_path.setScale(25)
-            # text5_node_path.setPos(-600, 0, 350)
-            text5_node_path.setPos(-eye_res[0]/2 + eye_res[0] * 1 / 16, 0, eye_res[1]/2 - eye_res[1] * 1 / 16)
-            text5_node_path.show(BitMask32.bit(0))
-            text5_node_path.hide(BitMask32.bit(1))
-        if self.manual:
-            text_notice = 'Manual'
-        else:
-            text_notice = 'Auto'
-        self.text5.setText(text_notice)
 
     def start_reward_task(self):
         self.reward_task = pydaq.GiveReward()
