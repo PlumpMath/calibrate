@@ -298,17 +298,17 @@ class TestCalibration(unittest.TestCase):
         self.move_eye_to_get_reward('not')
         while square_off:
             taskMgr.step()
-            a = datetime.datetime.now()
             # if square is parented to render, it is on, otherwise has no parent
             if self.w.sequences.square.square.getParent():
                 # print 'square should be on'
+                a = datetime.datetime.now()
                 square_off = False
         # now wait for square to turn back off:
         # print 'next loop'
         while square_on:
             taskMgr.step()
+            b = datetime.datetime.now()
             if not self.w.sequences.square.square.getParent():
-                b = datetime.datetime.now()
                 # print 'square should be off'
                 square_on = False
 

@@ -129,8 +129,8 @@ class World(DirectObject):
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
         if self.config['WIN_RES'] != 'Test':
-            # only set up second window if not testing
-            self.setup_window2()
+            # only set up windows if not testing
+            self.setup_windows()
             eye_res = self.config['EYE_RES']
             position = [(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0, 0, eye_res[1]/2 - eye_res[1]/16),
@@ -173,9 +173,6 @@ class World(DirectObject):
         # initialize list for eye window
         self.eye_window = []
 
-        # initialize signal to switch tasks (manual - auto)
-        self.flag_task_switch = False
-
         # set up daq for reward, if on windows and not testing
         # testing auto mode depends on being able to control eye position
         self.reward_task = None
@@ -185,7 +182,7 @@ class World(DirectObject):
 
         # Keyboard stuff:
         # initiate
-        self.key_dict = {"switch": 0}
+        self.key_dict = {"switch": 0, "task_flag": False}
 
     def start_gig(self):
         # used when beginning in either auto or manual mode,
@@ -222,7 +219,7 @@ class World(DirectObject):
         self.manual = not self.manual
         # print('switched manual?', self.manual)
         # reset stuff
-        self.flag_task_switch = False
+        self.key_dict['task_flag'] = False
         self.end_gig()
         self.start_gig()
         # if going from manual to auto, start automatically, otherwise
@@ -263,7 +260,7 @@ class World(DirectObject):
         self.num_reward = 0
         self.fixated = False
         # if we change tasks, wait for keypress to start again
-        if self.flag_task_switch:
+        if self.key_dict['task_flag']:
             # print 'change tasks'
             self.change_tasks()
         else:
@@ -554,19 +551,10 @@ class World(DirectObject):
     # Key Functions
     # key press or messenger methods
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
-        if ch_type == 'Gain':
-            self.plot_variables[self.text_dict['Gain']][x_or_y] += ch_amount
-            node = self.text_dict[ch_type]
-            self.text_nodes[node].setText(ch_type + ': ' + str(self.plot_variables[self.text_dict['Gain']]))
-            # self.text.setText('Gain:' + str(self.gain))
-            self.logging.log_change(ch_type, self.plot_variables[self.text_dict['Gain']])
-
-        else:
-            self.plot_variables[self.text_dict['Offset']][x_or_y] += ch_amount
-            node = self.text_dict[ch_type]
-            self.text_nodes[node].setText(ch_type + ': ' + str(self.plot_variables[self.text_dict['Offset']]))
-            # self.text2.setText('Offset:' + str(self.plot_variables[self.text_dict['Offset']]))
-            self.logging.log_change(ch_type, self.plot_variables[self.text_dict['Offset']])
+        self.plot_variables[self.text_dict[ch_type]][x_or_y] += ch_amount
+        node = self.text_dict[ch_type]
+        self.text_nodes[node].setText(ch_type + ': ' + str(self.plot_variables[self.text_dict[ch_type]]))
+        self.logging.log_change(ch_type, self.plot_variables[self.text_dict[ch_type]])
 
     def change_tolerance(self, direction):
         # print 'change tolerance'
@@ -579,18 +567,14 @@ class World(DirectObject):
         for win in self.eye_window:
             win.detachNode()
         # self.eye_window.detachNode()
+        # and redraw new window
         target = self.sequences.get_fixation_target()
         self.show_window(target[0])
 
-    # As described earlier, this simply sets a key in the self.key_dict dictionary to
-    # the given value
+    # this simply sets a key in the self.key_dict dictionary to the given value
     def set_key(self, key, val):
         self.key_dict[key] = val
         # print 'set key', self.key_dict[key]
-
-    def switch_task_flag(self):
-        # print 'switch tasks'
-        self.flag_task_switch = True
 
     # this actually assigns keys to methods
     def setup_keys(self):
@@ -600,7 +584,7 @@ class World(DirectObject):
         # switches from manual to auto-calibrate or vise-versa,
         # but only at end of current loop (after reward)
         # True signifies that we want to change
-        self.accept("s", self.switch_task_flag)
+        self.accept("s", self.set_key, ["task_flag", True])
         # For adjusting calibration
         # inputs, gain or offset, x or y, how much change
         # gain - up and down are y
@@ -642,7 +626,6 @@ class World(DirectObject):
         # why is this a dictionary? It only has one entry?!?!
         # needs to be a dictionary for other classes to see changes
         # someday should figure out how to do this better
-        self.key_dict = {"switch": 0}
         # keyboard
         self.accept("1", self.set_key, ["switch", 1])
         self.accept("2", self.set_key, ["switch", 2])
@@ -655,8 +638,8 @@ class World(DirectObject):
         self.accept("9", self.set_key, ["switch", 9])
 
     # setup methods
-    def setup_window2(self):
-        # print 'second window, for researcher'
+    def setup_windows(self):
+        # get properties for setting up researchers window
         props = WindowProperties()
         # props.setForeground(True)
         props.setCursorHidden(True)
@@ -680,8 +663,6 @@ class World(DirectObject):
         # if resolution given, set the appropriate resolution
         # otherwise assume want small windows
         if resolution is not None:
-            # resolution for main window, subjects monitor
-            self.set_resolution(resolution)
             # properties for second window
             props.setOrigin(-int(eye_res[0]), 0)
             # props.setOrigin(0, 0)
@@ -689,18 +670,22 @@ class World(DirectObject):
             # props.setSize(1024, 768)
             props.setSize(int(eye_res[0]), int(eye_res[1]))
         else:
-            props.setOrigin(600, 200)  # make it so windows aren't on top of each other
             resolution = [800, 600]  # if no resolution given, assume normal panda window
-            # x and y are pretty damn close, so just us x
+            props.setOrigin(600, 200)  # make it so windows aren't on top of each other
+
+        # x and y are pretty damn close, so just use x
         # degree per pixel is important only for determining where to plot squares and
         # determining tolerance, but no effect on actual eye position plotting, uses projector
         # resolution, screen size, etc
         self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
         # print 'deg_per_pixel', self.deg_per_pixel
         # set the properties for eye data window
+        props.set_foreground(False)
         window2.requestProperties(props)
-        # print window2.getRequestedProperties()
-
+        # print 'main', window1.getReqeustedProperties()
+        # print 'researcher', window2.getRequestedProperties()
+        # resolution for main window, subjects monitor
+        self.set_resolution(resolution)
         # orthographic lens means 2d, then we can set size to resolution
         # so coordinate system is in pixels
         lens = OrthographicLens()
@@ -721,7 +706,6 @@ class World(DirectObject):
         # set bit mask for eye positions
         camera.node().setCameraMask(BitMask32.bit(1))
         camera2.node().setCameraMask(BitMask32.bit(0))
-        return eye_res
 
     def set_resolution(self, res):
         # sets the resolution for the main window (projector)
@@ -733,7 +717,9 @@ class World(DirectObject):
         wp.setOrigin(0, 0)
         # wp.setOrigin(-int(res[0]), 0)
         # wp.setUndecorated(True)
+        wp.set_foreground(True)
         self.base.win.requestProperties(wp)
+        # print 'main', self.base.win.getRequestedProperties()
 
     def setup_game(self):
         # this only happens once, at beginning

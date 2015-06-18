@@ -183,7 +183,7 @@ class TestCalibration(unittest.TestCase):
         # self.w.start_main_loop()
         before = self.w.manual
         # print before
-        self.w.flag_task_switch = True
+        self.w.key_dict['task_flag'] = True
         print 'switched tasks'
         self.finish_loop()
         # now make sure it changed.
