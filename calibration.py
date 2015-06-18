@@ -55,6 +55,8 @@ class World(DirectObject):
 
     def __init__(self, mode=None, config_file=None):
         DirectObject.__init__(self)
+        # Python assumes all input from sys are string, but not
+        # input variables
         # mode sets whether starts at manual or auto, default is manual, auto is 0
         # Start in auto, if, and only if the input number was a zero,
         if mode == '0' or mode == 0:
@@ -77,11 +79,12 @@ class World(DirectObject):
         if self.config['SUBJECT'] == 'test':
             # doing tests so use fake eye data and testing configuration.
             # for testing, always leave gain at one, so eye_data and eye_data_to_plot are the same
-            self.gain = [1, 1]
+            gain = [1, 1]
             # print 'test'
             self.testing = True
             self.use_daq_reward = False
         else:
+            gain = self.config['GAIN']
             self.testing = False
             self.use_daq_reward = self.config.setdefault('REWARD', True)
 
@@ -91,18 +94,6 @@ class World(DirectObject):
             print('using fake data')
             data_type = 'Fake Data'
         self.config.setdefault('SEND_DATA', False)
-
-        self.loop_count = 0
-        # seems like we can adjust the offset completely in ISCAN,
-        # so for now just set it here to zero.
-        self.offset = [0, 0]
-
-        # Python assumes all input from sys are string, but not
-        # input variables
-        # tolerance in degrees, will need to be changed to pixels to be useful,
-        # but since tolerance can change (in degrees), makes sense to do this on the fly
-        self.tolerance = self.config['TOLERANCE']
-        # print 'repeat ', self.config['POINT_REPEAT']
 
         # assume 0.2 seconds for pump delay, if not set
         self.config.setdefault('PUMP_DELAY', 0.2)
@@ -123,28 +114,31 @@ class World(DirectObject):
         self.text_nodes = [None] * 5
         self.text_dict = dict(Gain=0, Offset=1, Tolerance=3, Manual=4)
         self.text_dict[data_type] = 2
+        eye_position = '[0, 0]'
+        data_type = ''
+        # always start with Manual and eye in the center
+        # stuff that changes with plotting
+        offset = [0, 0]
+        # tolerance in degrees, will need to be changed to pixels to be useful,
+        # but since tolerance can change (in degrees), makes sense to do this on the fly
+        self.plot_variables = [gain, offset, eye_position, self.config['TOLERANCE'], data_type]
         # print base.pipe.getDisplayWidth()
         # print base.pipe.getDisplayHeight()
         # if window is offscreen (for testing), does not have WindowProperties,
         # so can't open second window.
         # if an actual resolution in config file, change to that resolution,
         # otherwise keep going...
-
         if self.config['WIN_RES'] != 'Test':
             # only set up second window if not testing
-            self.gain = self.config['GAIN']
             self.setup_window2()
             eye_res = self.config['EYE_RES']
-            default_eye = '[0, 0]'
-            # always start with Manual and eye in the center
-            plot_variables = [self.gain, self.offset, default_eye, self.tolerance, '']
             position = [(0 - eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0 + eye_res[0]/4, 0, eye_res[1]/2 - eye_res[1]/16),
                         (0, 0, eye_res[1]/2 - eye_res[1] * 2 / 16),
                         (-eye_res[0]/2 + eye_res[0] * 1 / 16, 0, eye_res[1]/2 - eye_res[1] * 1 / 16)]
             for k, v in self.text_dict.items():
-                self.text_nodes[v] = (self.setup_text(k, plot_variables[v], position[v]))
+                self.text_nodes[v] = (self.setup_text(k, self.plot_variables[v], position[v]))
             self.text_dict['Auto'] = 4
         else:
             # resolution in file equal to test, so use the projector screen
@@ -153,7 +147,7 @@ class World(DirectObject):
             resolution = [1280, 800]
             self.deg_per_pixel = visual_angle(self.config['SCREEN'], resolution, self.config['VIEW_DIST'])[0]
 
-        print('gain', self.gain)
+        # print('gain', self.gain)
         # print 'window loaded'
         # empty list for plotting eye nodes
         self.eye_nodes = []
@@ -203,12 +197,12 @@ class World(DirectObject):
                 text_label = 'Manual'
             else:
                 text_label = 'Auto'
-            self.update_text('Tolerance', self.tolerance)
+            self.update_text('Tolerance', self.plot_variables[self.text_dict['Tolerance']])
             self.update_text(text_label)
         # open files, start data stream, prepare tasks
-        self.logging.open_files(self.manual, self.tolerance)
-        self.logging.log_config('Gain', self.gain)
-        self.logging.log_config('Offset', self.offset)
+        self.logging.open_files(self.manual, self.plot_variables[self.text_dict['Tolerance']])
+        self.logging.log_config('Gain', self.plot_variables[self.text_dict['Gain']])
+        self.logging.log_config('Offset', self.plot_variables[self.text_dict['Offset']])
         self.eye_data.start_logging(self.logging)
         self.sequences.prepare_task(self.manual)
 
@@ -445,7 +439,7 @@ class World(DirectObject):
         # print 'evaluate'
         previous_fixation = self.fixated
         # convert tolerance to pixels
-        tolerance = self.tolerance / self.deg_per_pixel
+        tolerance = self.plot_variables[self.text_dict['Tolerance']] / self.deg_per_pixel
         # send in eye data converted to pixels, self.current_eye_data
         fixated = []
         # print 'target', target
@@ -487,8 +481,8 @@ class World(DirectObject):
         # right on screen. Actually, most of this is changed in IScan
         # before it ever makes it to this machine, but found we have to
         # at least change the gain by a couple of order of magnitudes
-        return [(eye_data[0] + self.offset[0]) * self.gain[0],
-                (eye_data[1] + self.offset[1]) * self.gain[1]]
+        return [(eye_data[0] + self.plot_variables[self.text_dict['Offset']][0]) * self.plot_variables[self.text_dict['Gain']][0],
+                (eye_data[1] + self.plot_variables[self.text_dict['Offset']][1]) * self.plot_variables[self.text_dict['Gain']][1]]
 
     def start_eye_data(self, start_pos=None, variance=None):
         # if we are sending in variance, then coming from testing and we need to close first
@@ -501,7 +495,7 @@ class World(DirectObject):
     def show_window(self, target_pos):
         # draw line around target representing how close the subject has to be looking to get reward
         # print('show window around square', square_pos)
-        tolerance = self.tolerance / self.deg_per_pixel
+        tolerance = self.plot_variables[self.text_dict['Tolerance']] / self.deg_per_pixel
         # print 'tolerance in pixels', tolerance
         # print 'square', square[0], square[2]
         eye_window = LineSegs()
@@ -515,8 +509,8 @@ class World(DirectObject):
             eye_window.drawTo((x + target_pos[0], 55, y + target_pos[1]))
         # draw a radius line
         # eye_window.moveTo(square[0], 55, square[2])
-        # eye_window.drawTo(square[0], 55, square[2] + self.tolerance)
-        # print 'distance drawn', self.distance((square[0], square[2]), (square[0], square[2] + self.tolerance))
+        # eye_window.drawTo(square[0], 55, square[2] + self.plot_variables[self.text_dict['Tolerance']])
+        # print 'distance drawn', self.distance((square[0], square[2]), (square[0], square[2] + self.plot_variables[self.text_dict['Tolerance']]))
         # True optimizes the line segments, which sounds useful
         node = self.base.render.attachNewNode(eye_window.create(True))
         node.show(BitMask32.bit(0))
@@ -535,6 +529,8 @@ class World(DirectObject):
         text_node_path = self.base.render.attach_new_node(text_node)
         text_node_path.setScale(25)
         text_node_path.setPos(position)
+        text_node_path.show(BitMask32.bit(0))
+        text_node_path.hide(BitMask32.bit(1))
         return text_node
 
     def update_text(self, ch_type, change=''):
@@ -559,26 +555,26 @@ class World(DirectObject):
     # key press or messenger methods
     def change_gain_or_offset(self, ch_type, x_or_y, ch_amount):
         if ch_type == 'Gain':
-            self.gain[x_or_y] += ch_amount
+            self.plot_variables[self.text_dict['Gain']][x_or_y] += ch_amount
             node = self.text_dict[ch_type]
-            self.text_nodes[node].setText(ch_type + ': ' + str(self.gain))
+            self.text_nodes[node].setText(ch_type + ': ' + str(self.plot_variables[self.text_dict['Gain']]))
             # self.text.setText('Gain:' + str(self.gain))
-            self.logging.log_change(ch_type, self.gain)
+            self.logging.log_change(ch_type, self.plot_variables[self.text_dict['Gain']])
 
         else:
-            self.offset[x_or_y] += ch_amount
+            self.plot_variables[self.text_dict['Offset']][x_or_y] += ch_amount
             node = self.text_dict[ch_type]
-            self.text_nodes[node].setText(ch_type + ': ' + str(self.offset))
-            # self.text2.setText('Offset:' + str(self.offset))
-            self.logging.log_change(ch_type, self.offset)
+            self.text_nodes[node].setText(ch_type + ': ' + str(self.plot_variables[self.text_dict['Offset']]))
+            # self.text2.setText('Offset:' + str(self.plot_variables[self.text_dict['Offset']]))
+            self.logging.log_change(ch_type, self.plot_variables[self.text_dict['Offset']])
 
     def change_tolerance(self, direction):
         # print 'change tolerance'
-        self.tolerance += direction
-        self.logging.log_change('Tolerance', self.tolerance)
-        self.update_text('Tolerance', self.tolerance)
-        # self.text4.setText('Tolerance: ' + str(self.tolerance) + ' degrees from center')
-        # self.text2.setText('Tolerance: ' + str(self.tolerance / self.deg_per_pixel) + 'pixels')
+        tolerance = self.plot_variables[self.text_dict['Tolerance']]
+        tolerance += direction
+        self.logging.log_change('Tolerance', tolerance)
+        self.update_text('Tolerance', tolerance)
+        self.plot_variables[self.text_dict['Tolerance']] = tolerance
         # erase any window up currently
         for win in self.eye_window:
             win.detachNode()
@@ -644,6 +640,8 @@ class World(DirectObject):
         # keys will update the list, and loop will query it
         # to get new position
         # why is this a dictionary? It only has one entry?!?!
+        # needs to be a dictionary for other classes to see changes
+        # someday should figure out how to do this better
         self.key_dict = {"switch": 0}
         # keyboard
         self.accept("1", self.set_key, ["switch", 1])
