@@ -38,7 +38,7 @@ class Logging(object):
         else:
             self.eye_file_name = data_dir + '/eye_cal2_' + datetime.now().strftime("%y_%m_%d_%H_%M")
             self.time_file_name = data_dir + '/time_cal2_' + datetime.now().strftime("%y_%m_%d_%H_%M")
-        # print('open', self.eye_file_name)
+        print('open', self.eye_file_name)
         # open file for recording eye positions
         self.eye_data_file = open(self.eye_file_name, 'w')
         self.eye_data_file.write('timestamp, x_position, y_position, for subject: ' + subject + '\n')

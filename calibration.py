@@ -187,7 +187,7 @@ class World(DirectObject):
     def start_gig(self):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
-        # print 'start new gig'
+        print 'start new gig'
         if not self.testing:
             # text4 and text5 change
             if self.manual:
@@ -196,6 +196,14 @@ class World(DirectObject):
                 text_label = 'Auto'
             self.update_text('Tolerance', self.plot_variables[self.text_dict['Tolerance']])
             self.update_text(text_label)
+        # prepare for photos, just in case
+        if self.config['PHOTO_PATH'] and not self.manual:
+            print 'load photos'
+            self.photos.load_all_photos()
+            if self.photos not in self.call_subroutine:
+                print 'added photos to subroutine call list'
+                self.call_subroutine.append(self.photos)
+
         # open files, start data stream, prepare tasks
         self.logging.open_files(self.manual, self.plot_variables[self.text_dict['Tolerance']])
         self.logging.log_config('Gain', self.plot_variables[self.text_dict['Gain']])
@@ -212,6 +220,10 @@ class World(DirectObject):
         # close stuff
         self.eye_data.stop_logging()
         self.logging.close_files()
+        if not self.manual and self.call_subroutine:
+            for tasks in self.call_subroutine:
+                print tasks
+                tasks.close()
 
     def change_tasks(self):
         # change from manual to auto-calibrate or vise-versa
@@ -234,23 +246,28 @@ class World(DirectObject):
             self.sequences.manual_sequence.start()
         else:
             # check to see if we are doing a subroutine
-            # print 'new loop, not manual'
+            print 'new loop, not manual'
             do_subroutine = False
             if self.call_subroutine:
-                # print 'check subroutines'
+                print 'check all subroutines'
+                print 'good trial', good_trial
                 for index, tasks in enumerate(self.call_subroutine):
+                    print 'in loop', tasks
                     do_subroutine = tasks.check_trial(good_trial, self.start_plot_eye_task)
                     if do_subroutine:
-                        # print 'show photo'
+                        print 'do a subroutine, break'
                         self.sub_index = index
                         break
                     else:
+                        print 'do_subroutine was false'
+                        # I think this could move out of loop
                         self.sub_index = None
-            # print 'after call_subroutine, do_subroutine now', do_subroutine
             if not do_subroutine:
-                # print 'show square'
+                print 'show square'
                 self.sequences.setup_auto_sequences(good_trial)
                 self.sequences.auto_sequence_one.start()
+            else:
+                print 'we have photo, do_subroutine now', do_subroutine
 
     def cleanup_main_loop(self):
         # print 'cleanup main loop'
@@ -729,8 +746,6 @@ class World(DirectObject):
         self.sequences = CalSequences(self.config, self.base, self.logging, self.key_dict)
         if self.config.setdefault('PHOTO_PATH', False):
             self.photos = Photos(self.config, self.base, self.logging, self.deg_per_pixel)
-            self.photos.load_all_photos()
-            self.call_subroutine.append(self.photos)
             # print 'call_subroutine', self.call_subroutine
         # start generating/receiving data
         self.eye_data = EyeData(self.base, self.config['FAKE_DATA'])
@@ -748,9 +763,9 @@ class World(DirectObject):
         # also want to keep track of where we ended. Move this to Photos.
         # make sure eye data is
         # close any subroutines
-        if self.call_subroutine:
-            for tasks in self.call_subroutine:
-                tasks.close()
+        #if self.call_subroutine:
+        #    for tasks in self.call_subroutine:
+        #        tasks.close()
         self.eye_data.close()
         self.logging.close_files()
         if self.testing:

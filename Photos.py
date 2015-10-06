@@ -41,11 +41,13 @@ class Photos(object):
         # show each set twice, so just need half that many
         twice = self.config.setdefault('SHOW_PHOTOS_TWICE', False)
         # only show one set per calibration routine
+        # hard-coded in, also set in close for additional trials, if any
         num_sets = 1
         # print num_sets
         last_index = self.config.get('LAST_PHOTO_INDEX', 0)
         self.index_list = create_index_list(num_photos_in_set, num_sets, last_index, twice)
-        # print('index list', self.index_list)
+        print('index list', self.index_list)
+        # set default end
         self.end_index = 0
         # photo_size = [1280, 800]
         # ratio of photo is approximately the same as the screen (3:4), which means
@@ -61,7 +63,8 @@ class Photos(object):
         self.verify_timer = None
 
     def load_all_photos(self):
-        # print 'load all photos'
+        print 'load all photos, num cal points'
+        print self.config['CAL_PTS_PER_PHOTO']
         for file_name in os.listdir(self.config['PHOTO_PATH']):
             # print file_name
             if file_name.endswith('.bmp'):
@@ -72,7 +75,7 @@ class Photos(object):
         # print test
 
     def load_photo_set(self):
-        # print 'load photo set'
+        print 'load photo set'
         try:
             start_ind = self.index_list.pop(0)
             end_ind = self.index_list.pop(0)
@@ -110,20 +113,27 @@ class Photos(object):
         return True
 
     def check_trial(self, good_trial, start_plot_eye_task):
+        print 'check trial'
+        print self.loop_count
+        print self.config['CAL_PTS_PER_PHOTO']
         if good_trial:
             self.loop_count += 1
+            print 'advance loop count', self.loop_count
         if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
+            print 'right amount of good trials, time to check photos'
             self.loop_count = 0
             # check to see if we are out of photos
             new_photo = self.get_next_photo()
             # print 'stop showing photos?', new_photo
         else:
             # not time for photos, return
+            print 'show a fixation square'
             return False
         if not new_photo:
             # if no more photos, return
             return False
         else:
+            print 'okay, actually show a photo'
             self.start_plot_eye_task = start_plot_eye_task
             # still here? start the photo loop!
             self.start_photo_loop()
@@ -322,9 +332,17 @@ class Photos(object):
             self.logging.log_event(photo)
 
     def close(self):
+        print('close photos')
         self.base.taskMgr.removeTasksMatching('photo_*')
         with open(self.config['file_name'], 'a') as config_file:
             config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.end_index))
+        # advance index
+        last_index = self.end_index
+        num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
+        twice = self.config['SHOW_PHOTOS_TWICE']
+        self.index_list = create_index_list(num_photos_in_set, 1, last_index, twice)
+        print('index list', self.index_list)
+        self.loop_count = 0
 
     def send_cleanup(self, task):
         self.stop_plot_eye_task()
