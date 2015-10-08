@@ -30,7 +30,7 @@ EYE_RES = [1024, 768]
 # the screen
 GAIN = [150, 100]
 
-# size of square, scale is in degree of visual angle
+# size of square, square_scale is in degree of visual angle
 # (scales both length and width)
 SQUARE_SCALE = 0.5  # default 0.5
 # SQUARE_SCALE = 5
@@ -96,6 +96,7 @@ CROSS_HAIR_FIX = (0.5, 0.75)  # time in seconds must fixate on cross hair
 NUM_PHOTO_SETS = 1
 NUM_PHOTOS_IN_SET = 16  # how many photos in one round of calibration, 16 standard (shown twice)
 CAL_PTS_PER_PHOTO = 3  # how many calibration points to show between each photo, 3 standard
-RANDOM_PHOTOS = False
+RANDOM_PHOTOS = True
 SHOW_PHOTOS_TWICE = True
+VPLT = False
 LAST_PHOTO_INDEX = 0  # keeps track of where we are in the directory from day to day.

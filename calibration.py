@@ -187,7 +187,7 @@ class World(DirectObject):
     def start_gig(self):
         # used when beginning in either auto or manual mode,
         # either at start or after switching
-        print 'start new gig'
+        # print 'start new gig'
         if not self.testing:
             # text4 and text5 change
             if self.manual:
@@ -207,11 +207,11 @@ class World(DirectObject):
     def end_gig(self):
         # used when end in either auto or manual mode,
         # either at start or after switching
-        print 'end gig'
+        # print 'end gig'
         # close stuff
-        print 'stop logs'
+        # print 'stop logs'
         self.eye_data.stop_logging()
-        print 'close files'
+        # print 'close files'
         self.logging.close_files()
 
     def change_tasks(self):
