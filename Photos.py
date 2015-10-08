@@ -31,7 +31,9 @@ class Photos(object):
         self.cross_sequence = None
         self.photo_sequence = None
         self.cross_hair = False
+        self.sets_shown = 0
         num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
+        self.config.setdefault('NUM_PHOTO_SETS', 1)
         # was originally going to determine automatically how many sets we could show,
         # but now we always determine how many to show based on fitting in one calibration
         # routine
@@ -41,12 +43,11 @@ class Photos(object):
         # show each set twice, so just need half that many
         twice = self.config.setdefault('SHOW_PHOTOS_TWICE', False)
         # only show one set per calibration routine
-        # hard-coded in, also set in close for additional trials, if any
-        num_sets = 1
-        # print num_sets
-        last_index = self.config.get('LAST_PHOTO_INDEX', 0)
-        self.index_list = create_index_list(num_photos_in_set, num_sets, last_index, twice)
-        print('index list', self.index_list)
+        # last_photo_index is the index after the last photo that was
+        # shown last time calibration was run, so first one to show now
+        first_index = self.config.setdefault('LAST_PHOTO_INDEX', 0)
+        self.index_list = create_index_list(num_photos_in_set, first_index, twice)
+        # print('index list', self.index_list)
         # set default end
         self.end_index = 0
         # photo_size = [1280, 800]
@@ -63,16 +64,27 @@ class Photos(object):
         self.verify_timer = None
 
     def load_all_photos(self):
-        print 'load all photos, num cal points'
-        print self.config['CAL_PTS_PER_PHOTO']
+        # this should only happen once!
+        # print 'load all photos, num cal points'
+        # print self.config['CAL_PTS_PER_PHOTO']
         for file_name in os.listdir(self.config['PHOTO_PATH']):
             # print file_name
             if file_name.endswith('.bmp'):
                 self.photo_names.append(os.path.join(self.config['PHOTO_PATH'], file_name))
-        if self.index_list[-1] > len(self.photo_names):
-            raise Exception("Not enough Photos in this directory")
+        print 'end of index', self.index_list[-1]
+        self.check_photo_end()
         self.load_photo_set()
         # print test
+
+    def check_photo_end(self):
+        first_index = self.config['LAST_PHOTO_INDEX']
+        num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
+        num_sets = self.config['NUM_PHOTO_SETS']
+        last_index = first_index + (num_photos_in_set * num_sets)
+        # print 'last index', last_index
+        # print 'photos', len(self.photo_names)
+        if last_index > len(self.photo_names):
+            raise Exception("Not enough Photos in this directory")
 
     def load_photo_set(self):
         print 'load photo set'
@@ -84,8 +96,10 @@ class Photos(object):
             # print 'end of index!'
             return False
         # check to see if photos should be presented in
-        # different order second time,
-        # print 'photos', self.photo_names[start_ind:end_ind]
+        # random order
+        print start_ind
+        print end_ind
+        print 'photos', self.photo_names[start_ind:end_ind]
         self.photo_set = self.photo_names[start_ind:end_ind]
         if self.config['RANDOM_PHOTOS']:
             random.shuffle(self.photo_set)
@@ -95,6 +109,7 @@ class Photos(object):
 
     def get_photo(self):
         for photo in self.photo_set:
+            print photo
             yield photo
 
     def get_next_photo(self):
@@ -103,37 +118,45 @@ class Photos(object):
         try:
             self.photo_path = self.photo_gen.next()
         except StopIteration:
-            # print('stop iterating!')
+            print('stop iterating!')
+            # this is used for automatic presentation of second set.
             check_set = self.load_photo_set()
+            if not check_set:
+                print "done with repeats, check for next set"
+                # if not doing another of same set, are we doing another set?
+                self.sets_shown += 1
+                check_set = self.advance_photo_index()
             if check_set:
+                print 'show next set'
+                self.load_photo_set()
                 self.photo_path = self.photo_gen.next()
             else:
-                # print 'out of photos, cleanup'
+                print 'out of photos, cleanup', self.sets_shown
                 return False
         return True
 
     def check_trial(self, good_trial, start_plot_eye_task):
-        print 'check trial'
-        print self.loop_count
-        print self.config['CAL_PTS_PER_PHOTO']
+        # print 'check trial'
+        # print self.loop_count
+        # print self.config['CAL_PTS_PER_PHOTO']
         if good_trial:
             self.loop_count += 1
-            print 'advance loop count', self.loop_count
+            # print 'advance loop count', self.loop_count
         if self.loop_count == self.config['CAL_PTS_PER_PHOTO']:
-            print 'right amount of good trials, time to check photos'
+            # print 'right amount of good trials, time to check photos'
             self.loop_count = 0
             # check to see if we are out of photos
             new_photo = self.get_next_photo()
             # print 'stop showing photos?', new_photo
         else:
             # not time for photos, return
-            print 'show a fixation square'
+            # print 'show a fixation square'
             return False
         if not new_photo:
             # if no more photos, return
             return False
         else:
-            print 'okay, actually show a photo'
+            # print 'okay, actually show a photo'
             self.start_plot_eye_task = start_plot_eye_task
             # still here? start the photo loop!
             self.start_photo_loop()
@@ -336,13 +359,23 @@ class Photos(object):
         self.base.taskMgr.removeTasksMatching('photo_*')
         with open(self.config['file_name'], 'a') as config_file:
             config_file.write('\nLAST_PHOTO_INDEX = ' + str(self.end_index))
-        # advance index
-        last_index = self.end_index
-        num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
-        twice = self.config['SHOW_PHOTOS_TWICE']
-        self.index_list = create_index_list(num_photos_in_set, 1, last_index, twice)
-        print('index list', self.index_list)
-        self.loop_count = 0
+
+    def advance_photo_index(self):
+        if self.sets_shown < self.config['NUM_PHOTO_SETS']:
+            print 'advance photo index'
+            last_index = self.end_index
+            num_photos_in_set = self.config['NUM_PHOTOS_IN_SET']
+            twice = self.config['SHOW_PHOTOS_TWICE']
+            self.index_list = create_index_list(num_photos_in_set,last_index, twice)
+            print('index list', self.index_list)
+            # reset the count for good fixations. In case there is large time gap
+            # between last fix from previous block and this block, probably
+            # want to start count again.
+            self.loop_count = 0
+            return True
+        else:
+            print 'done with sets', self.sets_shown
+            return False
 
     def send_cleanup(self, task):
         self.stop_plot_eye_task()
@@ -352,22 +385,12 @@ class Photos(object):
         return task.done
 
 
-def create_index_list(num_photos, num_sets, first_index=0, twice=True):
-    # because of indexing starting at zero and using range,
-    # num_sets makes one set if num_sets is zero, which doesn't make
-    # much sense from a user point of view, so subtract off one
-    # default is to run each set twice
-    num_sets -= 1
+def create_index_list(num_photos, first_index=0, twice=True):
     # last photo is first + num_photos
     last_index = first_index + num_photos
     index_list = [first_index, last_index]
     if twice:
         index_list *= 2
-    # print('index_list', index_list)
-    last_set = index_list
-    for i in range(num_sets):
-        next_set = [x + num_photos for x in last_set]
-        index_list.extend(next_set)
-        last_set = next_set
+    print('index list', index_list)
     return index_list
 
